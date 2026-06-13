@@ -5,10 +5,10 @@ An online version of the SMO Randomizer Tracker configured on github. Works on d
 
 | Feature | Notes |
 |---|---|
-| Moon rows | +/− buttons, per-row max, lock & peace toggles |
+| Moon rows | +/- buttons, per-row max, lock & peace toggles |
 | Save button toggle | Switch between click-to-save and auto-save on type |
-| Capture row | Parabones, Banzai Bill, Spark Pylon, Bowser — click to toggle |
-| Ability row | Long Jump, Cappy, Wall Jump — click to toggle |
+| Capture row | Parabones, Banzai Bill, Spark Pylon, Bowser with click to toggle |
+| Ability row | Long Jump, Cappy, Wall Jump with click to toggle |
 | Loading Zone Notes | Collapsible zones, icon picker, text notes per zone |
 | Settings | All 5 toggles + moon requirement + OBS BG color |
 | OBS Overlay | Opens at 350×550, reads live from localStorage |
@@ -18,11 +18,11 @@ An online version of the SMO Randomizer Tracker configured on github. Works on d
 
 ## OBS Setup
 
-**Option A — Popup window:**
+**Option A: Popup window:**
 1. Click **Open OBS Overlay** in the tracker.
 2. Add the popup as a Window Capture in OBS.
 
-**Option B — Browser source:**
+**Option B: Browser source:**
 1. In OBS, add a **Browser Source**.
 2. Set the URL to `https://FireRisingRaging.github.io/Online_SMO_Randomizer_Tracker/obs.html`.
 3. Set width **350**, height **550**, and enable **"Shutdown source when not visible"**.
@@ -32,4 +32,4 @@ An online version of the SMO Randomizer Tracker configured on github. Works on d
 
 ## How State Saves Work
 
-Each visitor's progress is saved privately in their own browser's `localStorage` under the key `tracker_state`. Clearing browser data or switching devices will reset progress — this is intentional so multiple people can use the same URL independently.
+Each visitor's progress is saved privately in their own browser's `localStorage` under the key `tracker_state`. Clearing browser data or switching devices will reset progress, this is intentional so multiple people can use the same URL independently.
