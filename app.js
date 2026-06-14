@@ -35,7 +35,7 @@ const ABILITY_ICONS = [
 const PICKER_ICONS = [
   'Cascade.png','Sand.png','Lake.png','Wooded.png','Lost.png','Metro.png',
   'Snow.png','Seaside.png','Luncheon.png','Ruin.png','Bowser.png',
-  'Cap.png','Dark.png','Star.png',
+  'Cap.png','Dark.png','Star.png',"Moon.png","Moon_Dark.png","checkmark.png","xmark.png",
 ];
 
 const DEFAULT_SETTINGS = {
@@ -110,7 +110,7 @@ function loadState() {
     const saved = JSON.parse(raw);
     state = getDefaultState();
 
-    // Settings — merge saved over defaults
+    // Settings merge saved over defaults
     if (saved.settings) {
       for (const key of Object.keys(DEFAULT_SETTINGS)) {
         if (key in saved.settings) state.settings[key] = saved.settings[key];
@@ -126,7 +126,7 @@ function loadState() {
     if (saved.captures)  Object.assign(state.captures,  saved.captures);
     if (saved.abilities) Object.assign(state.abilities, saved.abilities);
 
-    // Loading zones — merge saved per-zone data, keep template structure for new zones
+    // Loading zones merge saved per-zone data, keep template structure for new zones
     if (saved.loading_zones) {
       for (const [kingdom, data] of Object.entries(state.loading_zones)) {
         if (!saved.loading_zones[kingdom]) continue;
@@ -153,7 +153,7 @@ function saveState() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Moon Rows — Build
+// Moon Rows Build
 // ─────────────────────────────────────────────────────────────────────────────
 function buildAllMoonRows() {
   const container = document.getElementById('moon-rows');
@@ -225,7 +225,7 @@ function buildMoonRow(i) {
   maxEntry.min = '0';
   maxEntry.max = '9999';
 
-  // Auto-save mode (save buttons hidden) — update on every keystroke
+  // Auto-save mode (save buttons hidden) update on every keystroke
   maxEntry.addEventListener('input', () => {
     if (!state.settings.show_save_buttons) {
       const v = parseInt(maxEntry.value);
@@ -281,7 +281,7 @@ function refreshMoonRow(i, rowEl) {
   row.querySelector('.peace-btn img').src =
     m.peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
 
-  // Max entry — only update if field not focused (avoid cursor jump)
+  // Max entry only update if field not focused (avoid cursor jump)
   const entry = row.querySelector('.max-entry');
   if (document.activeElement !== entry) {
     entry.value = m.max !== null ? m.max : '';
@@ -323,7 +323,7 @@ function saveMax(i) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Capture Row — Build
+// Capture Row Build
 // ─────────────────────────────────────────────────────────────────────────────
 function buildCaptureRow() {
   const container = document.getElementById('capture-row');
@@ -349,7 +349,7 @@ function buildCaptureRow() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Ability Row — Build
+// Ability Row Build
 // ─────────────────────────────────────────────────────────────────────────────
 function buildAbilityRow() {
   const container = document.getElementById('ability-row');
@@ -357,10 +357,10 @@ function buildAbilityRow() {
 
   // Grid order mirrors Python: [jump][cap] / [notes][wall]
   const slots = [
-    { type: 'ability', def: ABILITY_ICONS[0] },  // jump  — row 0, col 0
-    { type: 'ability', def: ABILITY_ICONS[1] },  // cap   — row 0, col 1
-    { type: 'notes'  },                          // notes — row 1, col 0
-    { type: 'ability', def: ABILITY_ICONS[2] },  // wall  — row 1, col 1
+    { type: 'ability', def: ABILITY_ICONS[0] },  // jump  - row 0, col 0
+    { type: 'ability', def: ABILITY_ICONS[1] },  // cap   - row 0, col 1
+    { type: 'notes'  },                          // notes - row 1, col 0
+    { type: 'ability', def: ABILITY_ICONS[2] },  // wall  - row 1, col 1
   ];
 
   slots.forEach(slot => {
@@ -611,7 +611,7 @@ function openIconPicker(event, onSelect) {
 
   document.body.appendChild(picker);
 
-  // Position — clamp to viewport
+  // Position clamp to viewport
   const pw = 170, ph = 90;
   let x = event.clientX, y = event.clientY;
   if (x + pw > window.innerWidth)  x = window.innerWidth - pw - 8;
@@ -631,7 +631,7 @@ function openIconPicker(event, onSelect) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Init — wire up all static event listeners once
+// Init wire up all static event listeners once
 // ─────────────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
