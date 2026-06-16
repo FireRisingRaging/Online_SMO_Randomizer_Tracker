@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>Moon Tracker</title>
+  <title>SMO Randomizer Tracker</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="assets/SMO-ColoredGlobe.png">
 </head>
 <body>
   <div id="app">
-    <h1>🌙 Moon Tracker</h1>
-
+    <h1 class="header">
+    <span>SMO Randomizer Tracker</span>
+    <button class="ctrl-btn gear-btn" id="btn-settings" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">⚙</button>
+    </h1>
     <!-- Moon Rows -->
     <div id="moon-rows"></div>
 
@@ -23,7 +26,7 @@
         <button class="ctrl-btn" id="btn-obs">Open OBS Overlay</button>
         <button class="ctrl-btn" id="btn-toggle-obs-bg">Toggle OBS BG</button>
         <button class="ctrl-btn danger-btn" id="btn-clear">Clear</button>
-        <button class="ctrl-btn gear-btn" id="btn-settings">⚙</button>
+        
       </div>
 
       <div id="ability-section">
