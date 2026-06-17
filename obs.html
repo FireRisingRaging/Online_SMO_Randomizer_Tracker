@@ -4,25 +4,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OBS Overlay</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+
   <style>
-    :root { --bg: #181818; --text: #fff; }
+    :root { --bg: #181818; --text: #fff; --font: 'Fredoka One'}
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      width: 350px;
-      height: 550px;
+      width: 315px;
+      height: 450px;
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+      font-family: 'Fredoka One';
     }
 
     #obs-root {
       display: flex;
       flex-direction: row;
-      width: 350px;
-      height: 550px;
+      width: 315px;
+      height: 450px;
     }
 
     /* ── Left column: moon rows ───── */
@@ -30,27 +35,27 @@
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
-      gap: 2px;
-      padding: 6px 4px 6px 8px;
+      gap: 5px;
+      padding: 8px 6px 8px 8px;
       flex-shrink: 0;
     }
 
     .obs-moon-row {
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 5px;
     }
 
     .obs-moon-row img.obs-lock,
     .obs-moon-row img.obs-peace {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       object-fit: contain;
     }
 
     .obs-moon-row img.obs-kingdom {
-      height: 28px;
-      width: 28px;
+      height: 35px;
+      width: 35px;
       object-fit: contain;
       transition: filter 0.2s;
     }
@@ -59,8 +64,8 @@
     }
 
     .obs-count {
-      font-size: 0.82rem;
-      font-weight: bold;
+      font-size: 1.5rem;
+      /* font-weight: bold; */
       white-space: nowrap;
       min-width: 55px;
       text-align: center;
@@ -71,14 +76,14 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 8px 8px 8px 6px;
-      gap: 2px;
+      padding: 10px 10px 10px 8px;
+      gap: 5px;
       flex: 1;
     }
 
     .obs-section-header {
-      font-size: 0.85rem;
-      font-weight: bold;
+      font-size: 1rem;
+      /* font-weight: bold; */
       text-align: center;
       padding: 6px 0 3px;
       width: 100%;
@@ -87,7 +92,7 @@
     .obs-icon-row {
       display: flex;
       flex-direction: row;
-      gap: 4px;
+      gap: 5px;
       justify-content: center;
     }
 
@@ -109,8 +114,8 @@
     }
 
     #obs-total {
-      font-size: 1.1rem;
-      font-weight: bold;
+      font-size: 1.5rem;
+      /* font-weight: bold; */
       text-align: center;
       padding: 6px 0 2px;
     }
@@ -128,7 +133,7 @@
       border-radius: 4px;
       cursor: pointer;
       z-index: 10;
-      font-family: Arial, sans-serif;
+      font-family: 'Fredoka One';
       transition: background 0.15s;
     }
     #obs-bg-btn:hover { background: rgba(255,255,255,0.22); }
@@ -155,7 +160,7 @@
       <div id="obs-total">0 / 124</div>
     </div>
   </div>
-  <button id="obs-bg-btn" title="Toggle chroma key background">BG</button>
+  <!-- <button id="obs-bg-btn" title="Toggle chroma key background">BG</button> -->
 
   <script>
     'use strict';
@@ -345,7 +350,7 @@
     });
 
     // ── BG button inside OBS window itself ───────────────────────
-    document.getElementById('obs-bg-btn').addEventListener('click', toggleBg);
+    // document.getElementById('obs-bg-btn').addEventListener('click', toggleBg);
 
     // ── Init ────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {

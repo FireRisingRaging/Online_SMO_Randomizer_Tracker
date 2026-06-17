@@ -33,7 +33,7 @@ body {
 
 /* ── App wrapper ─────────────────────────────────────────────────── */
 #app {
-  max-width: 680px;
+  max-width: 720px;/* max-width: 680px; */
   margin: 0 auto;
 }
 
@@ -65,23 +65,23 @@ h1 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   background: var(--bg-card);
   border-radius: var(--radius);
-  padding: 7px 10px;
+  padding: 6px 8px;
 }
 
 .moon-row-left {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .moon-row-counter {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -89,17 +89,21 @@ h1 {
 .moon-row-entry {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 /* On small screens, entry row drops to its own line */
-@media (max-width: 480px) {
+@media (max-width: 520px) { /*480 before */
   .moon-row-entry {
     flex-basis: 100%;
     justify-content: flex-end;
   }
 }
+
+.moon-row-entry .multi-moon-btn {
+    margin-right: auto; /* push multi to the left on mobile second row */
+  }
 
 /* Icon toggle buttons (lock / peace) */
 .icon-btn {
@@ -115,7 +119,8 @@ h1 {
   flex-shrink: 0;
 }
 .icon-btn:hover { background: var(--bg-hover); }
-.icon-btn img { width: 20px; height: 20px; object-fit: contain; display: block; }
+.icon-btn img { width: 18px; height: 18px; object-fit: contain; display: block; }
+/* .icon-btn img { width: 20px; height: 20px; object-fit: contain; display: block; } */
 
 /* Kingdom image */
 .kingdom-icon {
@@ -133,7 +138,7 @@ h1 {
 .count-label {
   font-size: 1.05rem;
   font-weight: bold;
-  min-width: 70px;
+  min-width: 60px;
   text-align: center;
   flex: 1 1 auto;
 }
@@ -146,8 +151,8 @@ h1 {
   font-family: var(--font);
   font-size: 1.1rem;
   font-weight: bold;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s;
@@ -156,6 +161,30 @@ h1 {
 .count-btn:hover  { background: var(--btn-hover); }
 .count-btn:active { background: var(--accent); }
 
+/* Multi Moon button */
+.multi-moon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.multi-moon-btn:hover { background: var(--bg-hover); }
+.multi-moon-btn img {
+  height: 30px;
+  width: 30px;
+  object-fit: contain;
+  display: block;
+  transition: filter 0.2s;
+}
+.multi-moon-btn.multi-off img { filter: contrast(0); }
+.multi-moon-btn.hidden        { display: none !important; }
+
 /* Max entry field */
 .max-entry {
   background: var(--bg-card2);
@@ -163,8 +192,8 @@ h1 {
   color: var(--text);
   font-family: var(--font);
   font-size: 0.95rem;
-  width: 52px;
-  height: 34px;
+  width: 48px;
+  height: 32px;
   border-radius: var(--radius-sm);
   text-align: center;
   padding: 0 4px;
@@ -183,13 +212,14 @@ h1 {
   border: none;
   color: #fff;
   font-family: var(--font);
-  font-size: 0.85rem;
-  height: 34px;
-  padding: 0 10px;
+  font-size: 0.82rem;
+  height: 32px;
+  padding: 0 9px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .save-btn:hover  { background: var(--accent-h); }
 .save-btn.hidden { display: none; }
@@ -252,6 +282,19 @@ h1 {
   gap: 7px;
 }
 
+/* OBS button row: Open OBS fills left, ⓘ is square on right */
+#obs-btn-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  max-width: 186px;
+}
+#obs-btn-row #btn-obs {
+  flex: 1;
+  max-width: none;
+  min-width: 0;
+}
+
 .ctrl-btn {
   background: var(--btn-bg);
   border: none;
@@ -263,13 +306,24 @@ h1 {
   border-radius: var(--radius-sm);
   cursor: pointer;
   width: 100%;
-  max-width: 180px;
+  max-width: 186px;
   transition: background 0.15s;
 }
 .ctrl-btn:hover { background: var(--btn-hover); }
 
 .danger-btn { color: var(--red); }
 .danger-btn:hover { background: #3a2020; }
+
+/* ⓘ info button — square, same height as OBS button */
+.info-btn {
+  width: 38px;
+  min-width: 38px;
+  max-width: 38px;
+  height: 38px;
+  padding: 0;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
 
 .gear-btn {
   font-size: 1.2rem;
@@ -350,15 +404,58 @@ h1 {
   flex: 1;
 }
 
+/* ── OBS Info Modal ──────────────────────────────────────────────── */
+.obs-info-modal-box { max-width: 500px; }
+
+.obs-info-body {
+  font-size: 0.88rem;
+  line-height: 1.65;
+  padding-top: 10px;
+}
+
+.obs-info-body .info-title {
+  font-size: 0.95rem;
+  margin: 14px 0 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.obs-info-body .info-title:first-child { margin-top: 0; }
+
+.info-tag {
+  font-size: 0.72rem;
+  background: var(--accent);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.obs-info-body ol {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.obs-info-body p:last-child { margin-top: 8px; }
+
+.obs-info-body code {
+  background: var(--bg-card2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
 /* ── Settings Modal ──────────────────────────────────────────────── */
-.settings-body { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; }
+.settings-body { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; }
 
 .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 0;
+  padding: 5px 0;
   font-size: 0.95rem;
 }
 .settings-row span { flex: 1; }
@@ -447,6 +544,7 @@ h1 {
 .lz-scroll-wrap {
   overflow: auto;
   flex: 1;
+  scroll-behavior: smooth;
 }
 
 #lz-content {
@@ -482,7 +580,7 @@ h1 {
   user-select: none;
 }
 .kingdom-col-header img { height: 20px; flex-shrink: 0; }
-.kingdom-col-header .col-title { font-size: 1rem; font-weight: bold; }
+.kingdom-col-header .col-title { font-size: 1rem; }
 .kingdom-col-header .col-chevron {
   margin-left: auto;
   font-size: 0.85rem;
@@ -491,9 +589,25 @@ h1 {
 }
 .kingdom-col-header.collapsed .col-chevron  { transform: rotate(-90deg); }
 .kingdom-col-header.collapsed + .zones-container { display: none; }
+.kingdom-col-header.collapsed + .zones-split-wrap  { display: none; }
 
 /* Zone rows */
 .zones-container { display: flex; flex-direction: column; gap: 8px; }
+
+/* Zone columns — auto-split for large kingdoms (> 12 zones) */
+.zones-split-wrap {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+@media (max-width: 540px) {
+  .zones-split-wrap {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
 
 .zone-row {
   display: flex;

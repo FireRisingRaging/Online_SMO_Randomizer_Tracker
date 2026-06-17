@@ -6,17 +6,17 @@
 const STATE_KEY = 'tracker_state';
 
 const KINGDOMS = [
-  { name: 'Cascade Kingdom',  img: 'assets/Cascade.png'  },
-  { name: 'Sand Kingdom',     img: 'assets/Sand.png'     },
-  { name: 'Lake Kingdom',     img: 'assets/Lake.png'     },
-  { name: 'Wooded Kingdom',   img: 'assets/Wooded.png'   },
-  { name: 'Lost Kingdom',     img: 'assets/Lost.png'     },
-  { name: 'Metro Kingdom',    img: 'assets/Metro.png'    },
-  { name: 'Snow Kingdom',     img: 'assets/Snow.png'     },
-  { name: 'Seaside Kingdom',  img: 'assets/Seaside.png'  },
-  { name: 'Luncheon Kingdom', img: 'assets/Luncheon.png' },
-  { name: 'Ruined Kingdom',   img: 'assets/Ruin.png'     },
-  { name: 'Bowser Kingdom',   img: 'assets/Bowser.png'   },
+  { name: 'Cascade Kingdom',  img: 'assets/Cascade.png',  multi: 'assets/Cascade_Multi.png'  },
+  { name: 'Sand Kingdom',     img: 'assets/Sand.png',     multi: 'assets/Sand_Multi.png'     },
+  { name: 'Lake Kingdom',     img: 'assets/Lake.png',     multi: 'assets/Lake_Multi.png'     },
+  { name: 'Wooded Kingdom',   img: 'assets/Wooded.png',   multi: 'assets/Wooded_Multi.png'   },
+  { name: 'Lost Kingdom',     img: 'assets/Lost.png',     multi: 'assets/Lost_Multi.png'     },
+  { name: 'Metro Kingdom',    img: 'assets/Metro.png',    multi: 'assets/Metro_Multi.png'    },
+  { name: 'Snow Kingdom',     img: 'assets/Snow.png',     multi: 'assets/Snow_Multi.png'     },
+  { name: 'Seaside Kingdom',  img: 'assets/Seaside.png',  multi: 'assets/Seaside_Multi.png'  },
+  { name: 'Luncheon Kingdom', img: 'assets/Luncheon.png', multi: 'assets/Luncheon_Multi.png' },
+  { name: 'Ruined Kingdom',   img: 'assets/Ruin.png',     multi: 'assets/Ruined_Multi.png'     },
+  { name: 'Bowser Kingdom',   img: 'assets/Bowser.png',   multi: 'assets/Bowser_Multi.png'   },
 ];
 
 const CAPTURE_ICONS = [
@@ -45,7 +45,9 @@ const DEFAULT_SETTINGS = {
   show_ability_lock: true,
   show_captures:     true,
   show_save_buttons: true,
+  show_multi_moon:   true,
   obs_bg_color:      '#00FF00',
+  notes_scroll_px:   500,
 };
 
 // Matches Python tracker_withoutSaves loading_zones dict exactly
@@ -67,6 +69,9 @@ const LOADING_ZONES_TEMPLATE = {
   'Darkerside': { color:'#fff2c6', icon:'Dark.png',     zones:{ 'End':{num:1} }},
 };
 
+// Number of zones above which a kingdom column auto-splits into two side-by-side columns
+const ZONE_SPLIT_THRESHOLD = 10;
+
 // Settings toggle definitions for data-driven wiring
 const TOGGLE_SETTINGS = [
   { id: 'toggle-moon-total',   key: 'show_moon_total'   },
@@ -74,6 +79,7 @@ const TOGGLE_SETTINGS = [
   { id: 'toggle-ability-lock', key: 'show_ability_lock' },
   { id: 'toggle-captures',     key: 'show_captures'     },
   { id: 'toggle-save-buttons', key: 'show_save_buttons' },
+  { id: 'toggle-multi-moon',   key: 'show_multi_moon'   },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,7 +101,7 @@ function buildDefaultLoadingZones() {
 function getDefaultState() {
   return {
     settings:      { ...DEFAULT_SETTINGS },
-    moons:         KINGDOMS.map(() => ({ count:0, max:null, lock:false, peace:false })),
+    moons:         KINGDOMS.map(() => ({ count:0, max:null, lock:false, peace:false, multi:false })),
     captures:      { parabones:false, banzai:false, wire:false, bowser:false },
     abilities:     { jump:false, cap:false, wall:false },
     loading_zones: buildDefaultLoadingZones(),
@@ -218,6 +224,20 @@ function buildMoonRow(i) {
   const entryGroup = document.createElement('div');
   entryGroup.className = 'moon-row-entry';
 
+  // Multi-moon toggle — sits right after + before the entry field
+  const multiBtn = document.createElement('button');
+  multiBtn.className = 'multi-moon-btn';
+  multiBtn.title = `Multi Moon (+3 / −3)`;
+  const multiImg = document.createElement('img');
+  multiImg.src = kingdom.multi;
+  multiImg.alt = 'Multi Moon';
+  multiBtn.appendChild(multiImg);
+  // Apply initial off state
+  if (!state.moons[i].multi) multiBtn.classList.add('multi-off');
+  // Apply settings visibility
+  if (!state.settings.show_multi_moon) multiBtn.classList.add('hidden');
+  multiBtn.addEventListener('click', () => { toggleMulti(i); saveState(); });
+
   const maxEntry = document.createElement('input');
   maxEntry.type = 'number';
   maxEntry.className = 'max-entry';
@@ -239,6 +259,8 @@ function buildMoonRow(i) {
   saveBtn.className = 'save-btn';
   saveBtn.textContent = 'Save';
   saveBtn.addEventListener('click', () => { saveMax(i); });
+
+  entryGroup.appendChild(multiBtn);
 
   entryGroup.appendChild(maxEntry);
   entryGroup.appendChild(saveBtn);
@@ -291,6 +313,11 @@ function refreshMoonRow(i, rowEl) {
   const kImg = row.querySelector('.kingdom-icon');
   kImg.classList.toggle('icon-white', !state.settings.show_icon_colors);
 
+  // Multi moon button state
+  const multiBtn = row.querySelector('.multi-moon-btn');
+  multiBtn.classList.toggle('multi-off', !m.multi);
+  multiBtn.classList.toggle('hidden', !state.settings.show_multi_moon);
+
   // Save button visibility
   row.querySelector('.save-btn').classList.toggle('hidden', !state.settings.show_save_buttons);
 }
@@ -298,6 +325,20 @@ function refreshMoonRow(i, rowEl) {
 // ── Moon actions ──────────────────────────────────────────────────
 function increment(i) { state.moons[i].count++; refreshCountLabel(i); }
 function decrement(i) { state.moons[i].count = Math.max(0, state.moons[i].count - 1); refreshCountLabel(i); }
+
+function toggleMulti(i) {
+  const m = state.moons[i];
+  if (m.multi) {
+    // Turning off — subtract 3 (can't go below 0)
+    m.count = Math.max(0, m.count - 3);
+    m.multi = false;
+  } else {
+    // Turning on — add 3
+    m.count += 3;
+    m.multi = true;
+  }
+  refreshMoonRow(i);
+}
 
 function toggleLock(i) {
   state.moons[i].lock = !state.moons[i].lock;
@@ -403,6 +444,7 @@ function openSettings() {
   });
   document.getElementById('input-moon-req').value = state.settings.moon_requirement;
   document.getElementById('input-obs-color').value = state.settings.obs_bg_color;
+  document.getElementById('input-notes-scroll').value = state.settings.notes_scroll_px;
   modal.classList.remove('hidden');
 }
 
@@ -425,6 +467,11 @@ function applyAllSettings() {
   // Ability icons (Notes button stays)
   document.querySelectorAll('.ability-icon').forEach(btn => {
     btn.classList.toggle('hidden', !s.show_ability_lock);
+  });
+
+  // Multi moon buttons
+  document.querySelectorAll('.multi-moon-btn').forEach(btn => {
+    btn.classList.toggle('hidden', !s.show_multi_moon);
   });
 }
 
@@ -449,7 +496,7 @@ function resetAll() {
 let obsWindow = null;
 
 function openOBS() {
-  const features = 'width=350,height=550,resizable=yes,scrollbars=no,toolbar=no,menubar=no';
+  const features = 'width=315,height=450,resizable=yes,scrollbars=no,toolbar=no,menubar=no';
   if (!obsWindow || obsWindow.closed) {
     obsWindow = window.open('obs.html', 'MoonTrackerOBS', features);
   } else {
@@ -504,22 +551,48 @@ function buildKingdomColumn(kingdom, data) {
   header.appendChild(title);
   header.appendChild(chevron);
 
-  // Zones container
-  const zonesWrap = document.createElement('div');
-  zonesWrap.className = 'zones-container';
+  // Build zone entries
+  const zoneEntries = Object.entries(data.zones);
+  const needsSplit  = zoneEntries.length > ZONE_SPLIT_THRESHOLD;
 
-  header.addEventListener('click', () => {
-    const collapsed = zonesWrap.style.display === 'none';
-    zonesWrap.style.display = collapsed ? '' : 'none';
-    header.classList.toggle('collapsed', !collapsed);
-  });
+  let zonesRoot; // the element that collapses
 
-  for (const [zone, zoneData] of Object.entries(data.zones)) {
-    zonesWrap.appendChild(buildZoneRow(kingdom, zone, zoneData, data.color));
+  if (needsSplit) {
+    const mid = Math.ceil(zoneEntries.length / 2);
+    zonesRoot = document.createElement('div');
+    zonesRoot.className = 'zones-split-wrap';
+
+    const col1 = document.createElement('div');
+    col1.className = 'zones-container';
+    const col2 = document.createElement('div');
+    col2.className = 'zones-container';
+
+    zoneEntries.slice(0, mid).forEach(([zone, zd]) =>
+      col1.appendChild(buildZoneRow(kingdom, zone, zd, data.color)));
+    zoneEntries.slice(mid).forEach(([zone, zd]) =>
+      col2.appendChild(buildZoneRow(kingdom, zone, zd, data.color)));
+
+    zonesRoot.appendChild(col1);
+    zonesRoot.appendChild(col2);
+  } else {
+    zonesRoot = document.createElement('div');
+    zonesRoot.className = 'zones-container';
+    zoneEntries.forEach(([zone, zd]) =>
+      zonesRoot.appendChild(buildZoneRow(kingdom, zone, zd, data.color)));
   }
 
+  header.addEventListener('click', () => {
+    const isCollapsed = zonesRoot.style.display === 'none';
+    zonesRoot.style.display = isCollapsed ? '' : 'none';
+    header.classList.toggle('collapsed', !isCollapsed);
+  });
+
+  // for (const [zone, zoneData] of Object.entries(data.zones)) {
+  //   zonesWrap.appendChild(buildZoneRow(kingdom, zone, zoneData, data.color));
+  // }
+
   col.appendChild(header);
-  col.appendChild(zonesWrap);
+  col.appendChild(zonesRoot);
   return col;
 }
 
@@ -588,6 +661,39 @@ function buildZoneRow(kingdom, zone, zoneData, color) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Notes Horizontal Scroll
+// ─────────────────────────────────────────────────────────────────────────────
+function setupNotesScroll() {
+  const scrollWrap = document.querySelector('.lz-scroll-wrap');
+  if (!scrollWrap) return;
+
+  // Mouse wheel → horizontal scroll
+  scrollWrap.addEventListener('wheel', (e) => {
+    // Only intercept when there is actually horizontal overflow to scroll
+    if (scrollWrap.scrollWidth <= scrollWrap.clientWidth) return;
+    e.preventDefault();
+    const px = state.settings.notes_scroll_px || 500;
+    scrollWrap.scrollLeft += e.deltaY > 0 ? px : -px;
+  }, { passive: false });
+
+  // MB4 (back, button=3) → scroll left; MB5 (forward, button=4) → scroll right
+  // Block default back/forward navigation when over the scroll wrap
+  scrollWrap.addEventListener('mousedown', (e) => {
+    if (e.button === 3 || e.button === 4) e.preventDefault();
+  });
+  scrollWrap.addEventListener('mouseup', (e) => {
+    const px = state.settings.notes_scroll_px || 500;
+    if (e.button === 3) {
+      e.preventDefault();
+      scrollWrap.scrollLeft -= px;
+    } else if (e.button === 4) {
+      e.preventDefault();
+      scrollWrap.scrollLeft += px;
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Icon Picker
 // ─────────────────────────────────────────────────────────────────────────────
 function openIconPicker(event, onSelect) {
@@ -639,12 +745,21 @@ document.addEventListener('DOMContentLoaded', () => {
   buildCaptureRow();
   buildAbilityRow();
   applyAllSettings();
+  setupNotesScroll();
 
   // ── Main buttons ───────────────────────────────
   document.getElementById('btn-obs').addEventListener('click', openOBS);
   document.getElementById('btn-toggle-obs-bg').addEventListener('click', toggleOBSBg);
   document.getElementById('btn-clear').addEventListener('click', resetAll);
   document.getElementById('btn-settings').addEventListener('click', openSettings);
+
+  // ── OBS Info modal ─────────────────────────────
+  document.getElementById('btn-obs-info').addEventListener('click', () => {
+    document.getElementById('obs-info-modal').classList.remove('hidden');
+  });
+  document.getElementById('obs-info-close').addEventListener('click', () => {
+    document.getElementById('obs-info-modal').classList.add('hidden');
+  });
 
   // ── Settings modal ─────────────────────────────
   document.getElementById('settings-close').addEventListener('click', () => {
@@ -674,6 +789,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const v = document.getElementById('input-obs-color').value.trim();
     if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
       state.settings.obs_bg_color = v;
+      saveState();
+    }
+  });
+
+  // Notes scroll speed Save
+  document.getElementById('save-notes-scroll').addEventListener('click', () => {
+    const v = parseInt(document.getElementById('input-notes-scroll').value);
+    if (!isNaN(v) && v >= 10) {
+      state.settings.notes_scroll_px = v;
       saveState();
     }
   });
