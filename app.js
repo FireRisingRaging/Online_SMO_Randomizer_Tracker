@@ -263,16 +263,14 @@ function buildMoonRow(i) {
   // Multi-moon toggle — sits right after + before the entry field
   const multiBtn = document.createElement('button');
   multiBtn.className = 'multi-moon-btn';
-  multiBtn.title = `Multi Moon (+3 / −3)`;
+  multiBtn.title = `Multi Moon (+3)`;
   const multiImg = document.createElement('img');
   multiImg.src = kingdom.multi;
   multiImg.alt = 'Multi Moon';
   multiBtn.appendChild(multiImg);
-  // Apply initial off state
-  if (!state.moons[i].multi) multiBtn.classList.add('multi-off');
   // Apply settings visibility
   if (!state.settings.show_multi_moon) multiBtn.classList.add('hidden');
-  multiBtn.addEventListener('click', () => { toggleMulti(i); saveState(); });
+  multiBtn.addEventListener('click', () => { addMulti(i); saveState(); });
 
   const maxEntry = document.createElement('input');
   maxEntry.type = 'number';
@@ -349,9 +347,8 @@ function refreshMoonRow(i, rowEl) {
   const kImg = row.querySelector('.kingdom-icon');
   kImg.classList.toggle('icon-white', !state.settings.show_icon_colors);
 
-  // Multi moon button state
+  // Multi moon button visibility
   const multiBtn = row.querySelector('.multi-moon-btn');
-  multiBtn.classList.toggle('multi-off', !m.multi);
   multiBtn.classList.toggle('hidden', !state.settings.show_multi_moon);
 
   // Save button visibility
@@ -362,17 +359,8 @@ function refreshMoonRow(i, rowEl) {
 function increment(i) { state.moons[i].count++; refreshCountLabel(i); }
 function decrement(i) { state.moons[i].count = Math.max(0, state.moons[i].count - 1); refreshCountLabel(i); }
 
-function toggleMulti(i) {
-  const m = state.moons[i];
-  if (m.multi) {
-    // Turning off — subtract 3 (can't go below 0)
-    m.count = Math.max(0, m.count - 3);
-    m.multi = false;
-  } else {
-    // Turning on — add 3
-    m.count += 3;
-    m.multi = true;
-  }
+function addMulti(i) {
+  state.moons[i].count += 3;
   refreshMoonRow(i);
 }
 
@@ -432,41 +420,36 @@ function buildAbilityRow() {
   const container = document.getElementById('ability-row');
   container.innerHTML = '';
 
-  // Grid order mirrors Python: [jump][cap] / [notes][wall]
-  const slots = [
-    { type: 'ability', def: ABILITY_ICONS[0] },  // jump  - row 0, col 0
-    { type: 'ability', def: ABILITY_ICONS[1] },  // cap   - row 0, col 1
-    { type: 'notes'  },                          // notes - row 1, col 0
-    { type: 'ability', def: ABILITY_ICONS[2] },  // wall  - row 1, col 1
-  ];
+  // Grid order: [jump][cap] / [wall] (notes moved to #notes-section)
+  const abilities = [ABILITY_ICONS[0], ABILITY_ICONS[1], ABILITY_ICONS[2]];
 
-  slots.forEach(slot => {
-    if (slot.type === 'notes') {
-      const btn = document.createElement('button');
-      btn.className = 'notes-btn';
-      btn.textContent = 'Notes';
-      btn.addEventListener('click', openLoadingZones);
-      container.appendChild(btn);
-    } else {
-      const ic = slot.def;
-      const btn = document.createElement('button');
-      btn.className = 'icon-toggle-btn ability-icon';
-      btn.dataset.key = ic.key;
-      btn.title = ic.key;
-      const img = document.createElement('img');
+  abilities.forEach(ic => {
+    const btn = document.createElement('button');
+    btn.className = 'icon-toggle-btn ability-icon';
+    btn.dataset.key = ic.key;
+    btn.title = ic.key;
+    const img = document.createElement('img');
+    img.src = state.abilities[ic.key] ? ic.unlocked : ic.locked;
+    img.alt = ic.key;
+    btn.appendChild(img);
+    btn.classList.toggle('active', state.abilities[ic.key]);
+    btn.addEventListener('click', () => {
+      state.abilities[ic.key] = !state.abilities[ic.key];
       img.src = state.abilities[ic.key] ? ic.unlocked : ic.locked;
-      img.alt = ic.key;
-      btn.appendChild(img);
       btn.classList.toggle('active', state.abilities[ic.key]);
-      btn.addEventListener('click', () => {
-        state.abilities[ic.key] = !state.abilities[ic.key];
-        img.src = state.abilities[ic.key] ? ic.unlocked : ic.locked;
-        btn.classList.toggle('active', state.abilities[ic.key]);
-        saveState();
-      });
-      container.appendChild(btn);
-    }
+      saveState();
+    });
+    container.appendChild(btn);
   });
+
+  // Build the standalone Notes button in #notes-section
+  const notesSection = document.getElementById('notes-section');
+  notesSection.innerHTML = '';
+  const notesBtn = document.createElement('button');
+  notesBtn.className = 'notes-btn';
+  notesBtn.textContent = 'Loading Zone Notes';
+  notesBtn.addEventListener('click', openLoadingZones);
+  notesSection.appendChild(notesBtn);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -505,10 +488,8 @@ function applyAllSettings() {
   // Capture section
   document.getElementById('capture-section').classList.toggle('hidden', !s.show_captures);
 
-  // Ability icons (Notes button stays)
-  document.querySelectorAll('.ability-icon').forEach(btn => {
-    btn.classList.toggle('hidden', !s.show_ability_lock);
-  });
+  // Ability icons: toggle class on section so icons hide without shifting layout
+  document.getElementById('ability-section').classList.toggle('abilities-hidden', !s.show_ability_lock);
 
   // Multi moon buttons
   document.querySelectorAll('.multi-moon-btn').forEach(btn => {
