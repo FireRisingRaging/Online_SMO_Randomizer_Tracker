@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -8,11 +9,13 @@
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="assets/SMO-ColoredGlobe.png">
 </head>
+
 <body>
   <div id="app">
     <h1 class="header">
-    <span>SMO Randomizer Tracker</span>
-    <button class="ctrl-btn gear-btn" id="btn-settings" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">⚙</button>
+      <span>SMO Randomizer Tracker</span>
+      <button class="ctrl-btn gear-btn" id="btn-settings"
+        style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">⚙</button>
     </h1>
     <!-- Moon Rows -->
     <div id="moon-rows"></div>
@@ -69,11 +72,14 @@
           <li>Copy the <strong>OBS URL</strong> that appears</li>
           <li>In OBS add a <strong>Browser Source</strong></li>
           <li>Paste the OBS URL. Default size is <strong>315</strong> × <strong>450</strong></li>
-          <li>Add <code>&amp;scale=1.5</code> to the URL and multiply the source size by that scale if you want it larger</li>
-          <li>The overlay background is transparent — no chroma key needed</li>
+          <li>To make the overlay larger, change <strong>OBS Overlay Scale</strong> in Settings. The sync section shows
+            the calculated width and height to paste into OBS, and the scale is synced to any already-open overlays.
+          </li>
+          <li>The overlay background is transparent so no chroma key needed</li>
         </ol>
         <p class="info-title">Popup Window</p>
-        <p>Click <strong>Open OBS Overlay</strong> to open a 315×450 popup then capture it with Window Capture in OBS.</p>
+        <p>Click <strong>Open OBS Overlay</strong> to open a 315×450 popup then capture it with Window Capture in OBS.
+        </p>
       </div>
     </div>
   </div>
@@ -204,4 +210,5 @@
   <script src="sync.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>

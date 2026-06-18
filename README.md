@@ -1,21 +1,22 @@
 # Online_SMO_Randomizer_Tracker
+
 An online version of the SMO Randomizer Tracker configured on GitHub. Works on desktop and mobile. Saves progress locally in each user's browser, with optional live sync for OBS overlays.
 
 ## Features
 
-| Feature | Notes |
-|---|---|
-| Moon rows | +/- buttons, per-row max, lock & peace toggles |
-| Save button toggle | Switch between click-to-save and auto-save on type |
-| Capture row | Parabones, Banzai Bill, Spark Pylon, Bowser with click to toggle |
-| Ability row | Long Jump, Cappy, Wall Jump with click to toggle |
-| Loading Zone Notes | Collapsible zones, icon picker, text notes per zone |
-| Settings | All 5 toggles + moon requirement + sync server URL |
-| OBS Overlay | Browser source with live state sync, transparent background |
-| Scale | Default 315×450, customizable via URL parameter |
-| Persistent saves | Full state stored in browser localStorage per user |
-| Live sync | Optional room-based WebSocket sync for cross-browser overlays |
-| Clear | Resets all progress, keeps settings |
+| Feature            | Notes                                                            |
+| ------------------ | ---------------------------------------------------------------- |
+| Moon rows          | +/- buttons, per-row max, lock & peace toggles                   |
+| Save button toggle | Switch between click-to-save and auto-save on type               |
+| Capture row        | Parabones, Banzai Bill, Spark Pylon, Bowser with click to toggle |
+| Ability row        | Long Jump, Cappy, Wall Jump with click to toggle                 |
+| Loading Zone Notes | Collapsible zones, icon picker, text notes per zone              |
+| Settings           | All 5 toggles + moon requirement + sync server URL               |
+| OBS Overlay        | Browser source with live state sync, transparent background      |
+| Scale              | Default 315×450, customizable via URL parameter                  |
+| Persistent saves   | Full state stored in browser localStorage per user               |
+| Live sync          | Optional room-based WebSocket sync for cross-browser overlays    |
+| Clear              | Resets all progress, keeps settings                              |
 
 ## Hosting the Sync Server
 
@@ -55,7 +56,7 @@ npm start
 3. Copy the **OBS URL** that appears.
 4. In OBS, add a **Browser Source** and paste the URL.
 5. Set width **315**, height **450**.
-6. The overlay background is transparent — no chroma key needed.
+6. The overlay background is transparent so no chroma key needed.
 
 To make the overlay larger, change **OBS Overlay Scale** in Settings. The sync section shows the calculated width and height to paste into OBS, and the scale is synced to any already-open overlays.
 
