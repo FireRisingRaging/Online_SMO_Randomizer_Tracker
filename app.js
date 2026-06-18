@@ -48,7 +48,13 @@ const DEFAULT_SETTINGS = {
   show_multi_moon:   true,
   obs_bg_color:      '#00FF00',
   notes_scroll_px:   500,
+  scroll_left_binding:  { type: 'mouse', code: 3 },  // MB4 (back)
+  scroll_right_binding: { type: 'mouse', code: 4 },  // MB5 (forward)
 };
+
+function cloneDefaultSettings() {
+  return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+}
 
 // Matches Python tracker_withoutSaves loading_zones dict exactly
 const LOADING_ZONES_TEMPLATE = {
@@ -71,6 +77,29 @@ const LOADING_ZONES_TEMPLATE = {
 
 // Number of zones above which a kingdom column auto-splits into two side-by-side columns
 const ZONE_SPLIT_THRESHOLD = 10;
+
+const MOBILE_BREAKPOINT = 540;
+
+// ── Human-readable labels for mouse/keyboard scroll bindings ──────
+function bindingLabel(binding) {
+  if (!binding) return 'Not Set';
+  if (binding.type === 'mouse') {
+    const names = { 0:'Left Click', 1:'Middle Click', 2:'Right Click', 3:'Mouse 4', 4:'Mouse 5' };
+    return names[binding.code] !== undefined ? names[binding.code] : `Mouse ${binding.code + 1}`;
+  }
+  if (binding.type === 'key') {
+    const map = {
+      ArrowLeft: 'Left Arrow', ArrowRight: 'Right Arrow',
+      ArrowUp: 'Up Arrow',     ArrowDown: 'Down Arrow',
+      Space: 'Space', Enter: 'Enter', Tab: 'Tab',
+    };
+    if (map[binding.code]) return map[binding.code];
+    if (binding.code.startsWith('Key'))   return binding.code.slice(3);
+    if (binding.code.startsWith('Digit')) return binding.code.slice(5);
+    return binding.code;
+  }
+  return 'Unknown';
+}
 
 // Settings toggle definitions for data-driven wiring
 const TOGGLE_SETTINGS = [
@@ -100,11 +129,12 @@ function buildDefaultLoadingZones() {
 
 function getDefaultState() {
   return {
-    settings:      { ...DEFAULT_SETTINGS },
+    settings:      cloneDefaultSettings(),
     moons:         KINGDOMS.map(() => ({ count:0, max:null, lock:false, peace:false, multi:false })),
     captures:      { parabones:false, banzai:false, wire:false, bowser:false },
     abilities:     { jump:false, cap:false, wall:false },
     loading_zones: buildDefaultLoadingZones(),
+    kingdom_collapsed: Object.fromEntries(Object.keys(LOADING_ZONES_TEMPLATE).map(k => [k, false])),
   };
 }
 
@@ -142,6 +172,12 @@ function loadState() {
             Object.assign(state.loading_zones[kingdom].zones[zone], savedKingdom.zones[zone]);
           }
         }
+      }
+    }
+    // Per-kingdom collapsed state (Notes window)
+    if (saved.kingdom_collapsed) {
+      for (const k of Object.keys(state.kingdom_collapsed)) {
+        if (k in saved.kingdom_collapsed) state.kingdom_collapsed[k] = saved.kingdom_collapsed[k];
       }
     }
   } catch (e) {
@@ -445,6 +481,11 @@ function openSettings() {
   document.getElementById('input-moon-req').value = state.settings.moon_requirement;
   document.getElementById('input-obs-color').value = state.settings.obs_bg_color;
   document.getElementById('input-notes-scroll').value = state.settings.notes_scroll_px;
+
+  // Populate rebind button labels
+  document.getElementById('rebind-scroll-left').textContent  = bindingLabel(state.settings.scroll_left_binding);
+  document.getElementById('rebind-scroll-right').textContent = bindingLabel(state.settings.scroll_right_binding);
+
   modal.classList.remove('hidden');
 }
 
@@ -480,7 +521,7 @@ function applyAllSettings() {
 // ─────────────────────────────────────────────────────────────────────────────
 function resetAll() {
   if (!confirm('Clear all progress? Settings will be kept.')) return;
-  const savedSettings = { ...state.settings };
+  const savedSettings = JSON.parse(JSON.stringify(state.settings)); // deep clone and avoid sharing nested binding objects
   state = getDefaultState();
   state.settings = savedSettings;
   saveState();
@@ -512,9 +553,25 @@ function toggleOBSBg() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Loading Zones Modal
 // ─────────────────────────────────────────────────────────────────────────────
+let notesWindow = null;
+
 function openLoadingZones() {
-  buildLoadingZonesContent();
+  // If the standalone Notes window is already open, just bring it forward
+  // instead of opening a second editable copy in-page.
+  if (notesWindow && !notesWindow.closed) {
+    notesWindow.focus();
+    return;
+  }
+  // Modal must be visible before we build/measure content, or heights read as 0
   document.getElementById('lz-modal').classList.remove('hidden');
+  buildLoadingZonesContent();
+  // layoutMasonryColumns();
+}
+
+function popOutNotes() {
+  const features = 'width=1150,height=750,resizable=yes,scrollbars=yes,toolbar=no,menubar=no';
+  notesWindow = window.open('notes.html', 'MoonTrackerNotes', features);
+  document.getElementById('lz-modal').classList.add('hidden');
 }
 
 function buildLoadingZonesContent() {
@@ -524,6 +581,52 @@ function buildLoadingZonesContent() {
     container.appendChild(buildKingdomColumn(kingdom, data));
   }
 }
+
+// True masonry packing: measure each kingdom card's real rendered height, then
+// greedily place each one (in kingdom order) into whichever column currently
+// has the least content. Collapsed (short) kingdoms naturally pack together;
+// expanded (tall) kingdoms naturally claim their own column. Re-run any time
+// a kingdom's collapsed state changes or the window resizes.
+// function layoutMasonryColumns() {
+//   if (window.innerWidth <= MOBILE_BREAKPOINT) return; // mobile keeps the simple single-column list untouched
+
+//   const wrap    = document.querySelector('.lz-scroll-wrap');
+//   const content = document.getElementById('lz-content');
+//   if (!wrap || !content) return;
+
+//   const cards = Array.from(content.querySelectorAll('.kingdom-col'));
+//   if (cards.length === 0) return;
+
+//   const GAP = 20;
+//   const availableHeight = wrap.clientHeight || 600;
+
+//   // Measure while still attached/visible
+//   const heights = cards.map(c => c.offsetHeight);
+//   const totalHeight = heights.reduce((a, b) => a + b, 0) + GAP * Math.max(0, cards.length - 1);
+
+//   let numCols = Math.max(1, Math.ceil(totalHeight / availableHeight));
+//   numCols = Math.min(numCols, cards.length);
+
+//   const colHeights = new Array(numCols).fill(0);
+//   const colBuckets = Array.from({ length: numCols }, () => []);
+
+//   cards.forEach((card, i) => {
+//     let target = 0;
+//     for (let c = 1; c < numCols; c++) {
+//       if (colHeights[c] < colHeights[target]) target = c;
+//     }
+//     colBuckets[target].push(card);
+//     colHeights[target] += heights[i] + GAP;
+//   });
+
+//   content.innerHTML = '';
+//   colBuckets.forEach(bucket => {
+//     const track = document.createElement('div');
+//     track.className = 'lz-col-track';
+//     bucket.forEach(card => track.appendChild(card));
+//     content.appendChild(track);
+//   });
+// }
 
 function buildKingdomColumn(kingdom, data) {
   const col = document.createElement('div');
@@ -581,10 +684,20 @@ function buildKingdomColumn(kingdom, data) {
       zonesRoot.appendChild(buildZoneRow(kingdom, zone, zd, data.color)));
   }
 
+  // Apply persisted collapsed state
+  if (state.kingdom_collapsed[kingdom]) {
+    zonesRoot.style.display = 'none';
+    header.classList.add('collapsed');
+  }
+
+  // Collapse / expand on header click: persists and triggers a masonry re-layout
   header.addEventListener('click', () => {
-    const isCollapsed = zonesRoot.style.display === 'none';
-    zonesRoot.style.display = isCollapsed ? '' : 'none';
-    header.classList.toggle('collapsed', !isCollapsed);
+    const willCollapse = zonesRoot.style.display !== 'none';
+    zonesRoot.style.display = willCollapse ? 'none' : '';
+    header.classList.toggle('collapsed', willCollapse);
+    state.kingdom_collapsed[kingdom] = willCollapse;
+    saveState();
+    // layoutMasonryColumns();
   });
 
   // for (const [zone, zoneData] of Object.entries(data.zones)) {
@@ -663,6 +776,11 @@ function buildZoneRow(kingdom, zone, zoneData, color) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Notes Horizontal Scroll
 // ─────────────────────────────────────────────────────────────────────────────
+function isLzOpen() {
+  const modal = document.getElementById('lz-modal');
+  return modal && !modal.classList.contains('hidden');
+}
+
 function setupNotesScroll() {
   const scrollWrap = document.querySelector('.lz-scroll-wrap');
   if (!scrollWrap) return;
@@ -679,18 +797,92 @@ function setupNotesScroll() {
   // MB4 (back, button=3) → scroll left; MB5 (forward, button=4) → scroll right
   // Block default back/forward navigation when over the scroll wrap
   scrollWrap.addEventListener('mousedown', (e) => {
-    if (e.button === 3 || e.button === 4) e.preventDefault();
+    const lb = state.settings.scroll_left_binding;
+    const rb = state.settings.scroll_right_binding;
+    if ((lb && lb.type === 'mouse' && e.button === lb.code) ||
+        (rb && rb.type === 'mouse' && e.button === rb.code)) {
+      e.preventDefault();
+    }
   });
   scrollWrap.addEventListener('mouseup', (e) => {
     const px = state.settings.notes_scroll_px || 500;
-    if (e.button === 3) {
+    const lb = state.settings.scroll_left_binding;
+    const rb = state.settings.scroll_right_binding;
+    if (lb && lb.type === 'mouse' && e.button === lb.code) {
       e.preventDefault();
       scrollWrap.scrollLeft -= px;
-    } else if (e.button === 4) {
+    } else if (rb && rb.type === 'mouse' && e.button === rb.code) {
       e.preventDefault();
       scrollWrap.scrollLeft += px;
     }
   });
+
+  // Configurable keyboard bindings — active while the Notes modal is open
+  document.addEventListener('keydown', (e) => {
+    if (!isLzOpen()) return;
+    // Don't hijack typing/cursor movement inside a note textarea
+    if (e.target && e.target.classList && e.target.classList.contains('zone-note')) return;
+
+    const px = state.settings.notes_scroll_px || 500;
+    const lb = state.settings.scroll_left_binding;
+    const rb = state.settings.scroll_right_binding;
+    if (lb && lb.type === 'key' && e.code === lb.code) {
+      e.preventDefault();
+      scrollWrap.scrollLeft -= px;
+    } else if (rb && rb.type === 'key' && e.code === rb.code) {
+      e.preventDefault();
+      scrollWrap.scrollLeft += px;
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scroll Button Rebinding
+// ─────────────────────────────────────────────────────────────────────────────
+function setupRebindButtons() {
+  const leftBtn  = document.getElementById('rebind-scroll-left');
+  const rightBtn = document.getElementById('rebind-scroll-right');
+
+  leftBtn.addEventListener('click',  () => startRebind('scroll_left_binding',  leftBtn));
+  rightBtn.addEventListener('click', () => startRebind('scroll_right_binding', rightBtn));
+}
+
+function startRebind(settingKey, btnEl) {
+  btnEl.textContent = 'Press any button…';
+  btnEl.classList.add('listening');
+
+  function onMouseDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    apply({ type: 'mouse', code: e.button });
+  }
+  function onKeyDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.code === 'Escape') { cancel(); return; }
+    apply({ type: 'key', code: e.code });
+  }
+  function apply(binding) {
+    cleanup();
+    state.settings[settingKey] = binding;
+    btnEl.textContent = bindingLabel(binding);
+    btnEl.classList.remove('listening');
+    saveState();
+  }
+  function cancel() {
+    cleanup();
+    btnEl.textContent = bindingLabel(state.settings[settingKey]);
+    btnEl.classList.remove('listening');
+  }
+  function cleanup() {
+    window.removeEventListener('mousedown', onMouseDown, true);
+    window.removeEventListener('keydown', onKeyDown, true);
+  }
+
+  // Capture phase so this intercepts the input before any other handler
+  // (e.g. the notes scrollWrap's own mousedown listener, or page navigation).
+  window.addEventListener('mousedown', onMouseDown, true);
+  window.addEventListener('keydown', onKeyDown, true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -746,6 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
   buildAbilityRow();
   applyAllSettings();
   setupNotesScroll();
+  setupRebindButtons();
 
   // ── Main buttons ───────────────────────────────
   document.getElementById('btn-obs').addEventListener('click', openOBS);
@@ -802,10 +995,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Revert Default Settings
+  document.getElementById('btn-revert-settings').addEventListener('click', () => {
+    if (!confirm('Revert all settings to default? This will not affect your moon progress, captures, abilities, or notes.')) return;
+    state.settings = cloneDefaultSettings();
+    saveState();
+    applyAllSettings();
+    openSettings(); // refresh the visible fields/labels to reflect the reset
+  });
+
   // ── Loading zones modal ────────────────────────
   document.getElementById('lz-close').addEventListener('click', () => {
     document.getElementById('lz-modal').classList.add('hidden');
   });
+  document.getElementById('lz-popout').addEventListener('click', popOutNotes);
 
   // Close any modal on backdrop click
   document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
@@ -813,4 +1016,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === backdrop) backdrop.classList.add('hidden');
     });
   });
+  // // Re-pack Notes columns if the window is resized while it's open
+  // let resizeTimer = null;
+  // window.addEventListener('resize', () => {
+  //   if (!isLzOpen()) return;
+  //   clearTimeout(resizeTimer);
+  //   resizeTimer = setTimeout(layoutMasonryColumns, 150);
+  // });
 });

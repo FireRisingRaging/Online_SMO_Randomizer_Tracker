@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading Zone Notes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Override the main stylesheet's page padding/sizing — this page IS the window */
+    html { height: 100%; }
+    body.notes-page {
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+    }
+    .notes-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .notes-page-header h2 { font-size: 1.1rem; }
+    #lz-content { padding: 16px; }
+  </style>
+</head>
+<body class="notes-page">
+  <div class="notes-page-header">
+    <h2>Loading Zone Notes</h2>
+    <button class="modal-close" id="notes-page-close" aria-label="Close">✕</button>
+  </div>
+  <div class="lz-scroll-wrap">
+    <div id="lz-content"></div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // ── Shared constants (mirrors app.js) ──────────────────────────
+    const STATE_KEY = 'tracker_state';
+    const MOBILE_BREAKPOINT  = 540;
+    const ZONE_SPLIT_THRESHOLD = 10 ;
+
+    const PICKER_ICONS = [
+    'Cascade.png','Sand.png','Lake.png','Wooded.png','Lost.png','Metro.png',
+    'Snow.png','Seaside.png','Luncheon.png','Ruin.png','Bowser.png',
+    'Cap.png','Dark.png','Star.png',"Moon.png","Moon_Dark.png","checkmark.png","xmark.png",
+    ];
+
+
+    const DEFAULT_SETTINGS = {
+      show_moon_total:   true,
+      moon_requirement:  124,
+      show_icon_colors:  true,
+      show_ability_lock: true,
+      show_captures:     true,
+      show_save_buttons: true,
+      show_multi_moon:   true,
+      obs_bg_color:      '#00FF00',
+      notes_scroll_px:   100,
+      scroll_left_binding:  { type: 'mouse', code: 3 },
+      scroll_right_binding: { type: 'mouse', code: 4 },
+    };
+
+    const LOADING_ZONES_TEMPLATE = {
+      'Cap':        { color:'#fff500', icon:'Cap.png',      zones:{ 'Orange':{num:2},'Paragoomba':{num:2},'Frog':{num:2},'Rolling On':{num:2} }},
+      'Cascade':    { color:'#ff9900', icon:'Cascade.png',  zones:{ 'Dino':{num:2},'2D':{num:2},'Chain Chomp':{num:2},'Swings':{num:2},'Windy':{num:2} }},
+      'Sand':       { color:'#8bf12c', icon:'Sand.png',     zones:{ 'Icy Cave':{num:1},'Moe-eye':{num:2},'Shop':{num:1},'Employees':{num:1},'Slots':{num:1},'Rumble':{num:1},'Costume':{num:1},'Jaxi Ruins':{num:2},'Bullet Bill':{num:2},'Gushen':{num:2},'Sphynx':{num:1},'Poison':{num:2},'Rocket':{num:2},'Colossal Ruins':{num:2} }},
+      'Lake':       { color:'#e46cab', icon:'Lake.png',     zones:{ 'Frog':{num:2},'Zipper':{num:2},'Grab Climb':{num:2},'Shop':{num:1},'Puzzle':{num:1} }},
+      'Wooded':     { color:'#1e65e7', icon:'Wooded.png',   zones:{ 'Rocket':{num:2},'Sheep':{num:2},'Elevator':{num:2},'Poison':{num:2},'Clouds':{num:2},'Breakdown':{num:2},'Invisible':{num:2},'Costume':{num:2},'Flooded Pipes':{num:2},'Flower Road':{num:2} }},
+      'Lost':       { color:'#e71edd', icon:'Lost.png',     zones:{ 'Wiggler':{num:2},'Shop':{num:1},'Klepto':{num:2} }},
+      'Metro':      { color:'#de7d5e', icon:'Metro.png',    zones:{ 'Yellow Shop':{num:1},'Purple Shop':{num:1},'Dino':{num:2},'Bullet Billding':{num:2},'Shards':{num:2},'Notes':{num:1},'2D':{num:2},'Slots':{num:1},'People':{num:2},'Costume':{num:2},'Rocket':{num:2},'Dark':{num:2},'Scaffolding':{num:2},'Scooter':{num:2},'Rotating Maze':{num:2},'RC Car':{num:1} }},
+      'Snow':       { color:'#e7930a', icon:'Snow.png',     zones:{ 'Puzzle':{num:1},'Capless':{num:2},'Rocket Flower':{num:2},'Iceburn':{num:2},'Flower Road':{num:2},'Tracewalking':{num:1},'Clouds':{num:2},'Costume':{num:2},'Shop':{num:1} }},
+      'Seaside':    { color:'#b36fe9', icon:'Seaside.png',  zones:{ 'Well Enter':{num:1},'Well Exit':{num:1},'Rumble':{num:1},'Rocket':{num:2},'Costume':{num:1},'Gushen':{num:2},'Sphynx':{num:1},'Pokio':{num:2},'Lava Rising':{num:2},'Sandy Bottom':{num:1},'Spinning Maze':{num:2} }},
+      'Luncheon':   { color:'#3fddbb', icon:'Luncheon.png', zones:{ 'Magma Swamp':{num:2},'Forks':{num:2},'Cheese Rocks':{num:2},'Veggie Room':{num:1},'Slots':{num:1},'Shop':{num:1},'Costume':{num:1},'Spinning Athletics':{num:2},'Lava Islands':{num:2},'Volcano Cave':{num:2},'Gears':{num:2},'Magma Path':{num:2} }},
+      'Ruined':     { color:'#ffd7e2', icon:'Ruin.png',     zones:{ "Chargin' Chuck":{num:2},'Rocket':{num:2} }},
+      "Bowser's":   { color:'#d3304c', icon:'Bowser.png',   zones:{ 'Jizo':{num:2},'Shop':{num:1},'Costume':{num:2},'Treasure Room':{num:1},'Spinning Tower':{num:2},'Clouds':{num:2},'Hexagon Tower':{num:2},'Wooden Tower':{num:2} }},
+      'Mushroom':   { color:'#fff672', icon:'Star.png',     zones:{ 'Costume':{num:2},'Cloud Sea':{num:2},'Well':{num:2},'Knucklotec':{num:1},'Torkdrift':{num:1},'Mechawiggler':{num:1},'Octopus':{num:1},'Cookatiel':{num:1},'Dragon':{num:1},'Rocket':{num:2} }},
+      'Darkside':   { color:'#fff2c6', icon:'Dark.png',     zones:{ 'Breakdown':{num:2},'Invisible':{num:2},'Vanishing':{num:2},'Yoshi Siege':{num:2},'Lava Rising':{num:2},'Magma Swamp':{num:2} }},
+      'Darkerside': { color:'#fff2c6', icon:'Dark.png',     zones:{ 'End':{num:1} }},
+    };
+
+    let fullState = null;
+
+    function buildDefaultLoadingZones() {
+      const result = {};
+      for (const [kingdom, data] of Object.entries(LOADING_ZONES_TEMPLATE)) {
+        result[kingdom] = { color: data.color, icon: data.icon, zones: {} };
+        for (const [zone, zd] of Object.entries(data.zones)) {
+          result[kingdom].zones[zone] = { note:'', icon:'Moon.png', icon2:'Moon.png', collapsed:false, num: zd.num };
+        }
+      }
+      return result;
+    }
+
+    function loadFullState() {
+      try {
+        const raw = localStorage.getItem(STATE_KEY);
+        fullState = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        fullState = {};
+      }
+
+      if (!fullState.settings) {
+        fullState.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+      } else {
+        for (const key of Object.keys(DEFAULT_SETTINGS)) {
+          if (!(key in fullState.settings)) fullState.settings[key] = DEFAULT_SETTINGS[key];
+        }
+      }
+
+      const defaults = buildDefaultLoadingZones();
+      if (!fullState.loading_zones) {
+        fullState.loading_zones = defaults;
+      } else {
+        for (const [kingdom, data] of Object.entries(defaults)) {
+          if (!fullState.loading_zones[kingdom]) {
+            fullState.loading_zones[kingdom] = data;
+          } else {
+            for (const [zone, zd] of Object.entries(data.zones)) {
+              if (!fullState.loading_zones[kingdom].zones[zone]) {
+                fullState.loading_zones[kingdom].zones[zone] = zd;
+              }
+            }
+          }
+        }
+      }
+
+      if (!fullState.kingdom_collapsed) {
+        fullState.kingdom_collapsed = Object.fromEntries(Object.keys(LOADING_ZONES_TEMPLATE).map(k => [k, false]));
+      }
+    }
+
+    function saveFullState() {
+      try {
+        localStorage.setItem(STATE_KEY, JSON.stringify(fullState));
+      } catch (e) {
+        console.error('Failed to save state:', e);
+      }
+    }
+
+    // ── Build kingdom list ──────────────────────────────────────────
+    function buildLoadingZonesContent() {
+      const container = document.getElementById('lz-content');
+      container.innerHTML = '';
+      for (const [kingdom, data] of Object.entries(fullState.loading_zones)) {
+        container.appendChild(buildKingdomColumn(kingdom, data));
+      }
+    }
+
+    // function layoutMasonryColumns() {
+    //   if (window.innerWidth <= MOBILE_BREAKPOINT) return;
+
+    //   const wrap    = document.querySelector('.lz-scroll-wrap');
+    //   const content = document.getElementById('lz-content');
+    //   if (!wrap || !content) return;
+
+    //   const cards = Array.from(content.querySelectorAll('.kingdom-col'));
+    //   if (cards.length === 0) return;
+
+    //   const GAP = 20;
+    //   const availableHeight = wrap.clientHeight || 600;
+
+    //   const heights = cards.map(c => c.offsetHeight);
+    //   const totalHeight = heights.reduce((a, b) => a + b, 0) + GAP * Math.max(0, cards.length - 1);
+
+    //   let numCols = Math.max(1, Math.ceil(totalHeight / availableHeight));
+    //   numCols = Math.min(numCols, cards.length);
+
+    //   const colHeights = new Array(numCols).fill(0);
+    //   const colBuckets = Array.from({ length: numCols }, () => []);
+
+    //   cards.forEach((card, i) => {
+    //     let target = 0;
+    //     for (let c = 1; c < numCols; c++) {
+    //       if (colHeights[c] < colHeights[target]) target = c;
+    //     }
+    //     colBuckets[target].push(card);
+    //     colHeights[target] += heights[i] + GAP;
+    //   });
+
+    //   content.innerHTML = '';
+    //   colBuckets.forEach(bucket => {
+    //     const track = document.createElement('div');
+    //     track.className = 'lz-col-track';
+    //     bucket.forEach(card => track.appendChild(card));
+    //     content.appendChild(track);
+    //   });
+    // }
+
+    function buildKingdomColumn(kingdom, data) {
+      const col = document.createElement('div');
+      col.className = 'kingdom-col';
+
+      const header = document.createElement('div');
+      header.className = 'kingdom-col-header';
+
+      const icon = document.createElement('img');
+      icon.src = `assets/${data.icon}`;
+      icon.height = 20;
+      icon.alt = kingdom;
+
+      const title = document.createElement('span');
+      title.className = 'col-title';
+      title.textContent = kingdom;
+      title.style.color = data.color;
+
+      const chevron = document.createElement('span');
+      chevron.className = 'col-chevron';
+      chevron.textContent = '▾';
+
+      header.appendChild(icon);
+      header.appendChild(title);
+      header.appendChild(chevron);
+
+      const zoneEntries = Object.entries(data.zones);
+      const needsSplit  = zoneEntries.length > ZONE_SPLIT_THRESHOLD;
+
+      let zonesRoot;
+      if (needsSplit) {
+        const mid = Math.ceil(zoneEntries.length / 2);
+        zonesRoot = document.createElement('div');
+        zonesRoot.className = 'zones-split-wrap';
+
+        const col1 = document.createElement('div');
+        col1.className = 'zones-container';
+        const col2 = document.createElement('div');
+        col2.className = 'zones-container';
+
+        zoneEntries.slice(0, mid).forEach(([zone, zd]) =>
+          col1.appendChild(buildZoneRow(kingdom, zone, zd, data.color)));
+        zoneEntries.slice(mid).forEach(([zone, zd]) =>
+          col2.appendChild(buildZoneRow(kingdom, zone, zd, data.color)));
+
+        zonesRoot.appendChild(col1);
+        zonesRoot.appendChild(col2);
+      } else {
+        zonesRoot = document.createElement('div');
+        zonesRoot.className = 'zones-container';
+        zoneEntries.forEach(([zone, zd]) =>
+          zonesRoot.appendChild(buildZoneRow(kingdom, zone, zd, data.color)));
+      }
+
+      if (fullState.kingdom_collapsed[kingdom]) {
+        zonesRoot.style.display = 'none';
+        header.classList.add('collapsed');
+      }
+
+      header.addEventListener('click', () => {
+        const willCollapse = zonesRoot.style.display !== 'none';
+        zonesRoot.style.display = willCollapse ? 'none' : '';
+        header.classList.toggle('collapsed', willCollapse);
+        fullState.kingdom_collapsed[kingdom] = willCollapse;
+        saveFullState();
+        // layoutMasonryColumns();
+      });
+
+      col.appendChild(header);
+      col.appendChild(zonesRoot);
+      return col;
+    }
+
+    function buildZoneRow(kingdom, zone, zoneData, color) {
+      const zs = fullState.loading_zones[kingdom].zones[zone];
+      const row = document.createElement('div');
+      row.className = 'zone-row';
+
+      const top = document.createElement('div');
+      top.className = 'zone-row-top';
+
+      function makeZoneIcon(iconKey) {
+        const img = document.createElement('img');
+        img.className = 'zone-icon';
+        img.src = `assets/${zs[iconKey] || 'Moon.png'}`;
+        img.alt = 'zone icon';
+        img.addEventListener('click', (e) => {
+          openIconPicker(e, (chosen) => {
+            zs[iconKey] = chosen;
+            img.src = `assets/${chosen}`;
+            saveFullState();
+          });
+          e.stopPropagation();
+        });
+        return img;
+      }
+
+      top.appendChild(makeZoneIcon('icon'));
+      if (zoneData.num > 1) top.appendChild(makeZoneIcon('icon2'));
+
+      const nameLabel = document.createElement('span');
+      nameLabel.className = 'zone-name';
+      nameLabel.textContent = zone;
+      nameLabel.style.color = zs.collapsed ? '#888' : color;
+
+      top.appendChild(nameLabel);
+      row.appendChild(top);
+
+      const noteArea = document.createElement('textarea');
+      noteArea.className = 'zone-note';
+      noteArea.value = zs.note || '';
+      noteArea.placeholder = 'Note…';
+      noteArea.rows = 1;
+      if (zs.collapsed) noteArea.style.display = 'none';
+
+      noteArea.addEventListener('input', () => {
+        noteArea.style.height = 'auto';
+        noteArea.style.height = noteArea.scrollHeight + 'px';
+        zs.note = noteArea.value;
+        saveFullState();
+      });
+
+      nameLabel.addEventListener('click', () => {
+        zs.collapsed = !zs.collapsed;
+        nameLabel.style.color = zs.collapsed ? '#888' : color;
+        noteArea.style.display = zs.collapsed ? 'none' : '';
+        saveFullState();
+      });
+
+      row.appendChild(noteArea);
+      return row;
+    }
+
+    // ── Icon Picker ─────────────────────────────────────────────────
+    function openIconPicker(event, onSelect) {
+      document.querySelectorAll('.icon-picker-popup').forEach(p => p.remove());
+
+      const picker = document.createElement('div');
+      picker.className = 'icon-picker-popup';
+
+      PICKER_ICONS.forEach(iconFile => {
+        const img = document.createElement('img');
+        img.src = `assets/${iconFile}`;
+        img.alt = iconFile;
+        img.title = iconFile.replace('.png', '');
+        img.addEventListener('click', (e) => {
+          onSelect(iconFile);
+          picker.remove();
+          e.stopPropagation();
+        });
+        picker.appendChild(img);
+      });
+
+      document.body.appendChild(picker);
+
+      const pw = 170, ph = 90;
+      let x = event.clientX, y = event.clientY;
+      if (x + pw > window.innerWidth)  x = window.innerWidth  - pw - 8;
+      if (y + ph > window.innerHeight) y = window.innerHeight - ph - 8;
+      picker.style.left = `${Math.max(8, x)}px`;
+      picker.style.top  = `${Math.max(8, y)}px`;
+
+      setTimeout(() => {
+        document.addEventListener('click', function closePicker(e) {
+          if (!picker.contains(e.target)) {
+            picker.remove();
+            document.removeEventListener('click', closePicker);
+          }
+        });
+      }, 10);
+    }
+
+    // ── Horizontal scroll (wheel / configurable mouse+key bindings) ──
+    function setupScroll() {
+      const scrollWrap = document.querySelector('.lz-scroll-wrap');
+      if (!scrollWrap) return;
+
+      scrollWrap.addEventListener('wheel', (e) => {
+        if (scrollWrap.scrollWidth <= scrollWrap.clientWidth) return;
+        e.preventDefault();
+        const px = fullState.settings.notes_scroll_px || 100;
+        scrollWrap.scrollLeft += e.deltaY > 0 ? px : -px;
+      }, { passive: false });
+
+      scrollWrap.addEventListener('mousedown', (e) => {
+        const lb = fullState.settings.scroll_left_binding;
+        const rb = fullState.settings.scroll_right_binding;
+        if ((lb && lb.type === 'mouse' && e.button === lb.code) ||
+            (rb && rb.type === 'mouse' && e.button === rb.code)) {
+          e.preventDefault();
+        }
+      });
+      scrollWrap.addEventListener('mouseup', (e) => {
+        const px = fullState.settings.notes_scroll_px || 100;
+        const lb = fullState.settings.scroll_left_binding;
+        const rb = fullState.settings.scroll_right_binding;
+        if (lb && lb.type === 'mouse' && e.button === lb.code) {
+          e.preventDefault();
+          scrollWrap.scrollLeft -= px;
+        } else if (rb && rb.type === 'mouse' && e.button === rb.code) {
+          e.preventDefault();
+          scrollWrap.scrollLeft += px;
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.target && e.target.classList && e.target.classList.contains('zone-note')) return;
+        const px = fullState.settings.notes_scroll_px || 100;
+        const lb = fullState.settings.scroll_left_binding;
+        const rb = fullState.settings.scroll_right_binding;
+        if (lb && lb.type === 'key' && e.code === lb.code) {
+          e.preventDefault();
+          scrollWrap.scrollLeft -= px;
+        } else if (rb && rb.type === 'key' && e.code === rb.code) {
+          e.preventDefault();
+          scrollWrap.scrollLeft += px;
+        }
+      });
+    }
+
+    // ── Stay in sync with settings changed in the main tracker window ──
+    window.addEventListener('storage', (e) => {
+      if (e.key !== STATE_KEY || !e.newValue) return;
+      try {
+        const fresh = JSON.parse(e.newValue);
+        if (fresh.settings) fullState.settings = fresh.settings;
+      } catch (err) { /* ignore malformed updates */ }
+    });
+
+    // ── Resize re-layout ────────────────────────────────────────────
+    // let resizeTimer = null;
+    // window.addEventListener('resize', () => {
+    //   clearTimeout(resizeTimer);
+    //   resizeTimer = setTimeout(layoutMasonryColumns, 150);
+    // });
+
+    // ── Init ────────────────────────────────────────────────────────
+    document.getElementById('notes-page-close').addEventListener('click', () => window.close());
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadFullState();
+      buildLoadingZonesContent();
+      // layoutMasonryColumns();
+      setupScroll();
+    });
+  </script>
+</body>
+</html>

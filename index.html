@@ -149,6 +149,18 @@
           </div>
         </div>
 
+        <div class="settings-row">
+          <span>Scroll Left Button</span>
+          <button class="rebind-btn" id="rebind-scroll-left">Mouse 4</button>
+        </div>
+
+        <div class="settings-row">
+          <span>Scroll Right Button</span>
+          <button class="rebind-btn" id="rebind-scroll-right">Mouse 5</button>
+        </div>
+
+        <button class="ctrl-btn revert-btn" id="btn-revert-settings">Revert to Default Settings</button>
+
       </div>
     </div>
   </div>
@@ -158,7 +170,10 @@
     <div class="modal-box lz-modal-box">
       <div class="modal-header">
         <h2>Loading Zone Notes</h2>
-        <button class="modal-close" id="lz-close" aria-label="Close">✕</button>
+        <div class="modal-header-actions">
+          <button class="modal-icon-btn" id="lz-popout" title="Open in separate window">⤢</button>
+          <button class="modal-close" id="lz-close" aria-label="Close">✕</button>
+        </div>
       </div>
       <div class="lz-scroll-wrap">
         <div id="lz-content"></div>

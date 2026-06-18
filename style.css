@@ -386,6 +386,24 @@ h1 {
 }
 .modal-header h2 { font-size: 1.1rem; }
 
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.modal-icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.05rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+.modal-icon-btn:hover { color: var(--text); background: var(--bg-hover); }
+
 .modal-close {
   background: none;
   border: none;
@@ -535,10 +553,42 @@ h1 {
 }
 .save-inline-btn:hover { background: var(--accent-h); }
 
+/* Rebind button (mouse/key capture) */
+.rebind-btn {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.85rem;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  min-width: 90px;
+}
+.rebind-btn:hover { background: var(--bg-hover); }
+.rebind-btn.listening {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: default;
+}
+
+/* Revert Default Settings button */
+.revert-btn {
+  margin-top: 10px;
+  color: var(--red);
+  max-width: none;
+}
+.revert-btn:hover { background: #3a2020; }
+
 /* ── Loading Zones Modal ──────────────────────────────────────────── */
 .lz-modal-box {
   max-width: 92vw;
   width: 92vw;
+  height: 85vh;
 }
 
 .lz-scroll-wrap {
@@ -549,16 +599,30 @@ h1 {
 
 #lz-content {
   display: flex;
-  flex-direction: row;
+  /* flex-direction: row;
+  align-items: flex-start; */
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 20px;
   padding: 16px;
+  height: 100%;
   min-width: max-content;
 }
 
+.lz-col-track {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
 @media (max-width: 540px) {
-  .lz-modal-box { width: 100%; max-width: 100%; }
+  .lz-modal-box { width: 100%; max-width: 100%; height: auto; max-height: 90vh;}
   #lz-content {
     flex-direction: column;
+    flex-wrap: nowrap;
+    height: auto;
     min-width: unset;
     padding: 12px;
     gap: 12px;
@@ -605,6 +669,7 @@ h1 {
 @media (max-width: 540px) {
   .zones-split-wrap {
     flex-direction: column;
+    align-items: stretch;
     gap: 8px;
   }
 }

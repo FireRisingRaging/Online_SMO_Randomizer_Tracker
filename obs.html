@@ -85,6 +85,7 @@
       font-size: 1rem;
       /* font-weight: bold; */
       text-align: center;
+      letter-spacing: 0.05em;
       padding: 6px 0 3px;
       width: 100%;
     }
@@ -113,10 +114,22 @@
       object-fit: contain;
     }
 
+    #obs-total-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 0 2px;
+    }
+    #obs-total-label {
+      font-size: 1rem;
+      letter-spacing: 0.05em;
+    }
+
     #obs-total {
       font-size: 1.5rem;
       /* font-weight: bold; */
       text-align: center;
+      letter-spacing: 0.05em;
       padding: 6px 0 2px;
     }
 
@@ -141,7 +154,8 @@
     /* Sections that may be hidden via settings */
     #obs-capture-section.hidden,
     #obs-ability-section.hidden,
-    #obs-total.hidden { display: none; }
+    #obs-bowser.hidden,
+    #obs-total-wrap.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -157,7 +171,10 @@
         <div class="obs-icon-row" id="obs-ability-icons"></div>
       </div>
       <div id="obs-bowser"><img id="obs-bowser-img" src="assets/Bowser_Capture_Locked.png" alt="Bowser"></div>
-      <div id="obs-total">0 / 124</div>
+      <div id="obs-total-wrap">
+        <div id="obs-total-label">Moons:</div>
+        <div id="obs-total">0 / 124</div>
+      </div>
     </div>
   </div>
   <!-- <button id="obs-bg-btn" title="Toggle chroma key background">BG</button> -->
@@ -314,13 +331,16 @@
 
       // Total label
       const totalEl = document.getElementById('obs-total');
+      const totalWrap = document.getElementById('obs-total-wrap');
       const total   = (s.moons || []).reduce((sum, m) => sum + (m.count || 0), 0);
       const req     = settings.moon_requirement || 124;
       totalEl.textContent = `${total} / ${req}`;
-      totalEl.classList.toggle('hidden', settings.show_moon_total === false);
+      totalWrap.classList.toggle('hidden', settings.show_moon_total === false);
 
       // Section visibility
       document.getElementById('obs-capture-section')
+        .classList.toggle('hidden', settings.show_captures === false);
+      document.getElementById('obs-bowser')
         .classList.toggle('hidden', settings.show_captures === false);
       document.getElementById('obs-ability-section')
         .classList.toggle('hidden', settings.show_ability_lock === false);
