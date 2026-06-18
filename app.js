@@ -4,6 +4,10 @@
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 const STATE_KEY = 'tracker_state';
+const WS_URL_KEY = 'tracker_ws_url';
+const ROOM_CODE_KEY = 'tracker_room_code';
+
+let applyingRemote = false;
 
 const KINGDOMS = [
   { name: 'Cascade Kingdom',  img: 'assets/Cascade.png',  multi: 'assets/Cascade_Multi.png'  },
@@ -46,7 +50,6 @@ const DEFAULT_SETTINGS = {
   show_captures:     true,
   show_save_buttons: true,
   show_multi_moon:   true,
-  obs_bg_color:      '#00FF00',
   notes_scroll_px:   500,
   scroll_left_binding:  { type: 'mouse', code: 3 },  // MB4 (back)
   scroll_right_binding: { type: 'mouse', code: 4 },  // MB5 (forward)
@@ -190,6 +193,9 @@ function saveState() {
     localStorage.setItem(STATE_KEY, JSON.stringify(state));
   } catch (e) {
     console.error('Failed to save state:', e);
+  }
+  if (!applyingRemote && window.SMOSync && window.SMOSync.getRoom()) {
+    window.SMOSync.broadcast(state);
   }
 }
 
@@ -461,7 +467,8 @@ function openSettings() {
     document.getElementById(id).checked = state.settings[key];
   });
   document.getElementById('input-moon-req').value = state.settings.moon_requirement;
-  document.getElementById('input-obs-color').value = state.settings.obs_bg_color;
+  const wsUrlInput = document.getElementById('input-ws-url');
+  if (wsUrlInput) wsUrlInput.value = loadWsUrl();
   document.getElementById('input-notes-scroll').value = state.settings.notes_scroll_px;
 
   // Populate rebind button labels
@@ -517,17 +524,221 @@ function resetAll() {
 let obsWindow = null;
 
 function openOBS() {
+  const room = window.SMOSync ? window.SMOSync.getRoom() : null;
+  const wsUrl = room ? encodeURIComponent(window.SMOSync.getWsUrl()) : '';
+  let url = 'obs.html';
+  if (room) {
+    url += `?room=${room}&ws=${wsUrl}`;
+  }
   const features = 'width=315,height=450,resizable=yes,scrollbars=no,toolbar=no,menubar=no';
   if (!obsWindow || obsWindow.closed) {
-    obsWindow = window.open('obs.html', 'MoonTrackerOBS', features);
+    obsWindow = window.open(url, 'MoonTrackerOBS', features);
   } else {
+    obsWindow.location.href = url;
     obsWindow.focus();
   }
 }
 
-function toggleOBSBg() {
-  // obs.html listens for this storage event to toggle its background
-  localStorage.setItem('obs_bg_toggle', Date.now().toString());
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync
+// ─────────────────────────────────────────────────────────────────────────────
+function loadWsUrl() {
+  try {
+    return localStorage.getItem(WS_URL_KEY) || '';
+  } catch (e) { return ''; }
+}
+
+function saveWsUrl(url) {
+  try {
+    if (url) localStorage.setItem(WS_URL_KEY, url);
+    else localStorage.removeItem(WS_URL_KEY);
+  } catch (e) { console.error('Failed to save WS URL:', e); }
+}
+
+function getObsPageUrl(room, wsUrl) {
+  const base = 'https://firerisingraging.github.io/Online_SMO_Randomizer_Tracker/obs.html';
+  if (!room) return base;
+  return `${base}?room=${room}&ws=${encodeURIComponent(wsUrl || window.SMOSync.getWsUrl())}`;
+}
+
+function updateSyncUI() {
+  const sync = window.SMOSync;
+  const room = sync ? sync.getRoom() : null;
+  const roomInput = document.getElementById('input-room-code');
+  const connectBtn = document.getElementById('btn-connect-room');
+  const statusEl = document.getElementById('sync-status');
+  const urlRow = document.getElementById('sync-url-row');
+  const urlInput = document.getElementById('input-obs-url');
+
+  if (roomInput) roomInput.value = room || '';
+
+  if (room) {
+    connectBtn.textContent = 'Disconnect';
+    if (urlRow) urlRow.classList.remove('hidden');
+    if (urlInput) urlInput.value = getObsPageUrl(room);
+  } else {
+    connectBtn.textContent = 'Connect';
+    if (urlRow) urlRow.classList.add('hidden');
+    if (statusEl) statusEl.textContent = 'Offline — enter a room code to sync';
+  }
+}
+
+function applyRemoteState(remote) {
+  if (!remote || typeof remote !== 'object') return;
+  applyingRemote = true;
+
+  // Merge settings
+  if (remote.settings) {
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (key in remote.settings) state.settings[key] = remote.settings[key];
+    }
+  }
+
+  // Merge moons
+  if (Array.isArray(remote.moons)) {
+    remote.moons.forEach((m, i) => {
+      if (state.moons[i]) Object.assign(state.moons[i], m);
+    });
+  }
+
+  // Merge captures / abilities
+  if (remote.captures)  Object.assign(state.captures,  remote.captures);
+  if (remote.abilities) Object.assign(state.abilities, remote.abilities);
+
+  // Merge loading zones
+  if (remote.loading_zones) {
+    for (const [kingdom, data] of Object.entries(state.loading_zones)) {
+      if (!remote.loading_zones[kingdom]) continue;
+      const savedKingdom = remote.loading_zones[kingdom];
+      for (const zone of Object.keys(data.zones)) {
+        if (savedKingdom.zones && savedKingdom.zones[zone]) {
+          Object.assign(state.loading_zones[kingdom].zones[zone], savedKingdom.zones[zone]);
+        }
+      }
+    }
+  }
+
+  // Merge collapsed state
+  if (remote.kingdom_collapsed) {
+    for (const k of Object.keys(state.kingdom_collapsed)) {
+      if (k in remote.kingdom_collapsed) state.kingdom_collapsed[k] = remote.kingdom_collapsed[k];
+    }
+  }
+
+  saveState();
+  refreshAll();
+  applyingRemote = false;
+}
+
+function refreshAll() {
+  buildAllMoonRows();
+  buildCaptureRow();
+  buildAbilityRow();
+  applyAllSettings();
+  // Re-open settings to refresh values if visible
+  const settingsModal = document.getElementById('settings-modal');
+  if (settingsModal && !settingsModal.classList.contains('hidden')) {
+    openSettings();
+  }
+}
+
+function connectRoom() {
+  const roomInput = document.getElementById('input-room-code');
+  const room = roomInput.value.trim();
+  if (!room) return;
+
+  const wsUrlInput = document.getElementById('input-ws-url');
+  const wsUrl = wsUrlInput ? wsUrlInput.value.trim() : '';
+
+  saveWsUrl(wsUrl);
+  try {
+    localStorage.setItem(ROOM_CODE_KEY, room);
+  } catch (e) {}
+
+  if (window.SMOSync) {
+    window.SMOSync.connect(room, wsUrl);
+  }
+}
+
+function disconnectRoom() {
+  if (window.SMOSync) window.SMOSync.disconnect();
+  try {
+    localStorage.removeItem(ROOM_CODE_KEY);
+  } catch (e) {}
+  updateSyncUI();
+}
+
+function generateAndConnectRoom() {
+  if (!window.SMOSync) return;
+  const code = window.SMOSync.generateRoomCode(12);
+  const roomInput = document.getElementById('input-room-code');
+  if (roomInput) roomInput.value = code;
+  connectRoom();
+}
+
+function copyObsUrl() {
+  const input = document.getElementById('input-obs-url');
+  if (!input) return;
+  input.select();
+  navigator.clipboard.writeText(input.value).catch(() => {});
+}
+
+function setupSyncUI() {
+  if (!window.SMOSync) return;
+
+  // Load saved server URL into settings field
+  const savedWsUrl = loadWsUrl();
+  const wsUrlInput = document.getElementById('input-ws-url');
+  if (wsUrlInput && savedWsUrl) wsUrlInput.value = savedWsUrl;
+
+  // Status listener
+  window.SMOSync.onStatus((status) => {
+    const statusEl = document.getElementById('sync-status');
+    if (statusEl) {
+      const labels = {
+        connected: 'Connected — state is syncing',
+        connecting: 'Connecting...',
+        disconnected: 'Disconnected',
+        error: 'Connection error'
+      };
+      statusEl.textContent = labels[status] || status;
+    }
+    updateSyncUI();
+  });
+
+  // Incoming state listener
+  window.SMOSync.onState((remoteState) => {
+    applyRemoteState(remoteState);
+  });
+
+  // Button wiring
+  const connectBtn = document.getElementById('btn-connect-room');
+  const generateBtn = document.getElementById('btn-generate-room');
+  const copyBtn = document.getElementById('btn-copy-obs-url');
+
+  if (connectBtn) {
+    connectBtn.addEventListener('click', () => {
+      if (window.SMOSync.getRoom()) disconnectRoom();
+      else connectRoom();
+    });
+  }
+  if (generateBtn) generateBtn.addEventListener('click', generateAndConnectRoom);
+  if (copyBtn) copyBtn.addEventListener('click', copyObsUrl);
+
+  // Auto-connect from query param or saved room
+  const params = new URLSearchParams(window.location.search);
+  const roomFromUrl = params.get('room');
+  let room = roomFromUrl;
+  if (!room) {
+    try { room = localStorage.getItem(ROOM_CODE_KEY); } catch (e) {}
+  }
+  if (room) {
+    const roomInput = document.getElementById('input-room-code');
+    if (roomInput) roomInput.value = room;
+    connectRoom();
+  }
+
+  updateSyncUI();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -922,9 +1133,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Main buttons ───────────────────────────────
   document.getElementById('btn-obs').addEventListener('click', openOBS);
-  document.getElementById('btn-toggle-obs-bg').addEventListener('click', toggleOBSBg);
   document.getElementById('btn-clear').addEventListener('click', resetAll);
   document.getElementById('btn-settings').addEventListener('click', openSettings);
+
+  // ── Sync UI ────────────────────────────────────
+  setupSyncUI();
 
   // ── OBS Info modal ─────────────────────────────
   document.getElementById('btn-obs-info').addEventListener('click', () => {
@@ -957,12 +1170,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // OBS BG color Save
-  document.getElementById('save-obs-color').addEventListener('click', () => {
-    const v = document.getElementById('input-obs-color').value.trim();
-    if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
-      state.settings.obs_bg_color = v;
-      saveState();
+  // Sync server URL Save
+  document.getElementById('save-ws-url').addEventListener('click', () => {
+    const v = document.getElementById('input-ws-url').value.trim();
+    saveWsUrl(v);
+    // Reconnect if already in a room so the new URL takes effect
+    if (window.SMOSync && window.SMOSync.getRoom()) {
+      connectRoom();
     }
   });
 

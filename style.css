@@ -223,6 +223,60 @@ h1 {
 .save-btn:hover  { background: var(--accent-h); }
 .save-btn.hidden { display: none; }
 
+/* ── Sync Section ──────────────────────────────────────────────────── */
+#sync-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+#sync-room-row,
+#sync-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#sync-room-row input,
+#sync-url-row input {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+}
+
+#sync-room-row input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+#sync-url-row input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+}
+
+#sync-room-row button,
+#sync-url-row button {
+  width: auto;
+  flex-shrink: 0;
+}
+
+#sync-status {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
 /* ── Controls Section ──────────────────────────────────────────────── */
 #controls {
   display: grid;

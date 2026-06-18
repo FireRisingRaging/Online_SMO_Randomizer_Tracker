@@ -1,5 +1,5 @@
 # Online_SMO_Randomizer_Tracker
-An online version of the SMO Randomizer Tracker configured on github. Works on desktop and mobile. Saves progress locally in each user's browser.
+An online version of the SMO Randomizer Tracker configured on GitHub. Works on desktop and mobile. Saves progress locally in each user's browser, with optional live sync for OBS overlays.
 
 ## Features
 
@@ -10,26 +10,63 @@ An online version of the SMO Randomizer Tracker configured on github. Works on d
 | Capture row | Parabones, Banzai Bill, Spark Pylon, Bowser with click to toggle |
 | Ability row | Long Jump, Cappy, Wall Jump with click to toggle |
 | Loading Zone Notes | Collapsible zones, icon picker, text notes per zone |
-| Settings | All 5 toggles + moon requirement + OBS BG color |
-| OBS Overlay | Opens at 350×550, reads live from localStorage |
-| Chroma key | Toggle OBS BG switches between dark and custom color (default #00FF00) |
+| Settings | All 5 toggles + moon requirement + sync server URL |
+| OBS Overlay | Browser source with live state sync, transparent background |
+| Scale | Default 315×450, customizable via URL parameter |
 | Persistent saves | Full state stored in browser localStorage per user |
+| Live sync | Optional room-based WebSocket sync for cross-browser overlays |
 | Clear | Resets all progress, keeps settings |
+
+## Hosting the Sync Server
+
+The static tracker files stay on GitHub Pages. The live sync server is a small Node.js/WebSocket relay that you host yourself.
+
+### Quick start (Docker Compose)
+
+1. Clone the repo on your VPS.
+2. Edit `docker-compose.yml` if you want a port other than `3000`:
+   ```yaml
+   environment:
+     - PORT=8080
+   ports:
+     - "8080:8080"
+   ```
+3. Start the server:
+   ```bash
+   docker compose up -d
+   ```
+4. Point your Cloudflare Tunnel (or reverse proxy) to `http://localhost:PORT`.
+
+The server listens for WebSocket connections on `/ws`. Cloudflare handles HTTPS/WSS termination, so the origin can be plain HTTP/WS.
+
+### Manual start
+
+```bash
+npm install
+npm start
+```
+
+`PORT` defaults to `3000`.
 
 ## OBS Setup
 
-**Option A: Popup window:**
-1. Click **Open OBS Overlay** in the tracker.
-2. Add the popup as a Window Capture in OBS.
+1. Open the tracker at `https://firerisingraging.github.io/Online_SMO_Randomizer_Tracker/`.
+2. Enter a room code or click **Generate**, then click **Connect**.
+3. Copy the **OBS URL** that appears.
+4. In OBS, add a **Browser Source** and paste the URL.
+5. Set width **315**, height **450**.
+6. The overlay background is transparent — no chroma key needed.
 
-**Option B: Browser source:**
-1. In OBS, add a **Browser Source**.
-2. Set the URL to `https://FireRisingRaging.github.io/Online_SMO_Randomizer_Tracker/obs.html`.
-3. Set width **350**, height **550**, and enable **"Shutdown source when not visible"**.
-4. Use **Toggle OBS BG** in the main tracker (or the small **BG** button in the corner of the overlay) to switch the background to chroma key.
+To make the overlay larger, add `&scale=1.5` (or any value) to the URL and multiply the Browser Source size by that scale. For example, `scale=1.5` uses **473** × **675**.
 
-> **Note:** The OBS overlay reads its data from the same browser's localStorage. If you use the browser source option, open the main tracker in the same browser profile for the state to sync automatically.
+## How Sync Works
+
+- Each room is identified by a 12-character code.
+- When connected, every state change is sent to the sync server and broadcast to all other clients in the same room.
+- Multiple controllers can share one room. Last write wins.
+- Without a room code, the tracker works fully offline using `localStorage`.
+- Room codes are not authenticated. Use random/generated codes and keep them private.
 
 ## How State Saves Work
 
-Each visitor's progress is saved privately in their own browser's `localStorage` under the key `tracker_state`. Clearing browser data or switching devices will reset progress, this is intentional so multiple people can use the same URL independently.
+Each visitor's progress is saved privately in their own browser's `localStorage` under the key `tracker_state`. Connecting to a sync room does not replace local storage; it merges remote state into the local copy.

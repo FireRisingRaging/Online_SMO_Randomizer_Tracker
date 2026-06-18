@@ -1,0 +1,15 @@
+{
+  "name": "smo-randomizer-tracker-sync",
+  "version": "1.0.0",
+  "description": "WebSocket sync relay for the SMO Randomizer Tracker overlay.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
