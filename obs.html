@@ -339,10 +339,17 @@
 
     // ── Init ────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+
+      // Popup mode uses a solid dark background for Window Capture
+      if (params.get('popup')) {
+        document.body.style.background = '#181818';
+        document.documentElement.style.background = '#181818';
+      }
+
       applyScale();
       buildOBSLayout();
 
-      const params = new URLSearchParams(window.location.search);
       const room = params.get('room');
       const wsUrl = params.get('ws');
 

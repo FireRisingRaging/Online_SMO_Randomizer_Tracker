@@ -51,14 +51,22 @@ npm start
 
 ## OBS Setup
 
+### Browser Source (transparent overlay)
+
 1. Open the tracker at `https://firerisingraging.github.io/Online_SMO_Randomizer_Tracker/`.
 2. Enter a room code or click **Generate**, then click **Connect**.
 3. Copy the **OBS URL** that appears.
 4. In OBS, add a **Browser Source** and paste the URL.
-5. Set width **315**, height **450**.
-6. The overlay background is transparent so no chroma key needed.
+5. Set width **315**, height **450** (or the calculated size shown in the tracker).
+6. The overlay background is transparent — no chroma key needed.
 
 To make the overlay larger, change **OBS Overlay Scale** in Settings. The sync section shows the calculated width and height to paste into OBS, and the scale is synced to any already-open overlays.
+
+### Popup Window (Window Capture)
+
+1. Connect to a room.
+2. Click **Open Popup** to open a 315×450 window with a dark background.
+3. Add a **Window Capture** source in OBS and select the popup window.
 
 ## How Sync Works
 
