@@ -274,11 +274,6 @@ h1 {
   gap: 5px;
 }
 
-/* Ability section keeps its fixed size; icons hide via visibility */
-#ability-section {
-  align-self: center;
-}
-
 .icon-toggle-btn {
   background: var(--btn-bg);
   border: none;

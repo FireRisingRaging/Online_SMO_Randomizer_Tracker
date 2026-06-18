@@ -70,7 +70,7 @@ const LOADING_ZONES_TEMPLATE = {
   'Luncheon':   { color:'#3fddbb', icon:'Luncheon.png', zones:{ 'Magma Swamp':{num:2},'Forks':{num:2},'Cheese Rocks':{num:2},'Veggie Room':{num:1},'Slots':{num:1},'Shop':{num:1},'Costume':{num:1},'Spinning Athletics':{num:2},'Lava Islands':{num:2},'Volcano Cave':{num:2},'Gears':{num:2},'Magma Path':{num:2} }},
   'Ruined':     { color:'#ffd7e2', icon:'Ruin.png',     zones:{ "Chargin' Chuck":{num:2},'Rocket':{num:2} }},
   "Bowser's":   { color:'#d3304c', icon:'Bowser.png',   zones:{ 'Jizo':{num:2},'Shop':{num:1},'Costume':{num:2},'Treasure Room':{num:1},'Spinning Tower':{num:2},'Clouds':{num:2},'Hexagon Tower':{num:2},'Wooden Tower':{num:2} }},
-  'Mushroom':   { color:'#fff672', icon:'Star.png',     zones:{ 'Costume':{num:2},'Cloud Sea':{num:2},'Well':{num:2},'Knucklotec':{num:1},'Torkdrift':{num:1},'Mechawiggler':{num:1},'Octopus':{num:1},'Cookatiel':{num:1},'Dragon':{num:1},'Rocket':{num:2} }},
+  'Mushroom':   { color:'#fff672', icon:'Star.png',     zones:{ 'Costume':{num:2},'Castle':{num:2},'Cloud Sea':{num:2},'Well':{num:2},'Knucklotec':{num:1},'Torkdrift':{num:1},'Mechawiggler':{num:1},'Octopus':{num:1},'Cookatiel':{num:1},'Dragon':{num:1},'Rocket':{num:2} }},
   'Darkside':   { color:'#fff2c6', icon:'Dark.png',     zones:{ 'Breakdown':{num:2},'Invisible':{num:2},'Vanishing':{num:2},'Yoshi Siege':{num:2},'Lava Rising':{num:2},'Magma Swamp':{num:2} }},
   'Darkerside': { color:'#fff2c6', icon:'Dark.png',     zones:{ 'End':{num:1} }},
 };
