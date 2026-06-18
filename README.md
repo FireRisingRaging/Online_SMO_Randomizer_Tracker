@@ -65,7 +65,7 @@ To make the overlay larger, change **OBS Overlay Scale** in Settings. The sync s
 ### Popup Window (Window Capture)
 
 1. Connect to a room.
-2. Click **Open Popup** to open a 315×450 window with a dark background.
+2. Click **Open Popup** to open a dark-background window sized to your overlay scale.
 3. Add a **Window Capture** source in OBS and select the popup window.
 
 ## How Sync Works

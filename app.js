@@ -529,11 +529,13 @@ function openOBS() {
   const room = window.SMOSync ? window.SMOSync.getRoom() : null;
   const wsUrl = room ? encodeURIComponent(window.SMOSync.getWsUrl()) : '';
   const scale = state.settings.overlay_scale || 1;
+  const width = Math.round(315 * scale);
+  const height = Math.round(450 * scale);
   let url = 'obs.html?popup=1';
   if (room) {
     url += `&room=${room}&ws=${wsUrl}&scale=${scale}`;
   }
-  const features = 'width=315,height=450,resizable=yes,scrollbars=no,toolbar=no,menubar=no';
+  const features = `width=${width},height=${height},resizable=yes,scrollbars=no,toolbar=no,menubar=no`;
   if (!obsWindow || obsWindow.closed) {
     obsWindow = window.open(url, 'MoonTrackerOBS', features);
   } else {
