@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
 
   <style>
-    :root { --bg: #181818; --text: #fff; --font: 'Fredoka One'}
+    :root { --text: #fff; --font: 'Fredoka One'}
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -18,7 +18,7 @@
       width: 315px;
       height: 450px;
       overflow: hidden;
-      background: var(--bg);
+      background: transparent;
       color: var(--text);
       font-family: 'Fredoka One';
     }
@@ -28,6 +28,7 @@
       flex-direction: row;
       width: 315px;
       height: 450px;
+      transform-origin: top left;
     }
 
     /* ── Left column: moon rows ───── */
@@ -65,7 +66,6 @@
 
     .obs-count {
       font-size: 1.5rem;
-      /* font-weight: bold; */
       white-space: nowrap;
       min-width: 55px;
       text-align: center;
@@ -83,7 +83,6 @@
 
     .obs-section-header {
       font-size: 1rem;
-      /* font-weight: bold; */
       text-align: center;
       letter-spacing: 0.05em;
       padding: 6px 0 3px;
@@ -127,29 +126,10 @@
 
     #obs-total {
       font-size: 1.5rem;
-      /* font-weight: bold; */
       text-align: center;
       letter-spacing: 0.05em;
       padding: 6px 0 2px;
     }
-
-    /* ── BG toggle button (corner) ── */
-    #obs-bg-btn {
-      position: fixed;
-      bottom: 6px;
-      right: 6px;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff;
-      font-size: 0.7rem;
-      padding: 3px 7px;
-      border-radius: 4px;
-      cursor: pointer;
-      z-index: 10;
-      font-family: 'Fredoka One';
-      transition: background 0.15s;
-    }
-    #obs-bg-btn:hover { background: rgba(255,255,255,0.22); }
 
     /* Sections that may be hidden via settings */
     #obs-capture-section.hidden,
@@ -177,12 +157,11 @@
       </div>
     </div>
   </div>
-  <!-- <button id="obs-bg-btn" title="Toggle chroma key background">BG</button> -->
 
+  <script src="sync.js"></script>
   <script>
     'use strict';
 
-    const STATE_KEY = 'tracker_state';
     const KINGDOMS = [
       { name:'Cascade Kingdom',  img:'assets/Cascade.png'  },
       { name:'Sand Kingdom',     img:'assets/Sand.png'     },
@@ -209,15 +188,27 @@
       { key:'wall', locked:'assets/Wall_Jump_Locked.png', unlocked:'assets/Wall_Jump.png' },
     ];
 
-    let bgMode = 'dark';
     let currentState = null;
 
-    // ── Load state from localStorage ──────────────────────────────
-    function loadTrackerState() {
-      try {
-        const raw = localStorage.getItem(STATE_KEY);
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) { return null; }
+    // ── Determine effective scale ─────────────────────────────────
+    function getScale() {
+      const params = new URLSearchParams(window.location.search);
+      const urlScale = parseFloat(params.get('scale'));
+      const settingsScale = currentState && currentState.settings ? currentState.settings.overlay_scale : null;
+      return urlScale || settingsScale || 1;
+    }
+
+    // ── Apply scale to viewport ───────────────────────────────────
+    function applyScale() {
+      const scale = getScale();
+      const root = document.getElementById('obs-root');
+      const html = document.documentElement;
+      const body = document.body;
+      root.style.transform = `scale(${scale})`;
+      html.style.width = `${315 * scale}px`;
+      html.style.height = `${450 * scale}px`;
+      body.style.width = `${315 * scale}px`;
+      body.style.height = `${450 * scale}px`;
     }
 
     // ── Build DOM ─────────────────────────────────────────────────
@@ -280,17 +271,17 @@
     }
 
     // ── Update all DOM elements from current state ────────────────
-    function updateOBS() {
-      const s = loadTrackerState();
-      if (!s) return;
-      currentState = s;
-      const settings = s.settings || {};
+    function updateOBS(s) {
+      currentState = s || currentState;
+      if (!currentState) return;
+      applyScale();
+      const settings = currentState.settings || {};
 
       // Moon rows
       KINGDOMS.forEach((_, i) => {
         const row = document.querySelector(`.obs-moon-row[data-i="${i}"]`);
         if (!row) return;
-        const m = (s.moons && s.moons[i]) || {};
+        const m = (currentState.moons && currentState.moons[i]) || {};
 
         row.querySelector('.obs-lock').src =
           m.lock  ? 'assets/unlock.png'       : 'assets/lock.png';
@@ -308,23 +299,23 @@
       // Capture icons
       CAPTURE_ICONS.forEach(ic => {
         const img = document.querySelector(`#obs-capture-icons img[data-key="${ic.key}"]`);
-        if (img && s.captures) {
-          img.src = s.captures[ic.key] ? ic.unlocked : ic.locked;
+        if (img && currentState.captures) {
+          img.src = currentState.captures[ic.key] ? ic.unlocked : ic.locked;
         }
       });
 
       // Ability icons
       ABILITY_ICONS.forEach(ic => {
         const img = document.querySelector(`#obs-ability-icons img[data-key="${ic.key}"]`);
-        if (img && s.abilities) {
-          img.src = s.abilities[ic.key] ? ic.unlocked : ic.locked;
+        if (img && currentState.abilities) {
+          img.src = currentState.abilities[ic.key] ? ic.unlocked : ic.locked;
         }
       });
 
       // Bowser (from captures)
       const bowserImg = document.getElementById('obs-bowser-img');
-      if (bowserImg && s.captures) {
-        bowserImg.src = s.captures.bowser
+      if (bowserImg && currentState.captures) {
+        bowserImg.src = currentState.captures.bowser
           ? 'assets/Bowser_Capture.png'
           : 'assets/Bowser_Capture_Locked.png';
       }
@@ -332,7 +323,7 @@
       // Total label
       const totalEl = document.getElementById('obs-total');
       const totalWrap = document.getElementById('obs-total-wrap');
-      const total   = (s.moons || []).reduce((sum, m) => sum + (m.count || 0), 0);
+      const total   = (currentState.moons || []).reduce((sum, m) => sum + (m.count || 0), 0);
       const req     = settings.moon_requirement || 124;
       totalEl.textContent = `${total} / ${req}`;
       totalWrap.classList.toggle('hidden', settings.show_moon_total === false);
@@ -344,40 +335,30 @@
         .classList.toggle('hidden', settings.show_captures === false);
       document.getElementById('obs-ability-section')
         .classList.toggle('hidden', settings.show_ability_lock === false);
-
-      // If OBS is in green mode, use the latest saved custom color
-      if (bgMode === 'green') {
-        document.body.style.background = settings.obs_bg_color || '#00FF00';
-      }
     }
-
-    // ── Background toggle ────────────────────────────────────────
-    function toggleBg() {
-      const s = (currentState && currentState.settings) || {};
-      if (bgMode === 'dark') {
-        bgMode = 'green';
-        document.body.style.background = s.obs_bg_color || '#00FF00';
-      } else {
-        bgMode = 'dark';
-        document.body.style.background = '#181818';
-      }
-    }
-
-    // ── Listen for changes pushed by the main tracker ────────────
-    window.addEventListener('storage', (e) => {
-      if (e.key === STATE_KEY)       updateOBS();
-      if (e.key === 'obs_bg_toggle') toggleBg();
-    });
-
-    // ── BG button inside OBS window itself ───────────────────────
-    // document.getElementById('obs-bg-btn').addEventListener('click', toggleBg);
 
     // ── Init ────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+
+      // Popup mode uses a solid dark background for Window Capture
+      if (params.get('popup')) {
+        document.body.style.background = '#181818';
+        document.documentElement.style.background = '#181818';
+      }
+
+      applyScale();
       buildOBSLayout();
-      updateOBS();
-      // Polling fallback — catches updates in same browser tab (edge case)
-      setInterval(updateOBS, 250);
+
+      const room = params.get('room');
+      const wsUrl = params.get('ws');
+
+      if (room && window.SMOSync) {
+        window.SMOSync.onState((remoteState) => {
+          updateOBS(remoteState);
+        });
+        window.SMOSync.connect(room, wsUrl);
+      }
     });
   </script>
 </body>

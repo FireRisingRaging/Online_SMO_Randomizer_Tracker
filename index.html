@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -8,14 +9,32 @@
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="assets/SMO-ColoredGlobe.png">
 </head>
+
 <body>
   <div id="app">
     <h1 class="header">
-    <span>SMO Randomizer Tracker</span>
-    <button class="ctrl-btn gear-btn" id="btn-settings" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">⚙</button>
+      <span>SMO Randomizer Tracker</span>
+      <button class="ctrl-btn gear-btn" id="btn-settings"
+        style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">⚙</button>
     </h1>
     <!-- Moon Rows -->
     <div id="moon-rows"></div>
+
+    <!-- Sync -->
+    <div id="sync-section">
+      <div id="sync-room-row">
+        <input type="password" id="input-room-code" placeholder="Room code" maxlength="12" spellcheck="false">
+        <button class="ctrl-btn" id="btn-toggle-visibility" title="Show/hide room code and URL">Show</button>
+        <button class="ctrl-btn" id="btn-generate-room">Generate</button>
+        <button class="ctrl-btn" id="btn-connect-room">Connect</button>
+      </div>
+      <div id="sync-status">Offline — enter a room code to sync</div>
+      <div id="sync-url-row" class="hidden">
+        <input type="password" id="input-obs-url" readonly>
+        <button class="ctrl-btn" id="btn-copy-obs-url">Copy OBS URL</button>
+      </div>
+      <div id="sync-size-row" class="hidden">OBS size: <strong>315</strong> × <strong>450</strong></div>
+    </div>
 
     <!-- Controls -->
     <div id="controls">
@@ -25,12 +44,10 @@
 
       <div id="button-section">
         <div id="obs-btn-row">
-          <button class="ctrl-btn" id="btn-obs">Open OBS Overlay</button>
+          <button class="ctrl-btn" id="btn-obs">Open Popup</button>
           <button class="ctrl-btn info-btn" id="btn-obs-info" title="OBS Setup Help">ℹ️</button>
         </div>
-        <button class="ctrl-btn" id="btn-toggle-obs-bg">Toggle OBS BG</button>
         <button class="ctrl-btn danger-btn" id="btn-clear">Clear</button>
-        
       </div>
 
       <div id="notes-section"></div>
@@ -49,23 +66,20 @@
         <button class="modal-close" id="obs-info-close" aria-label="Close">✕</button>
       </div>
       <div class="modal-body obs-info-body">
-        <p class="info-title">Popup Window <span class="info-tag">Recommended</span></p>
-        <p>Click <strong>Open OBS Overlay</strong> to open a 315×450 popup then capture it with Window Capture in OBS.</p>
-        <p class="info-title">Browser Source</p>
+        <p class="info-title">Browser Source <span class="info-tag">Recommended</span></p>
         <ol>
+          <li>Enter or generate a <strong>Room Code</strong> in the tracker, then click <strong>Connect</strong></li>
+          <li>Copy the <strong>OBS URL</strong> that appears</li>
           <li>In OBS add a <strong>Browser Source</strong></li>
-          <li>Set URL to https://firerisingraging.github.io/Online_SMO_Randomizer_Tracker/obs.html</li>
-          <li>Set width <strong>315</strong>, height <strong>450</strong></li>
-          <li>Enable <em>Shutdown source when not visible</em></li>
-          <li>Open the main tracker in the same browser: state syncs automatically</li>
+          <li>Paste the OBS URL. Default size is <strong>315</strong> × <strong>450</strong></li>
+          <li>To make the overlay larger, change <strong>OBS Overlay Scale</strong> in Settings. The sync section shows
+            the calculated width and height to paste into OBS, and the scale is synced to any already-open overlays.
+          </li>
+          <li>The overlay background is transparent so no chroma key needed</li>
         </ol>
-        <p class="info-title">Removing the Background</p>
-        <ol>
-          <li>Click <strong>Toggle OBS BG</strong> in the tracker (or the <strong>BG</strong> button in the overlay corner)</li>
-          <li>In OBS right-click the source → <strong>Filters</strong></li>
-          <li>Add a <strong>Chroma Key</strong> filter</li>
-          <li>Match the key color to OBS BG Color in Settings (default <code>#00FF00</code>)</li>
-        </ol>
+        <p class="info-title">Popup Window</p>
+        <p>Click <strong>Open Popup</strong> to open a window with a dark background sized to your overlay scale, then capture it with Window Capture in OBS.
+        </p>
       </div>
     </div>
   </div>
@@ -136,10 +150,18 @@
         </div>
 
         <div class="settings-row">
-          <span>OBS BG Color</span>
+          <span>OBS Overlay Scale</span>
           <div class="input-save-pair">
-            <input type="text" id="input-obs-color" placeholder="#00FF00" maxlength="7" spellcheck="false">
-            <button class="save-inline-btn" id="save-obs-color">Save</button>
+            <input type="number" id="input-overlay-scale" placeholder="1" min="0.1" max="10" step="0.1">
+            <button class="save-inline-btn" id="save-overlay-scale">Save</button>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <span>Sync Server URL</span>
+          <div class="input-save-pair">
+            <input type="text" id="input-ws-url" placeholder="wss://smo-rand.johnnycyan.com/ws" spellcheck="false">
+            <button class="save-inline-btn" id="save-ws-url">Save</button>
           </div>
         </div>
 
@@ -185,6 +207,8 @@
 
   <!-- ── Icon Picker (appended to body by JS) ──────────────────── -->
 
+  <script src="sync.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>

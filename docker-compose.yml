@@ -1,0 +1,9 @@
+services:
+  smo-rand-sync:
+    build: .
+    container_name: smo-rand-sync
+    environment:
+      - PORT=${PORT:-3000}
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    restart: unless-stopped

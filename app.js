@@ -4,51 +4,55 @@
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 const STATE_KEY = 'tracker_state';
+const WS_URL_KEY = 'tracker_ws_url';
+const ROOM_CODE_KEY = 'tracker_room_code';
+
+let applyingRemote = false;
 
 const KINGDOMS = [
-  { name: 'Cascade Kingdom',  img: 'assets/Cascade.png',  multi: 'assets/Cascade_Multi.png'  },
-  { name: 'Sand Kingdom',     img: 'assets/Sand.png',     multi: 'assets/Sand_Multi.png'     },
-  { name: 'Lake Kingdom',     img: 'assets/Lake.png',     multi: 'assets/Lake_Multi.png'     },
-  { name: 'Wooded Kingdom',   img: 'assets/Wooded.png',   multi: 'assets/Wooded_Multi.png'   },
-  { name: 'Lost Kingdom',     img: 'assets/Lost.png',     multi: 'assets/Lost_Multi.png'     },
-  { name: 'Metro Kingdom',    img: 'assets/Metro.png',    multi: 'assets/Metro_Multi.png'    },
-  { name: 'Snow Kingdom',     img: 'assets/Snow.png',     multi: 'assets/Snow_Multi.png'     },
-  { name: 'Seaside Kingdom',  img: 'assets/Seaside.png',  multi: 'assets/Seaside_Multi.png'  },
+  { name: 'Cascade Kingdom', img: 'assets/Cascade.png', multi: 'assets/Cascade_Multi.png' },
+  { name: 'Sand Kingdom', img: 'assets/Sand.png', multi: 'assets/Sand_Multi.png' },
+  { name: 'Lake Kingdom', img: 'assets/Lake.png', multi: 'assets/Lake_Multi.png' },
+  { name: 'Wooded Kingdom', img: 'assets/Wooded.png', multi: 'assets/Wooded_Multi.png' },
+  { name: 'Lost Kingdom', img: 'assets/Lost.png', multi: 'assets/Lost_Multi.png' },
+  { name: 'Metro Kingdom', img: 'assets/Metro.png', multi: 'assets/Metro_Multi.png' },
+  { name: 'Snow Kingdom', img: 'assets/Snow.png', multi: 'assets/Snow_Multi.png' },
+  { name: 'Seaside Kingdom', img: 'assets/Seaside.png', multi: 'assets/Seaside_Multi.png' },
   { name: 'Luncheon Kingdom', img: 'assets/Luncheon.png', multi: 'assets/Luncheon_Multi.png' },
-  { name: 'Ruined Kingdom',   img: 'assets/Ruin.png',     multi: 'assets/Ruined_Multi.png'     },
-  { name: 'Bowser Kingdom',   img: 'assets/Bowser.png',   multi: 'assets/Bowser_Multi.png'   },
+  { name: 'Ruined Kingdom', img: 'assets/Ruin.png', multi: 'assets/Ruined_Multi.png' },
+  { name: 'Bowser Kingdom', img: 'assets/Bowser.png', multi: 'assets/Bowser_Multi.png' },
 ];
 
 const CAPTURE_ICONS = [
-  { key: 'parabones', locked: 'assets/Parabones_Capture_Locked.png', unlocked: 'assets/Parabones_Capture.png'      },
-  { key: 'banzai',    locked: 'assets/Banzai_Bill_Capture_Locked.png', unlocked: 'assets/Banzai_Bill_Capture.png'  },
-  { key: 'wire',      locked: 'assets/Spark_pylon_Capture_Locked.png', unlocked: 'assets/Spark_pylon_Capture.png'  },
-  { key: 'bowser',    locked: 'assets/Bowser_Capture_Locked.png',      unlocked: 'assets/Bowser_Capture.png'       },
+  { key: 'parabones', locked: 'assets/Parabones_Capture_Locked.png', unlocked: 'assets/Parabones_Capture.png' },
+  { key: 'banzai', locked: 'assets/Banzai_Bill_Capture_Locked.png', unlocked: 'assets/Banzai_Bill_Capture.png' },
+  { key: 'wire', locked: 'assets/Spark_pylon_Capture_Locked.png', unlocked: 'assets/Spark_pylon_Capture.png' },
+  { key: 'bowser', locked: 'assets/Bowser_Capture_Locked.png', unlocked: 'assets/Bowser_Capture.png' },
 ];
 
 const ABILITY_ICONS = [
   { key: 'jump', locked: 'assets/Long_Jump_Locked.png', unlocked: 'assets/Long_Jump.png' },
-  { key: 'cap',  locked: 'assets/Cappy_Locked.png',     unlocked: 'assets/Cappy.png'     },
+  { key: 'cap', locked: 'assets/Cappy_Locked.png', unlocked: 'assets/Cappy.png' },
   { key: 'wall', locked: 'assets/Wall_Jump_Locked.png', unlocked: 'assets/Wall_Jump.png' },
 ];
 
 const PICKER_ICONS = [
-  'Cascade.png','Sand.png','Lake.png','Wooded.png','Lost.png','Metro.png',
-  'Snow.png','Seaside.png','Luncheon.png','Ruin.png','Bowser.png',
-  'Cap.png','Dark.png','Star.png',"Moon.png","Moon_Dark.png","checkmark.png","xmark.png",
+  'Cascade.png', 'Sand.png', 'Lake.png', 'Wooded.png', 'Lost.png', 'Metro.png',
+  'Snow.png', 'Seaside.png', 'Luncheon.png', 'Ruin.png', 'Bowser.png',
+  'Cap.png', 'Dark.png', 'Star.png', "Moon.png", "Moon_Dark.png", "checkmark.png", "xmark.png",
 ];
 
 const DEFAULT_SETTINGS = {
-  show_moon_total:   true,
-  moon_requirement:  124,
-  show_icon_colors:  true,
+  show_moon_total: true,
+  moon_requirement: 124,
+  show_icon_colors: true,
   show_ability_lock: true,
-  show_captures:     true,
+  show_captures: true,
   show_save_buttons: true,
-  show_multi_moon:   true,
-  obs_bg_color:      '#00FF00',
-  notes_scroll_px:   500,
-  scroll_left_binding:  { type: 'mouse', code: 3 },  // MB4 (back)
+  show_multi_moon: true,
+  overlay_scale: 1,
+  notes_scroll_px: 500,
+  scroll_left_binding: { type: 'mouse', code: 3 },  // MB4 (back)
   scroll_right_binding: { type: 'mouse', code: 4 },  // MB5 (forward)
 };
 
@@ -57,21 +61,21 @@ function cloneDefaultSettings() {
 }
 
 const LOADING_ZONES_TEMPLATE = {
-  'Cap':        { color:'#fff500', icon:'Cap.png',      zones:{ 'Orange':{num:2},'Paragoomba':{num:2},'Frog':{num:2},'Rolling On':{num:2} }},
-  'Cascade':    { color:'#ff9900', icon:'Cascade.png',  zones:{ 'Dino':{num:2},'2D':{num:2},'Chain Chomp':{num:2},'Swings':{num:2},'Windy':{num:2} }},
-  'Sand':       { color:'#8bf12c', icon:'Sand.png',     zones:{ "Icy Cave":{num:1},"Moe-eye":{num:2},"Shop":{num:1},"Employees":{num:1},"Slots":{num:1},"Rumble":{num:1},"Outfit":{num:1},"Jaxi Ruins":{num:2},"Bullet Bill":{num:2},"Gushen":{num:2},"Sphynx":{num:1},"Moving Platform":{num:2},"Rocket":{num:2},"Colossal Ruins":{num:2}}},
-  'Lake':       { color:'#e46cab', icon:'Lake.png',     zones:{ "Poison Waves":{num:2},"Zipper":{num:2},"Grab Climb":{num:2},"Shop":{num:1},"Puzzle":{num:1}}},
-  'Wooded':     { color:'#1e65e7', icon:'Wooded.png',   zones:{ "DW Odyssey":{num:0},"DW Red Maze":{num:0},"DW Pond":{num:0},"DW Treasure":{num:1},"DW Outfit":{num:1},"Rocket":{num:2},"Sheep":{num:2},"Tank":{num:2},"Vine Clouds":{num:2},"Breakdown":{num:2},"Invisible":{num:2},"Flooded Pipes":{num:2},"Flower Road":{num:2},"Treasure Room":{num:1}}},
-  'Lost':       { color:'#e71edd', icon:'Lost.png',     zones:{ 'Wiggler':{num:2},'Shop':{num:1},'Klepto':{num:2} }},
-  'Metro':      { color:'#de7d5e', icon:'Metro.png',    zones:{ "Yellow Shop":{num:1},"Purple Shop":{num:1},"Dino":{num:2},"Bullet Billding":{num:2},"Taxi":{num:2},"Notes":{num:1},"2D":{num:2},"Slots":{num:1},"People":{num:2},"Outfit":{num:2},"Rocket":{num:2},"Dark":{num:2},"Scaffolding":{num:2},"Scooter":{num:2},"Rotating Maze":{num:2},"RC Car":{num:2}}},
-  'Snow':       { color:'#e7930a', icon:'Snow.png',     zones:{ "Puzzle":{num:1},"Capless":{num:2},"Rocket Flower":{num:2},"Iceburn":{num:2},"Flower Road":{num:2},"Tracewalking":{num:1},"Clouds":{num:2},"Outfit":{num:2},"Shop":{num:1}}},
-  'Seaside':    { color:'#b36fe9', icon:'Seaside.png',  zones:{ "Well Enter":{num:1},"Well Exit":{num:1},"Rumble":{num:1},"Rocket":{num:2},"Outfit":{num:1},"Gushen":{num:2},"Sphynx":{num:1},"Pokio":{num:2},"Lava Rising":{num:2},"Sandy Bottom":{num:1},"Spinning Maze":{num:2}}},
-  'Luncheon':   { color:'#3fddbb', icon:'Luncheon.png', zones:{ "Magma Swamp":{num:2},"Forks":{num:2},"Cheese Rocks":{num:2},"Veggie Room":{num:1},"Slots":{num:1},"Shop":{num:1},"Outfit":{num:2},"Spinning Athletics":{num:2},"Lava Islands":{num:2},"Volcano Cave":{num:2},"Gears":{num:2},"Magma Path":{num:2}}},
-  'Ruined':     { color:'#ffd7e2', icon:'Ruin.png',     zones:{ "Chargin' Chuck":{num:2},'Rocket':{num:2} }},
-  "Bowser's":   { color:'#d3304c', icon:'Bowser.png',   zones:{ "Jizo":{num:2},"Shop":{num:1},"Outfit":{num:2},"Treasure Room":{num:1},"Spinning Tower":{num:2},"Vine Clouds":{num:2},"Hexagon Tower":{num:2},"Wooden Tower":{num:2}}},
-  'Mushroom':   { color:'#fff672', icon:'Star.png',     zones:{ "Shop":{num:1},"Castle Door":{num:2},"Outfit":{num:2},"Cloud Sea":{num:2},"Well":{num:2},"Knucklotec":{num:1},"Torkdrift":{num:1},"Mechawiggler":{num:1},"Octopus":{num:1},"Cookatiel":{num:1},"Dragon":{num:1},"Rocket":{num:2}}},
-  'Darkside':   { color:'#fff2c6', icon:'Dark.png',     zones:{ 'Breakdown':{num:2},'Invisible':{num:2},'Vanishing':{num:2},'Yoshi Siege':{num:2},'Lava Rising':{num:2},'Magma Swamp':{num:2} }},
-  'Darkerside': { color:'#fff2c6', icon:'Dark.png',     zones:{ 'End':{num:1} }},
+  'Cap': { color: '#fff500', icon: 'Cap.png', zones: { 'Orange': { num: 2 }, 'Paragoomba': { num: 2 }, 'Frog': { num: 2 }, 'Rolling On': { num: 2 } } },
+  'Cascade': { color: '#ff9900', icon: 'Cascade.png', zones: { 'Dino': { num: 2 }, '2D': { num: 2 }, 'Chain Chomp': { num: 2 }, 'Swings': { num: 2 }, 'Windy': { num: 2 } } },
+  'Sand': { color: '#8bf12c', icon: 'Sand.png', zones: { "Icy Cave": { num: 1 }, "Moe-eye": { num: 2 }, "Shop": { num: 1 }, "Employees": { num: 1 }, "Slots": { num: 1 }, "Rumble": { num: 1 }, "Outfit": { num: 1 }, "Jaxi Ruins": { num: 2 }, "Bullet Bill": { num: 2 }, "Gushen": { num: 2 }, "Sphynx": { num: 1 }, "Moving Platform": { num: 2 }, "Rocket": { num: 2 }, "Colossal Ruins": { num: 2 } } },
+  'Lake': { color: '#e46cab', icon: 'Lake.png', zones: { "Poison Waves": { num: 2 }, "Zipper": { num: 2 }, "Grab Climb": { num: 2 }, "Shop": { num: 1 }, "Puzzle": { num: 1 } } },
+  'Wooded': { color: '#1e65e7', icon: 'Wooded.png', zones: { "DW Odyssey": { num: 0 }, "DW Red Maze": { num: 0 }, "DW Pond": { num: 0 }, "DW Treasure": { num: 1 }, "DW Outfit": { num: 1 }, "Rocket": { num: 2 }, "Sheep": { num: 2 }, "Tank": { num: 2 }, "Vine Clouds": { num: 2 }, "Breakdown": { num: 2 }, "Invisible": { num: 2 }, "Flooded Pipes": { num: 2 }, "Flower Road": { num: 2 }, "Treasure Room": { num: 1 } } },
+  'Lost': { color: '#e71edd', icon: 'Lost.png', zones: { 'Wiggler': { num: 2 }, 'Shop': { num: 1 }, 'Klepto': { num: 2 } } },
+  'Metro': { color: '#de7d5e', icon: 'Metro.png', zones: { "Yellow Shop": { num: 1 }, "Purple Shop": { num: 1 }, "Dino": { num: 2 }, "Bullet Billding": { num: 2 }, "Taxi": { num: 2 }, "Notes": { num: 1 }, "2D": { num: 2 }, "Slots": { num: 1 }, "People": { num: 2 }, "Outfit": { num: 2 }, "Rocket": { num: 2 }, "Dark": { num: 2 }, "Scaffolding": { num: 2 }, "Scooter": { num: 2 }, "Rotating Maze": { num: 2 }, "RC Car": { num: 2 } } },
+  'Snow': { color: '#e7930a', icon: 'Snow.png', zones: { "Puzzle": { num: 1 }, "Capless": { num: 2 }, "Rocket Flower": { num: 2 }, "Iceburn": { num: 2 }, "Flower Road": { num: 2 }, "Tracewalking": { num: 1 }, "Clouds": { num: 2 }, "Outfit": { num: 2 }, "Shop": { num: 1 } } },
+  'Seaside': { color: '#b36fe9', icon: 'Seaside.png', zones: { "Well Enter": { num: 1 }, "Well Exit": { num: 1 }, "Rumble": { num: 1 }, "Rocket": { num: 2 }, "Outfit": { num: 1 }, "Gushen": { num: 2 }, "Sphynx": { num: 1 }, "Pokio": { num: 2 }, "Lava Rising": { num: 2 }, "Sandy Bottom": { num: 1 }, "Spinning Maze": { num: 2 } } },
+  'Luncheon': { color: '#3fddbb', icon: 'Luncheon.png', zones: { "Magma Swamp": { num: 2 }, "Forks": { num: 2 }, "Cheese Rocks": { num: 2 }, "Veggie Room": { num: 1 }, "Slots": { num: 1 }, "Shop": { num: 1 }, "Outfit": { num: 2 }, "Spinning Athletics": { num: 2 }, "Lava Islands": { num: 2 }, "Volcano Cave": { num: 2 }, "Gears": { num: 2 }, "Magma Path": { num: 2 } } },
+  'Ruined': { color: '#ffd7e2', icon: 'Ruin.png', zones: { "Chargin' Chuck": { num: 2 }, 'Rocket': { num: 2 } } },
+  "Bowser's": { color: '#d3304c', icon: 'Bowser.png', zones: { "Jizo": { num: 2 }, "Shop": { num: 1 }, "Outfit": { num: 2 }, "Treasure Room": { num: 1 }, "Spinning Tower": { num: 2 }, "Vine Clouds": { num: 2 }, "Hexagon Tower": { num: 2 }, "Wooden Tower": { num: 2 } } },
+  'Mushroom': { color: '#fff672', icon: 'Star.png', zones: { "Shop": { num: 1 }, "Castle Door": { num: 2 }, "Outfit": { num: 2 }, "Cloud Sea": { num: 2 }, "Well": { num: 2 }, "Knucklotec": { num: 1 }, "Torkdrift": { num: 1 }, "Mechawiggler": { num: 1 }, "Octopus": { num: 1 }, "Cookatiel": { num: 1 }, "Dragon": { num: 1 }, "Rocket": { num: 2 } } },
+  'Darkside': { color: '#fff2c6', icon: 'Dark.png', zones: { 'Breakdown': { num: 2 }, 'Invisible': { num: 2 }, 'Vanishing': { num: 2 }, 'Yoshi Siege': { num: 2 }, 'Lava Rising': { num: 2 }, 'Magma Swamp': { num: 2 } } },
+  'Darkerside': { color: '#fff2c6', icon: 'Dark.png', zones: { 'End': { num: 1 } } },
 };
 
 // Number of zones above which a kingdom column auto-splits into two side-by-side columns
@@ -83,17 +87,17 @@ const MOBILE_BREAKPOINT = 540;
 function bindingLabel(binding) {
   if (!binding) return 'Not Set';
   if (binding.type === 'mouse') {
-    const names = { 0:'Left Click', 1:'Middle Click', 2:'Right Click', 3:'Mouse 4', 4:'Mouse 5' };
+    const names = { 0: 'Left Click', 1: 'Middle Click', 2: 'Right Click', 3: 'Mouse 4', 4: 'Mouse 5' };
     return names[binding.code] !== undefined ? names[binding.code] : `Mouse ${binding.code + 1}`;
   }
   if (binding.type === 'key') {
     const map = {
       ArrowLeft: 'Left Arrow', ArrowRight: 'Right Arrow',
-      ArrowUp: 'Up Arrow',     ArrowDown: 'Down Arrow',
+      ArrowUp: 'Up Arrow', ArrowDown: 'Down Arrow',
       Space: 'Space', Enter: 'Enter', Tab: 'Tab',
     };
     if (map[binding.code]) return map[binding.code];
-    if (binding.code.startsWith('Key'))   return binding.code.slice(3);
+    if (binding.code.startsWith('Key')) return binding.code.slice(3);
     if (binding.code.startsWith('Digit')) return binding.code.slice(5);
     return binding.code;
   }
@@ -102,12 +106,12 @@ function bindingLabel(binding) {
 
 // Settings toggle definitions for data-driven wiring
 const TOGGLE_SETTINGS = [
-  { id: 'toggle-moon-total',   key: 'show_moon_total'   },
-  { id: 'toggle-icon-colors',  key: 'show_icon_colors'  },
+  { id: 'toggle-moon-total', key: 'show_moon_total' },
+  { id: 'toggle-icon-colors', key: 'show_icon_colors' },
   { id: 'toggle-ability-lock', key: 'show_ability_lock' },
-  { id: 'toggle-captures',     key: 'show_captures'     },
+  { id: 'toggle-captures', key: 'show_captures' },
   { id: 'toggle-save-buttons', key: 'show_save_buttons' },
-  { id: 'toggle-multi-moon',   key: 'show_multi_moon'   },
+  { id: 'toggle-multi-moon', key: 'show_multi_moon' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,7 +124,7 @@ function buildDefaultLoadingZones() {
   for (const [kingdom, data] of Object.entries(LOADING_ZONES_TEMPLATE)) {
     result[kingdom] = { color: data.color, icon: data.icon, zones: {} };
     for (const [zone, zd] of Object.entries(data.zones)) {
-      result[kingdom].zones[zone] = { note:'', icon:'Moon.png', icon2:'Moon.png', collapsed:false, num: zd.num };
+      result[kingdom].zones[zone] = { note: '', icon: 'Moon.png', icon2: 'Moon.png', collapsed: false, num: zd.num };
     }
   }
   return result;
@@ -128,10 +132,10 @@ function buildDefaultLoadingZones() {
 
 function getDefaultState() {
   return {
-    settings:      cloneDefaultSettings(),
-    moons:         KINGDOMS.map(() => ({ count:0, max:null, lock:false, peace:false, multi:false })),
-    captures:      { parabones:false, banzai:false, wire:false, bowser:false },
-    abilities:     { jump:false, cap:false, wall:false },
+    settings: cloneDefaultSettings(),
+    moons: KINGDOMS.map(() => ({ count: 0, max: null, lock: false, peace: false, multi: false })),
+    captures: { parabones: false, banzai: false, wire: false, bowser: false },
+    abilities: { jump: false, cap: false, wall: false },
     loading_zones: buildDefaultLoadingZones(),
     kingdom_collapsed: Object.fromEntries(Object.keys(LOADING_ZONES_TEMPLATE).map(k => [k, false])),
   };
@@ -158,7 +162,7 @@ function loadState() {
       });
     }
     // Captures / abilities
-    if (saved.captures)  Object.assign(state.captures,  saved.captures);
+    if (saved.captures) Object.assign(state.captures, saved.captures);
     if (saved.abilities) Object.assign(state.abilities, saved.abilities);
 
     // Loading zones merge saved per-zone data, keep template structure for new zones
@@ -190,6 +194,9 @@ function saveState() {
     localStorage.setItem(STATE_KEY, JSON.stringify(state));
   } catch (e) {
     console.error('Failed to save state:', e);
+  }
+  if (!applyingRemote && window.SMOSync && window.SMOSync.getRoom()) {
+    window.SMOSync.broadcast(state);
   }
 }
 
@@ -461,11 +468,13 @@ function openSettings() {
     document.getElementById(id).checked = state.settings[key];
   });
   document.getElementById('input-moon-req').value = state.settings.moon_requirement;
-  document.getElementById('input-obs-color').value = state.settings.obs_bg_color;
+  document.getElementById('input-overlay-scale').value = state.settings.overlay_scale;
+  const wsUrlInput = document.getElementById('input-ws-url');
+  if (wsUrlInput) wsUrlInput.value = loadWsUrl();
   document.getElementById('input-notes-scroll').value = state.settings.notes_scroll_px;
 
   // Populate rebind button labels
-  document.getElementById('rebind-scroll-left').textContent  = bindingLabel(state.settings.scroll_left_binding);
+  document.getElementById('rebind-scroll-left').textContent = bindingLabel(state.settings.scroll_left_binding);
   document.getElementById('rebind-scroll-right').textContent = bindingLabel(state.settings.scroll_right_binding);
 
   modal.classList.remove('hidden');
@@ -517,17 +526,247 @@ function resetAll() {
 let obsWindow = null;
 
 function openOBS() {
-  const features = 'width=315,height=450,resizable=yes,scrollbars=no,toolbar=no,menubar=no';
+  const room = window.SMOSync ? window.SMOSync.getRoom() : null;
+  const wsUrl = room ? encodeURIComponent(window.SMOSync.getWsUrl()) : '';
+  const scale = state.settings.overlay_scale || 1;
+  const width = Math.round(315 * scale);
+  const height = Math.round(450 * scale);
+  let url = 'obs.html?popup=1';
+  if (room) {
+    url += `&room=${room}&ws=${wsUrl}&scale=${scale}`;
+  }
+  const features = `width=${width},height=${height},resizable=yes,scrollbars=no,toolbar=no,menubar=no`;
   if (!obsWindow || obsWindow.closed) {
-    obsWindow = window.open('obs.html', 'MoonTrackerOBS', features);
+    obsWindow = window.open(url, 'MoonTrackerOBS', features);
   } else {
+    obsWindow.location.href = url;
     obsWindow.focus();
   }
 }
 
-function toggleOBSBg() {
-  // obs.html listens for this storage event to toggle its background
-  localStorage.setItem('obs_bg_toggle', Date.now().toString());
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync
+// ─────────────────────────────────────────────────────────────────────────────
+function loadWsUrl() {
+  try {
+    return localStorage.getItem(WS_URL_KEY) || '';
+  } catch (e) { return ''; }
+}
+
+function saveWsUrl(url) {
+  try {
+    if (url) localStorage.setItem(WS_URL_KEY, url);
+    else localStorage.removeItem(WS_URL_KEY);
+  } catch (e) { console.error('Failed to save WS URL:', e); }
+}
+
+function getObsPageUrl(room, wsUrl) {
+  const base = 'https://firerisingraging.github.io/Online_SMO_Randomizer_Tracker/obs.html';
+  if (!room) return base;
+  const scale = state.settings.overlay_scale || 1;
+  return `${base}?room=${room}&ws=${encodeURIComponent(wsUrl || window.SMOSync.getWsUrl())}&scale=${scale}`;
+}
+
+function updateSyncUI() {
+  const sync = window.SMOSync;
+  const room = sync ? sync.getRoom() : null;
+  const roomInput = document.getElementById('input-room-code');
+  const connectBtn = document.getElementById('btn-connect-room');
+  const statusEl = document.getElementById('sync-status');
+  const urlRow = document.getElementById('sync-url-row');
+  const urlInput = document.getElementById('input-obs-url');
+  const sizeRow = document.getElementById('sync-size-row');
+  const scale = state.settings.overlay_scale || 1;
+
+  if (roomInput) roomInput.value = room || '';
+
+  if (room) {
+    connectBtn.textContent = 'Disconnect';
+    if (urlRow) urlRow.classList.remove('hidden');
+    if (sizeRow) sizeRow.classList.remove('hidden');
+    if (urlInput) urlInput.value = getObsPageUrl(room);
+    if (sizeRow) {
+      sizeRow.innerHTML = `OBS size: <strong>${Math.round(315 * scale)}</strong> × <strong>${Math.round(450 * scale)}</strong>`;
+    }
+  } else {
+    connectBtn.textContent = 'Connect';
+    if (urlRow) urlRow.classList.add('hidden');
+    if (sizeRow) sizeRow.classList.add('hidden');
+    if (statusEl) statusEl.textContent = 'Offline — enter a room code to sync';
+  }
+}
+
+function applyRemoteState(remote) {
+  if (!remote || typeof remote !== 'object') return;
+  applyingRemote = true;
+
+  // Merge settings
+  if (remote.settings) {
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (key in remote.settings) state.settings[key] = remote.settings[key];
+    }
+  }
+
+  // Merge moons
+  if (Array.isArray(remote.moons)) {
+    remote.moons.forEach((m, i) => {
+      if (state.moons[i]) Object.assign(state.moons[i], m);
+    });
+  }
+
+  // Merge captures / abilities
+  if (remote.captures) Object.assign(state.captures, remote.captures);
+  if (remote.abilities) Object.assign(state.abilities, remote.abilities);
+
+  // Merge loading zones
+  if (remote.loading_zones) {
+    for (const [kingdom, data] of Object.entries(state.loading_zones)) {
+      if (!remote.loading_zones[kingdom]) continue;
+      const savedKingdom = remote.loading_zones[kingdom];
+      for (const zone of Object.keys(data.zones)) {
+        if (savedKingdom.zones && savedKingdom.zones[zone]) {
+          Object.assign(state.loading_zones[kingdom].zones[zone], savedKingdom.zones[zone]);
+        }
+      }
+    }
+  }
+
+  // Merge collapsed state
+  if (remote.kingdom_collapsed) {
+    for (const k of Object.keys(state.kingdom_collapsed)) {
+      if (k in remote.kingdom_collapsed) state.kingdom_collapsed[k] = remote.kingdom_collapsed[k];
+    }
+  }
+
+  saveState();
+  refreshAll();
+  applyingRemote = false;
+}
+
+function refreshAll() {
+  buildAllMoonRows();
+  buildCaptureRow();
+  buildAbilityRow();
+  applyAllSettings();
+  // Re-open settings to refresh values if visible
+  const settingsModal = document.getElementById('settings-modal');
+  if (settingsModal && !settingsModal.classList.contains('hidden')) {
+    openSettings();
+  }
+}
+
+function connectRoom() {
+  const roomInput = document.getElementById('input-room-code');
+  const room = roomInput.value.trim();
+  if (!room) return;
+
+  const wsUrlInput = document.getElementById('input-ws-url');
+  const wsUrl = wsUrlInput ? wsUrlInput.value.trim() : '';
+
+  saveWsUrl(wsUrl);
+  try {
+    localStorage.setItem(ROOM_CODE_KEY, room);
+  } catch (e) { }
+
+  if (window.SMOSync) {
+    window.SMOSync.connect(room, wsUrl);
+  }
+}
+
+function disconnectRoom() {
+  if (window.SMOSync) window.SMOSync.disconnect();
+  try {
+    localStorage.removeItem(ROOM_CODE_KEY);
+  } catch (e) { }
+  updateSyncUI();
+}
+
+function generateAndConnectRoom() {
+  if (!window.SMOSync) return;
+  const code = window.SMOSync.generateRoomCode(12);
+  const roomInput = document.getElementById('input-room-code');
+  if (roomInput) roomInput.value = code;
+  connectRoom();
+}
+
+function copyObsUrl() {
+  const input = document.getElementById('input-obs-url');
+  if (!input) return;
+  input.select();
+  navigator.clipboard.writeText(input.value).catch(() => { });
+}
+
+function toggleVisibility() {
+  const roomInput = document.getElementById('input-room-code');
+  const urlInput = document.getElementById('input-obs-url');
+  const btn = document.getElementById('btn-toggle-visibility');
+  if (!roomInput || !btn) return;
+
+  const makeVisible = roomInput.type === 'password';
+  const newType = makeVisible ? 'text' : 'password';
+  roomInput.type = newType;
+  if (urlInput) urlInput.type = newType;
+  btn.textContent = makeVisible ? 'Hide' : 'Show';
+}
+
+function setupSyncUI() {
+  if (!window.SMOSync) return;
+
+  // Load saved server URL into settings field
+  const savedWsUrl = loadWsUrl();
+  const wsUrlInput = document.getElementById('input-ws-url');
+  if (wsUrlInput && savedWsUrl) wsUrlInput.value = savedWsUrl;
+
+  // Status listener
+  window.SMOSync.onStatus((status) => {
+    const statusEl = document.getElementById('sync-status');
+    if (statusEl) {
+      const labels = {
+        connected: 'Connected - state is syncing',
+        connecting: 'Connecting...',
+        disconnected: 'Disconnected',
+        error: 'Connection error - OBS overlay will not work'
+      };
+      statusEl.textContent = labels[status] || status;
+    }
+    updateSyncUI();
+  });
+
+  // Incoming state listener
+  window.SMOSync.onState((remoteState) => {
+    applyRemoteState(remoteState);
+  });
+
+  // Button wiring
+  const connectBtn = document.getElementById('btn-connect-room');
+  const generateBtn = document.getElementById('btn-generate-room');
+  const copyBtn = document.getElementById('btn-copy-obs-url');
+  const visibilityBtn = document.getElementById('btn-toggle-visibility');
+
+  if (connectBtn) {
+    connectBtn.addEventListener('click', () => {
+      if (window.SMOSync.getRoom()) disconnectRoom();
+      else connectRoom();
+    });
+  }
+  if (generateBtn) generateBtn.addEventListener('click', generateAndConnectRoom);
+  if (copyBtn) copyBtn.addEventListener('click', copyObsUrl);
+  if (visibilityBtn) visibilityBtn.addEventListener('click', toggleVisibility);
+
+  // Auto-connect from query param or saved room
+  const params = new URLSearchParams(window.location.search);
+  const roomFromUrl = params.get('room');
+  let room = roomFromUrl;
+  if (!room) {
+    try { room = localStorage.getItem(ROOM_CODE_KEY); } catch (e) { }
+  }
+  if (room) {
+    const roomInput = document.getElementById('input-room-code');
+    if (roomInput) roomInput.value = room;
+    connectRoom();
+  }
+
+  updateSyncUI();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -636,7 +875,7 @@ function buildKingdomColumn(kingdom, data) {
 
   // Build zone entries
   const zoneEntries = Object.entries(data.zones);
-  const needsSplit  = zoneEntries.length > ZONE_SPLIT_THRESHOLD;
+  const needsSplit = zoneEntries.length > ZONE_SPLIT_THRESHOLD;
 
   let zonesRoot; // the element that collapses
 
@@ -780,7 +1019,7 @@ function setupNotesScroll() {
     const lb = state.settings.scroll_left_binding;
     const rb = state.settings.scroll_right_binding;
     if ((lb && lb.type === 'mouse' && e.button === lb.code) ||
-        (rb && rb.type === 'mouse' && e.button === rb.code)) {
+      (rb && rb.type === 'mouse' && e.button === rb.code)) {
       e.preventDefault();
     }
   });
@@ -820,10 +1059,10 @@ function setupNotesScroll() {
 // Scroll Button Rebinding
 // ─────────────────────────────────────────────────────────────────────────────
 function setupRebindButtons() {
-  const leftBtn  = document.getElementById('rebind-scroll-left');
+  const leftBtn = document.getElementById('rebind-scroll-left');
   const rightBtn = document.getElementById('rebind-scroll-right');
 
-  leftBtn.addEventListener('click',  () => startRebind('scroll_left_binding',  leftBtn));
+  leftBtn.addEventListener('click', () => startRebind('scroll_left_binding', leftBtn));
   rightBtn.addEventListener('click', () => startRebind('scroll_right_binding', rightBtn));
 }
 
@@ -892,10 +1131,10 @@ function openIconPicker(event, onSelect) {
   // Position clamp to viewport
   const pw = 170, ph = 90;
   let x = event.clientX, y = event.clientY;
-  if (x + pw > window.innerWidth)  x = window.innerWidth - pw - 8;
+  if (x + pw > window.innerWidth) x = window.innerWidth - pw - 8;
   if (y + ph > window.innerHeight) y = window.innerHeight - ph - 8;
   picker.style.left = `${Math.max(8, x)}px`;
-  picker.style.top  = `${Math.max(8, y)}px`;
+  picker.style.top = `${Math.max(8, y)}px`;
 
   // Close on outside click
   setTimeout(() => {
@@ -922,9 +1161,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Main buttons ───────────────────────────────
   document.getElementById('btn-obs').addEventListener('click', openOBS);
-  document.getElementById('btn-toggle-obs-bg').addEventListener('click', toggleOBSBg);
   document.getElementById('btn-clear').addEventListener('click', resetAll);
   document.getElementById('btn-settings').addEventListener('click', openSettings);
+
+  // ── Sync UI ────────────────────────────────────
+  setupSyncUI();
 
   // ── OBS Info modal ─────────────────────────────
   document.getElementById('btn-obs-info').addEventListener('click', () => {
@@ -957,12 +1198,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // OBS BG color Save
-  document.getElementById('save-obs-color').addEventListener('click', () => {
-    const v = document.getElementById('input-obs-color').value.trim();
-    if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
-      state.settings.obs_bg_color = v;
+  // Overlay scale Save
+  document.getElementById('save-overlay-scale').addEventListener('click', () => {
+    const v = parseFloat(document.getElementById('input-overlay-scale').value);
+    if (!isNaN(v) && v > 0) {
+      state.settings.overlay_scale = v;
       saveState();
+      updateSyncUI();
+    }
+  });
+
+  // Sync server URL Save
+  document.getElementById('save-ws-url').addEventListener('click', () => {
+    const v = document.getElementById('input-ws-url').value.trim();
+    saveWsUrl(v);
+    // Reconnect if already in a room so the new URL takes effect
+    if (window.SMOSync && window.SMOSync.getRoom()) {
+      connectRoom();
     }
   });
 
