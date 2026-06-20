@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
 
   <style>
-    :root { --text: #fff; --font: 'Fredoka One'}
+    :root { --text: #fff; --font: 'Fredoka One'; --green: #4ade80; }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -31,6 +31,13 @@
       transform-origin: top left;
     }
 
+    /* Popup mode: page fills the actual (possibly user-resized) window;
+       #obs-root is scaled via JS to fit while keeping its 315x450 proportions. */
+    html.popup-mode, body.popup-mode {
+      width: 100vw;
+      height: 100vh;
+    }
+
     /* ── Left column: moon rows ───── */
     #obs-moon-list {
       display: flex;
@@ -45,6 +52,12 @@
       display: flex;
       align-items: center;
       gap: 5px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .obs-moon-row.row-complete {
+      background: rgba(74, 222, 128, 0.18);
     }
 
     .obs-moon-row img.obs-lock,
@@ -69,7 +82,9 @@
       white-space: nowrap;
       min-width: 55px;
       text-align: center;
+      transition: color 0.2s;
     }
+    .obs-count.count-complete { color: var(--green); }
 
     /* ── Right column ─────────────── */
     #obs-right {
@@ -162,6 +177,20 @@
   <script>
     'use strict';
 
+    const STATE_KEY = 'tracker_state';
+    const BASE_W = 315;
+    const BASE_H = 450;
+
+    // Computed once — the query string never changes during this page's life
+    const params   = new URLSearchParams(window.location.search);
+    const isPopup  = !!params.get('popup');
+    const room     = params.get('room');
+    const wsUrl    = params.get('ws');
+
+    // Once a server room is configured we rely on it exclusively — local
+    // tracker (localStorage) updates are ignored from that point on.
+    let serverMode = false;
+
     const KINGDOMS = [
       { name:'Cascade Kingdom',  img:'assets/Cascade.png'  },
       { name:'Sand Kingdom',     img:'assets/Sand.png'     },
@@ -190,9 +219,24 @@
 
     let currentState = null;
 
+    // ── Local tracker state (popup, non-server mode only) ──────────
+    function loadTrackerState() {
+      try {
+        const raw = localStorage.getItem(STATE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+
     // ── Determine effective scale ─────────────────────────────────
+    // Popup mode: fit the actual current window size, preserving aspect ratio
+    // (uniform scale = the more constraining of width/height ratios, so
+    // content never distorts or overflows — just shrinks/grows together).
+    // Browser Source mode: fixed scale from the URL param or saved setting,
+    // since there's no "window" to resize — OBS controls the source's size.
     function getScale() {
-      const params = new URLSearchParams(window.location.search);
+      if (isPopup) {
+        return Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
+      }
       const urlScale = parseFloat(params.get('scale'));
       const settingsScale = currentState && currentState.settings ? currentState.settings.overlay_scale : null;
       return urlScale || settingsScale || 1;
@@ -205,10 +249,20 @@
       const html = document.documentElement;
       const body = document.body;
       root.style.transform = `scale(${scale})`;
-      html.style.width = `${315 * scale}px`;
-      html.style.height = `${450 * scale}px`;
-      body.style.width = `${315 * scale}px`;
-      body.style.height = `${450 * scale}px`;
+
+      if (isPopup) {
+        // Fill whatever size the user has dragged the window to; #obs-root's
+        // transform above handles fitting the 315x450 content into it.
+        html.style.width = '100vw';
+        html.style.height = '100vh';
+        body.style.width = '100vw';
+        body.style.height = '100vh';
+      } else {
+        html.style.width = `${BASE_W * scale}px`;
+        html.style.height = `${BASE_H * scale}px`;
+        body.style.width = `${BASE_W * scale}px`;
+        body.style.height = `${BASE_H * scale}px`;
+      }
     }
 
     // ── Build DOM ─────────────────────────────────────────────────
@@ -273,11 +327,6 @@
     // ── Update all DOM elements from current state ────────────────
     function updateOBS(s) {
       currentState = s || currentState;
-      // if (params.get('popup')) {
-      //   currentState = loadTrackerState();
-      //   if (!s) return;
-      //     currentState = s;
-      // }
       if (!currentState) return;
       applyScale();
       const settings = currentState.settings || {};
@@ -299,6 +348,13 @@
         const maxDisplay = (m.max !== null && m.max !== undefined) ? m.max : '?';
         row.querySelector('.obs-count').textContent =
           `${m.count || 0} / ${maxDisplay}`;
+
+        // Green-when-complete — mirrors the main tracker's behavior
+        const isComplete = settings.show_complete_color &&
+          m.max !== null && m.max !== undefined && (m.count || 0) >= m.max;
+        row.querySelector('.obs-count').classList.toggle('count-complete', isComplete);
+        // Maybe as a setting later in a OBS tab 
+        // row.classList.toggle('row-complete', isComplete);
       });
 
       // Capture icons
@@ -344,31 +400,42 @@
 
     // ── Init ────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
-      const params = new URLSearchParams(window.location.search);
-
-      // Popup mode uses a solid dark background for Window Capture
-      if (params.get('popup')) {
+      if (isPopup) {
+        document.documentElement.classList.add('popup-mode');
+        document.body.classList.add('popup-mode');
         document.body.style.background = '#181818';
         document.documentElement.style.background = '#181818';
 
-        // function loadTrackerState() {
-        // try {
-        //   const raw = localStorage.getItem(STATE_KEY);
-        //   return raw ? JSON.parse(raw) : null;
-        // } catch (e) { return null; }}
+        // Live-fit content to the window any time the user drags-resizes it
+        window.addEventListener('resize', applyScale);
 
-        // window.addEventListener('storage', (e) => {
-        //   if (e.key === STATE_KEY)       updateOBS();
-        // });
+        // Local tracker sync — disabled once a server room takes over
+        window.addEventListener('storage', (e) => {
+          if (e.key !== STATE_KEY || serverMode) return;
+          updateOBS(loadTrackerState());
+        });
+
+        // Best-effort: browsers throttle JS in minimized/hidden windows, so
+        // immediately catch up the moment this window becomes visible again
+        // (un-minimized, or whenever OBS's capture causes a repaint check).
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) return;
+          if (serverMode) {
+            updateOBS(currentState);
+          } else {
+            updateOBS(loadTrackerState());
+          }
+        });
+
+        // Seed initial state immediately (don't wait for the first storage event)
+        if (!room) updateOBS(loadTrackerState());
       }
 
       applyScale();
       buildOBSLayout();
 
-      const room = params.get('room');
-      const wsUrl = params.get('ws');
-
       if (room && window.SMOSync) {
+        serverMode = true;
         window.SMOSync.onState((remoteState) => {
           updateOBS(remoteState);
         });

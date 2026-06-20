@@ -69,6 +69,13 @@ h1 {
   background: var(--bg-card);
   border-radius: var(--radius);
   padding: 6px 8px;
+  border-left: 3px solid transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.moon-row.row-complete {
+  background: rgba(74, 222, 128, 0.12);
+  border-left-color: var(--green);
 }
 
 .moon-row-left {

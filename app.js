@@ -369,6 +369,7 @@ function updateCountColor(i) {
   const label = row.querySelector('.count-label');
   const isComplete = state.settings.show_complete_color && m.max !== null && m.count >= m.max;
   label.classList.toggle('count-complete', isComplete);
+  row.classList.toggle('row-complete', isComplete);
 }
 
 function refreshMoonRow(i, rowEl) {
@@ -843,10 +844,45 @@ function openLoadingZones() {
     notesWindow.focus();
     return;
   }
+  // The popped-out notes.html writes directly to localStorage on every edit,
+  // but this tab's in-memory `state` doesn't auto-refresh — without this, the
+  // modal would render stale data if notes.html was edited after this page loaded.
+  resyncLoadingZonesFromStorage();
   // Modal must be visible before we build/measure content, or heights read as 0
   document.getElementById('lz-modal').classList.remove('hidden');
   buildLoadingZonesContent();
   // layoutMasonryColumns();
+}
+
+// Pulls just loading_zones + kingdom_collapsed from localStorage into the live
+// `state` object, using the same merge logic as loadState(). Settings/moons/
+// captures/abilities are untouched here — this only targets the Notes data
+// that notes.html (a separate window) may have updated since our last load.
+function resyncLoadingZonesFromStorage() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+
+    if (saved.loading_zones) {
+      for (const [kingdom, data] of Object.entries(state.loading_zones)) {
+        if (!saved.loading_zones[kingdom]) continue;
+        const savedKingdom = saved.loading_zones[kingdom];
+        for (const zone of Object.keys(data.zones)) {
+          if (savedKingdom.zones && savedKingdom.zones[zone]) {
+            Object.assign(state.loading_zones[kingdom].zones[zone], savedKingdom.zones[zone]);
+          }
+        }
+      }
+    }
+    if (saved.kingdom_collapsed) {
+      for (const k of Object.keys(state.kingdom_collapsed)) {
+        if (k in saved.kingdom_collapsed) state.kingdom_collapsed[k] = saved.kingdom_collapsed[k];
+      }
+    }
+  } catch (e) {
+    console.error('Failed to resync loading zones from storage:', e);
+  }
 }
 
 function popOutNotes() {
