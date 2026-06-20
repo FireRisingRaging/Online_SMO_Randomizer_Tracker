@@ -273,6 +273,11 @@
     // ── Update all DOM elements from current state ────────────────
     function updateOBS(s) {
       currentState = s || currentState;
+      if (params.get('popup')) {
+        currentState = loadTrackerState();
+        if (!s) return;
+          currentState = s;
+      }
       if (!currentState) return;
       applyScale();
       const settings = currentState.settings || {};
@@ -345,6 +350,16 @@
       if (params.get('popup')) {
         document.body.style.background = '#181818';
         document.documentElement.style.background = '#181818';
+
+        function loadTrackerState() {
+        try {
+          const raw = localStorage.getItem(STATE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }}
+
+        window.addEventListener('storage', (e) => {
+          if (e.key === STATE_KEY)       updateOBS();
+        });
       }
 
       applyScale();

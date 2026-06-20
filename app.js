@@ -10,17 +10,17 @@ const ROOM_CODE_KEY = 'tracker_room_code';
 let applyingRemote = false;
 
 const KINGDOMS = [
-  { name: 'Cascade Kingdom', img: 'assets/Cascade.png', multi: 'assets/Cascade_Multi.png' },
-  { name: 'Sand Kingdom', img: 'assets/Sand.png', multi: 'assets/Sand_Multi.png' },
-  { name: 'Lake Kingdom', img: 'assets/Lake.png', multi: 'assets/Lake_Multi.png' },
-  { name: 'Wooded Kingdom', img: 'assets/Wooded.png', multi: 'assets/Wooded_Multi.png' },
-  { name: 'Lost Kingdom', img: 'assets/Lost.png', multi: 'assets/Lost_Multi.png' },
-  { name: 'Metro Kingdom', img: 'assets/Metro.png', multi: 'assets/Metro_Multi.png' },
-  { name: 'Snow Kingdom', img: 'assets/Snow.png', multi: 'assets/Snow_Multi.png' },
-  { name: 'Seaside Kingdom', img: 'assets/Seaside.png', multi: 'assets/Seaside_Multi.png' },
-  { name: 'Luncheon Kingdom', img: 'assets/Luncheon.png', multi: 'assets/Luncheon_Multi.png' },
-  { name: 'Ruined Kingdom', img: 'assets/Ruin.png', multi: 'assets/Ruined_Multi.png' },
-  { name: 'Bowser Kingdom', img: 'assets/Bowser.png', multi: 'assets/Bowser_Multi.png' },
+  { name: 'Cascade Kingdom', img: 'assets/Cascade.png', multi: 'assets/Cascade_Multi.png', min: 1, max: 10 },
+  { name: 'Sand Kingdom', img: 'assets/Sand.png', multi: 'assets/Sand_Multi.png', min: 11, max: 21 },
+  { name: 'Lake Kingdom', img: 'assets/Lake.png', multi: 'assets/Lake_Multi.png', min: 3, max: 13 },
+  { name: 'Wooded Kingdom', img: 'assets/Wooded.png', multi: 'assets/Wooded_Multi.png', min: 11, max: 21 },
+  { name: 'Lost Kingdom', img: 'assets/Lost.png', multi: 'assets/Lost_Multi.png', min: 5, max: 15 },
+  { name: 'Metro Kingdom', img: 'assets/Metro.png', multi: 'assets/Metro_Multi.png', min: 15, max: 25 },
+  { name: 'Snow Kingdom', img: 'assets/Snow.png', multi: 'assets/Snow_Multi.png', min: 5, max: 15 },
+  { name: 'Seaside Kingdom', img: 'assets/Seaside.png', multi: 'assets/Seaside_Multi.png', min: 5, max: 15 },
+  { name: 'Luncheon Kingdom', img: 'assets/Luncheon.png', multi: 'assets/Luncheon_Multi.png', min: 13, max: 23 },
+  { name: 'Ruined Kingdom', img: 'assets/Ruin.png', multi: 'assets/Ruined_Multi.png', min: 1, max: 8 },
+  { name: 'Bowser Kingdom', img: 'assets/Bowser.png', multi: 'assets/Bowser_Multi.png', min: 3, max: 13 },
 ];
 
 const CAPTURE_ICONS = [
@@ -48,12 +48,15 @@ const DEFAULT_SETTINGS = {
   show_icon_colors: true,
   show_ability_lock: true,
   show_captures: true,
-  show_save_buttons: true,
+  show_save_buttons: false,
   show_multi_moon: true,
+  show_moon_range: true,
+  show_complete_color: false,
   overlay_scale: 1,
   notes_scroll_px: 500,
   scroll_left_binding: { type: 'mouse', code: 3 },  // MB4 (back)
   scroll_right_binding: { type: 'mouse', code: 4 },  // MB5 (forward)
+  
 };
 
 function cloneDefaultSettings() {
@@ -112,6 +115,8 @@ const TOGGLE_SETTINGS = [
   { id: 'toggle-captures', key: 'show_captures' },
   { id: 'toggle-save-buttons', key: 'show_save_buttons' },
   { id: 'toggle-multi-moon', key: 'show_multi_moon' },
+  { id: 'toggle-moon-range', key: 'show_moon_range' },
+  { id: 'toggle-complete-color', key: 'show_complete_color' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -215,6 +220,14 @@ function buildMoonRow(i) {
   row.className = 'moon-row';
   row.dataset.idx = i;
 
+  // Equal-width flexible spacer — used between counter items so min/max land
+  // exactly halfway between their neighboring button and the count value.
+  function makeCounterSpacer() {
+    const sp = document.createElement('span');
+    sp.className = 'counter-spacer';
+    return sp;
+  }
+
   // ── Left group: lock + peace + kingdom icon ──
   const left = document.createElement('div');
   left.className = 'moon-row-left';
@@ -241,7 +254,7 @@ function buildMoonRow(i) {
   left.appendChild(peaceBtn);
   left.appendChild(kingdomImg);
 
-  // ── Counter group: − label + ──
+  // ── Counter group: − [min] count [max] + ──
   const counter = document.createElement('div');
   counter.className = 'moon-row-counter';
 
@@ -250,8 +263,22 @@ function buildMoonRow(i) {
   decrBtn.textContent = '−';
   decrBtn.addEventListener('click', () => { decrement(i); saveState(); });
 
+  const minStack = document.createElement('div');
+  minStack.className = 'range-stack range-min';
+  minStack.innerHTML = `<span class="range-label">min</span><span class="range-value">${kingdom.min}</span>`;
+
   const countLabel = document.createElement('span');
   countLabel.className = 'count-label';
+
+  const maxStack = document.createElement('div');
+  maxStack.className = 'range-stack range-max';
+  maxStack.innerHTML = `<span class="range-label">max</span><span class="range-value">${kingdom.max}</span>`;
+
+  // Apply settings visibility
+  if (!state.settings.show_moon_range) {
+    minStack.classList.add('hidden');
+    maxStack.classList.add('hidden');
+  }
 
   const incrBtn = document.createElement('button');
   incrBtn.className = 'count-btn incr-btn';
@@ -259,7 +286,13 @@ function buildMoonRow(i) {
   incrBtn.addEventListener('click', () => { increment(i); saveState(); });
 
   counter.appendChild(decrBtn);
+  counter.appendChild(makeCounterSpacer());
+  counter.appendChild(minStack);
+  counter.appendChild(makeCounterSpacer());
   counter.appendChild(countLabel);
+  counter.appendChild(makeCounterSpacer());
+  counter.appendChild(maxStack);
+  counter.appendChild(makeCounterSpacer());
   counter.appendChild(incrBtn);
 
   // ── Entry group: max field + save ──
@@ -324,6 +357,18 @@ function refreshCountLabel(i) {
   const m = state.moons[i];
   row.querySelector('.count-label').textContent =
     `${m.count} / ${m.max !== null ? m.max : '?'}`;
+  updateCountColor(i);
+}
+
+// Green-when-complete: count label turns green once count >= max (only while
+// a max is actually set), reverts to white if it drops back below.
+function updateCountColor(i) {
+  const row = getMoonRow(i);
+  if (!row) return;
+  const m = state.moons[i];
+  const label = row.querySelector('.count-label');
+  const isComplete = state.settings.show_complete_color && m.max !== null && m.count >= m.max;
+  label.classList.toggle('count-complete', isComplete);
 }
 
 function refreshMoonRow(i, rowEl) {
@@ -356,6 +401,14 @@ function refreshMoonRow(i, rowEl) {
   // Multi moon button visibility
   const multiBtn = row.querySelector('.multi-moon-btn');
   multiBtn.classList.toggle('hidden', !state.settings.show_multi_moon);
+
+  // Min/max range stack visibility
+  row.querySelectorAll('.range-stack').forEach(el => {
+    el.classList.toggle('hidden', !state.settings.show_moon_range);
+  });
+
+  // Green-when-complete color
+  updateCountColor(i);
 
   // Save button visibility
   row.querySelector('.save-btn').classList.toggle('hidden', !state.settings.show_save_buttons);
@@ -503,6 +556,15 @@ function applyAllSettings() {
   document.querySelectorAll('.multi-moon-btn').forEach(btn => {
     btn.classList.toggle('hidden', !s.show_multi_moon);
   });
+
+  // Min/max range stacks
+  document.querySelectorAll('.range-stack').forEach(el => {
+    el.classList.toggle('hidden', !s.show_moon_range);
+  });
+
+  // Green-when-complete color — recompute for every row since toggling this
+  // setting must take effect immediately, not just on the next count change.
+  KINGDOMS.forEach((_, i) => updateCountColor(i));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
