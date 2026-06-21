@@ -220,7 +220,7 @@ function buildMoonRow(i) {
   row.className = 'moon-row';
   row.dataset.idx = i;
 
-  // Equal-width flexible spacer — used between counter items so min/max land
+  // Equal-width flexible spacer  used between counter items so min/max land
   // exactly halfway between their neighboring button and the count value.
   function makeCounterSpacer() {
     const sp = document.createElement('span');
@@ -299,7 +299,7 @@ function buildMoonRow(i) {
   const entryGroup = document.createElement('div');
   entryGroup.className = 'moon-row-entry';
 
-  // Multi-moon toggle — sits right after + before the entry field
+  // Multi-moon toggle  sits right after + before the entry field
   const multiBtn = document.createElement('button');
   multiBtn.className = 'multi-moon-btn';
   multiBtn.title = `Multi Moon (+3)`;
@@ -572,7 +572,7 @@ function applyAllSettings() {
     el.classList.toggle('hidden', !s.show_moon_range);
   });
 
-  // Green-when-complete color — recompute for every row since toggling this
+  // Green-when-complete color recompute for every row since toggling this
   // setting must take effect immediately, not just on the next count change.
   KINGDOMS.forEach((_, i) => updateCountColor(i));
 }
@@ -664,7 +664,7 @@ function updateSyncUI() {
     connectBtn.textContent = 'Connect';
     if (urlRow) urlRow.classList.add('hidden');
     if (sizeRow) sizeRow.classList.add('hidden');
-    if (statusEl) statusEl.textContent = 'Offline — enter a room code to sync';
+    if (statusEl) statusEl.textContent = 'Offline enter a room code to sync';
   }
 }
 
@@ -859,7 +859,7 @@ function openLoadingZones() {
     return;
   }
   // The popped-out notes.html writes directly to localStorage on every edit,
-  // but this tab's in-memory `state` doesn't auto-refresh — without this, the
+  // but this tab's in-memory `state` doesn't auto-refresh without this, the
   // modal would render stale data if notes.html was edited after this page loaded.
   resyncLoadingZonesFromStorage();
   // Modal must be visible before we build/measure content, or heights read as 0
@@ -870,7 +870,7 @@ function openLoadingZones() {
 
 // Pulls just loading_zones + kingdom_collapsed from localStorage into the live
 // `state` object, using the same merge logic as loadState(). Settings/moons/
-// captures/abilities are untouched here — this only targets the Notes data
+// captures/abilities are untouched here this only targets the Notes data
 // that notes.html (a separate window) may have updated since our last load.
 function resyncLoadingZonesFromStorage() {
   try {
@@ -1148,7 +1148,7 @@ function setupNotesScroll() {
     }
   });
 
-  // Configurable keyboard bindings — active while the Notes modal is open
+  // Configurable keyboard bindings active while the Notes modal is open
   document.addEventListener('keydown', (e) => {
     if (!isLzOpen()) return;
     // Don't hijack typing/cursor movement inside a note textarea

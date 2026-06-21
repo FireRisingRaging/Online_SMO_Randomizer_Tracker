@@ -29,12 +29,17 @@ body {
   min-height: 100vh;
   padding: 12px;
   -webkit-tap-highlight-color: transparent;
+
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
 /* ── App wrapper ─────────────────────────────────────────────────── */
 #app {
   max-width: 720px;/* max-width: 680px; */
   margin: 0 auto;
+  flex: 1;
 }
 
 h1 {
@@ -54,9 +59,10 @@ h1 {
 }
 
 #author-credit {
-  position: absolute;
+  /* position: absolute;
   bottom: 10px;
-  left: 14px;
+  left: 14px; */
+  width: 330px;
   background: rgba(36,36,36,0.90);
   padding: 5px 10px;
   border-radius: var(--radius-sm);
@@ -166,13 +172,13 @@ h1 {
 }
 .count-label.count-complete { color: var(--green); }
 
-/* Equal flexible spacers between counter items — keeps min/max stacks
+/* Equal flexible spacers between counter items keeps min/max stacks
    sitting at the exact midpoint of the gap on either side of them. */
 .counter-spacer {
   flex: 1 1 auto;
 }
 
-/* Min/Max kingdom range reference — label on top, number underneath */
+/* Min/Max kingdom range reference label on top, number underneath */
 .range-stack {
   display: flex;
   flex-direction: column;
@@ -445,7 +451,7 @@ h1 {
 .danger-btn { color: var(--red); }
 .danger-btn:hover { background: #3a2020; }
 
-/* ⓘ info button — square, same height as OBS button */
+/* ⓘ info button square, same height as OBS button */
 .info-btn {
   width: 38px;
   min-width: 38px;
@@ -465,7 +471,7 @@ h1 {
   /* border-radius: 50%; */
 }
 
-/* Notes section — own column beside OBS */
+/* Notes section own column beside OBS */
 #notes-section {
   display: flex;
   flex-direction: column;
@@ -810,7 +816,7 @@ h1 {
 /* Zone rows */
 .zones-container { display: flex; flex-direction: column; gap: 8px; }
 
-/* Zone columns — auto-split for large kingdoms (> 12 zones) */
+/* Zone columns auto-split for large kingdoms (> 12 zones) */
 .zones-split-wrap {
   display: flex;
   flex-direction: row;

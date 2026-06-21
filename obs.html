@@ -181,13 +181,13 @@
     const BASE_W = 315;
     const BASE_H = 450;
 
-    // Computed once — the query string never changes during this page's life
+    // Computed once the query string never changes during this page's life
     const params   = new URLSearchParams(window.location.search);
     const isPopup  = !!params.get('popup');
     const room     = params.get('room');
     const wsUrl    = params.get('ws');
 
-    // Once a server room is configured we rely on it exclusively — local
+    // Once a server room is configured we rely on it exclusively local
     // tracker (localStorage) updates are ignored from that point on.
     let serverMode = false;
 
@@ -230,9 +230,9 @@
     // ── Determine effective scale ─────────────────────────────────
     // Popup mode: fit the actual current window size, preserving aspect ratio
     // (uniform scale = the more constraining of width/height ratios, so
-    // content never distorts or overflows — just shrinks/grows together).
+    // content never distorts or overflows just shrinks/grows together).
     // Browser Source mode: fixed scale from the URL param or saved setting,
-    // since there's no "window" to resize — OBS controls the source's size.
+    // since there's no "window" to resize OBS controls the source's size.
     function getScale() {
       if (isPopup) {
         return Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
@@ -301,7 +301,7 @@
         moonList.appendChild(row);
       });
 
-      // Capture icons (parabones, banzai, wire — bowser is separate)
+      // Capture icons (parabones, banzai, wire bowser is separate)
       const captureRow = document.getElementById('obs-capture-icons');
       captureRow.innerHTML = '';
       CAPTURE_ICONS.forEach(ic => {
@@ -349,7 +349,7 @@
         row.querySelector('.obs-count').textContent =
           `${m.count || 0} / ${maxDisplay}`;
 
-        // Green-when-complete — mirrors the main tracker's behavior, including
+        // Green-when-complete mirrors the main tracker's behavior, including
         // the hardcoded kingdom reference max as an additional trigger
         const isComplete = settings.show_complete_color && (
           (m.max !== null && m.max !== undefined && (m.count || 0) >= m.max) ||
@@ -412,7 +412,7 @@
         // Live-fit content to the window any time the user drags-resizes it
         window.addEventListener('resize', applyScale);
 
-        // Local tracker sync — disabled once a server room takes over
+        // Local tracker sync disabled once a server room takes over
         window.addEventListener('storage', (e) => {
           if (e.key !== STATE_KEY || serverMode) return;
           updateOBS(loadTrackerState());
