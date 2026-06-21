@@ -121,6 +121,7 @@
     flex: 1;
     overflow: hidden;
     cursor: grab;
+    touch-action: none;
     background-image: radial-gradient(circle, #2a2a2a 1px, transparent 1px);
     background-size: 22px 22px;
   }
@@ -193,11 +194,23 @@
 
   .map-node.mark-green {
     border-color: var(--green);
-    background: rgba(74, 222, 128, 0.18);
+    background-color: rgba(74, 222, 128, 0.18);
   }
   .map-node.mark-red {
     border-color: var(--red);
-    background: rgba(248, 113, 113, 0.18);
+    background-color: rgba(248, 113, 113, 0.18);
+  }
+
+  /* Dead-end zones (e.g. shops) — diagonal hatch, layered independently of
+     background-color so it stays visible even when also marked green/red. */
+  .map-node.dead-end {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.09) 0px,
+      rgba(255, 255, 255, 0.09) 2px,
+      transparent 2px,
+      transparent 8px
+    );
   }
 
   .map-node .node-label {
@@ -205,17 +218,72 @@
     text-overflow: ellipsis;
   }
 
-  /* ── Zoom indicator ──────────────────────────────────────────── */
-  #zoom-readout {
+  /* ── Zoom control bar ───────────────────────────────────────── */
+  #zoom-control {
     position: absolute;
     bottom: 10px;
     right: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(36,36,36,0.90);
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    user-select: none;
+  }
+
+  #zoom-readout {
     font-size: 0.75rem;
     color: var(--text-dim);
-    background: rgba(36,36,36,0.85);
-    padding: 4px 9px;
-    border-radius: var(--radius-sm);
-    pointer-events: none;
+    cursor: pointer;
+    min-width: 38px;
+    text-align: center;
+    transition: color 0.15s;
+  }
+  #zoom-readout:hover { color: var(--text); }
+
+  #zoom-input {
+    width: 46px;
+    font-size: 0.75rem;
+    font-family: var(--font);
+    background: var(--bg-card2);
+    color: var(--text);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 1px 4px;
+    text-align: center;
+    outline: none;
+  }
+
+  #zoom-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 110px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  #zoom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  #zoom-slider::-webkit-slider-thumb:hover { background: var(--accent-h); }
+  #zoom-slider::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
   }
 </style>
 </head>
@@ -232,7 +300,7 @@
   <div id="controls-panel" class="hidden">
     <ul>
       <li><strong>Left Mouse Button</strong> hold &amp; drag to connect stages.</li>
-      <li><strong>Double Left Mouse Button</strong> to disconnect a path. This disconnects the stage connected to the one clicked. e.g. with Cascade→Sand→Lake→Wooded→Lost, double-clicking Lake gives you two paths: Wooded→Lost and Cascade→Sand→Lake.</li>
+      <li><strong>Double Left Mouse Button</strong> to disconnect a path — this disconnects the stage connected to the one clicked. e.g. with Cascade→Sand→Lake→Wooded→Lost, double-clicking Lake gives you two paths: Wooded→Lost and Cascade→Sand→Lake.</li>
       <li><strong>Middle Mouse Button</strong> to mark/unmark a stage green. <strong>Right Mouse Button</strong> to mark/unmark a stage red.</li>
       <li>Scroll to zoom, drag empty space to pan.</li>
     </ul>
@@ -244,7 +312,11 @@
     <div id="canvas">
       <svg id="lines-layer"></svg>
     </div>
-    <div id="zoom-readout">100%</div>
+    <div id="zoom-control">
+      <input id="zoom-slider" type="range" min="60" max="120" value="80" step="1" title="Zoom">
+      <span id="zoom-readout" title="Click to type a zoom value">80%</span>
+      <input id="zoom-input" type="number" min="60" max="120" style="display:none">
+    </div>
   </div>
 
 </div>
@@ -274,6 +346,73 @@ const LOADING_ZONES_TEMPLATE = {
 };
 
 const STORAGE_KEY = 'smo_map_state';
+
+// Dead-end zones — rooms with no further connection (e.g. shops). Diagonal
+// hatching is applied to any zone listed here. To add more later, just add
+// another [kingdom, exact zone name] pair.
+const DEAD_END_ZONES = [
+  ['Cascade', 'Dino'],
+  ['Sand', 'Shop'],
+  ['Sand', 'Employees'],
+  ['Sand', 'Slots'],
+  ['Sand', 'Rumble'],
+  ['Sand', 'Outfit'],
+  ['Sand', 'Sphynx'],
+  ['Sand', 'Colossal Ruins'],
+  ['Lake', 'Zipper'],
+  ['Lake', 'Shop'],
+  ['Lake', 'Puzzle'],
+  ['Wooded', 'DW Treasure'],
+  ['Wooded', 'DW Outfit'],
+  ['Wooded', 'Sheep'],
+  ['Wooded', 'Vine Clouds'],
+  ['Wooded', 'Breakdown'],
+  ['Lost', 'Shop'],
+  ['Lost', 'Klepto'],
+  ['Metro', 'Yellow Shop'],
+  ['Metro', 'Purple Shop'],
+  ['Metro', 'Notes'],
+  ['Metro', '2D'],
+  ['Metro', 'Slots'],
+  ['Metro', 'Dark'],
+  ['Metro', 'Rotating Maze'],
+  ['Metro', 'RC Car'],
+  ['Snow', 'Puzzle'],
+  ['Snow', 'Iceburn'],
+  ['Snow', 'Tracewalking'],
+  ['Snow', 'Clouds'],
+  ['Snow', 'Outfit'],
+  ['Snow', 'Shop'],
+  ['Seaside', 'Rumble'],
+  ['Seaside', 'Outfit'],
+  ['Seaside', 'Sphynx'],
+  ['Seaside', 'Sandy Bottom'],
+  ['Seaside', 'Spinning Maze'],
+  ['Luncheon', 'Cheese Rocks'],
+  ['Luncheon', 'Veggie Room'],
+  ['Luncheon', 'Slots'],
+  ['Luncheon', 'Shop'],
+  ["Bowser's", 'Shop'],
+  ["Bowser's", 'Outfit'],
+  ["Bowser's", 'Treasure Room'],
+  ["Bowser's", 'Vine Clouds'],
+  ["Bowser's", 'Hexagon Tower'],
+  ['Mushroom', 'Shop'],
+  ['Mushroom', 'Castle Door'],
+  ['Mushroom', 'Outfit'],
+  ['Mushroom', 'Cloud Sea'],
+  ['Mushroom', 'Well'],
+  ['Mushroom', 'Knucklotec'],
+  ['Mushroom', 'Torkdrift'],
+  ['Mushroom', 'Mechawiggler'],
+  ['Mushroom', 'Octopus'],
+  ['Mushroom', 'Cookatiel'],
+  ['Mushroom', 'Dragon'],
+  ['Mushroom', 'Rocket'],
+  ['Darkside', 'Breakdown'],
+  ['Darkerside', 'End'],
+];
+const DEAD_END_IDS = new Set(DEAD_END_ZONES.map(([kingdom, zone]) => `zone:${kingdom}:${zone}`));
 
 // ─────────────────────────────────────────────────────────────────
 // Layout
@@ -427,6 +566,7 @@ function renderNodes() {
   Object.values(nodes).forEach(n => {
     const el = document.createElement('div');
     el.className = 'map-node' + (n.type === 'kingdom' ? ' kingdom-node' : '');
+    if (DEAD_END_IDS.has(n.id)) el.classList.add('dead-end');
     el.dataset.id = n.id;
     el.style.left = n.x + 'px';
     el.style.top = n.y + 'px';
@@ -478,6 +618,21 @@ function nodeCenter(id) {
   return { x: n.x + n.w / 2, y: n.y + n.h / 2 };
 }
 
+// Finds where the straight segment from (fromX,fromY) toward this node's
+// center crosses the node's own box edge — used so connection lines stop at
+// the border instead of being drawn to (and hidden under) the center.
+function edgePoint(node, fromX, fromY) {
+  const cx = node.x + node.w / 2;
+  const cy = node.y + node.h / 2;
+  const halfW = node.w / 2, halfH = node.h / 2;
+  const dx = cx - fromX, dy = cy - fromY;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const tx = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
+  const ty = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
+  const t = Math.min(tx, ty);
+  return { x: cx - dx * t, y: cy - dy * t };
+}
+
 let previewLine = null;
 
 function renderConnections() {
@@ -488,7 +643,9 @@ function renderConnections() {
 
   Object.entries(outgoing).forEach(([src, tgt]) => {
     if (!nodes[src] || !nodes[tgt]) return;
-    drawLine(nodeCenter(src), nodeCenter(tgt), 'var(--accent)', true);
+    const p1 = nodeCenter(src);
+    const p2 = edgePoint(nodes[tgt], p1.x, p1.y);
+    drawLine(p1, p2, 'var(--accent)', true);
   });
 
   if (previewLine) linesLayer.appendChild(previewLine);
@@ -634,6 +791,11 @@ function wireNodeEvents(el, id) {
     el.classList.remove('drag-target');
   });
 
+  // ── Touch (mobile/tablet) ──────────────────────────────────────
+  // Purely additive: touch events never fire on non-touch devices, so this
+  // can't change anything about the existing mouse-driven desktop behavior.
+  el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, id), { passive: false });
+
   el.addEventListener('mouseup', (e) => {
     if (e.button === 0 && connecting && connecting !== id) {
       connect(connecting, id);
@@ -647,6 +809,111 @@ function canvasPointFromEvent(e) {
     x: (e.clientX - rect.left - panX) / zoom,
     y: (e.clientY - rect.top - panY) / zoom,
   };
+}
+
+// ── Mobile/tablet node interaction ─────────────────────────────────
+// Tap: cycles none -> green -> red -> none (no separate middle/right click
+// on touch devices). Hold + drag: same as mouse drag, creates a connection.
+// Double-tap: disconnects (same as double-click).
+let pendingTapTimer = null;
+let lastTapNodeId = null;
+let lastTapTime = 0;
+const DOUBLE_TAP_MS = 320;
+const TAP_MOVE_THRESHOLD = 10;
+
+function cycleMarkMobile(id) {
+  const current = marks[id] || null;
+  let next;
+  if (current === 'green') next = 'red';
+  else if (current === 'red') next = null;
+  else next = 'green';
+  if (next) marks[id] = next; else delete marks[id];
+  saveMapState();
+  applyMarkClass(id);
+}
+
+function updateTouchDragHover(clientX, clientY, sourceId) {
+  document.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+  const el = document.elementFromPoint(clientX, clientY);
+  const nodeEl = el && el.closest('.map-node');
+  if (nodeEl && nodeEl.dataset.id !== sourceId) nodeEl.classList.add('drag-target');
+}
+
+function handleNodeTouchStart(e, id) {
+  e.preventDefault();
+  e.stopPropagation();
+  const startX = e.touches[0].clientX, startY = e.touches[0].clientY;
+  let moved = false, dragStarted = false;
+
+  function onMove(ev) {
+    if (ev.touches.length !== 1) return; // a second finger landed — let pinch/pan take over
+    const ct = ev.touches[0];
+    if (!moved && Math.hypot(ct.clientX - startX, ct.clientY - startY) > TAP_MOVE_THRESHOLD) {
+      moved = true;
+      dragStarted = true;
+      connecting = id;
+      previewLine = drawLine(nodeCenter(id), nodeCenter(id), '#7c87f5', false);
+      previewLine.setAttribute('stroke-dasharray', '5,4');
+    }
+    if (dragStarted) {
+      ev.preventDefault();
+      const p = canvasPointFromEvent(ct);
+      previewLine.setAttribute('x2', p.x);
+      previewLine.setAttribute('y2', p.y);
+      updateTouchDragHover(ct.clientX, ct.clientY, id);
+    }
+  }
+
+  function onEnd(ev) {
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+    document.removeEventListener('touchcancel', onCancel);
+
+    if (dragStarted) {
+      const ct = ev.changedTouches[0];
+      const targetEl = document.elementFromPoint(ct.clientX, ct.clientY);
+      const targetNodeEl = targetEl && targetEl.closest('.map-node');
+      connecting = null;
+      if (previewLine) { previewLine.remove(); previewLine = null; }
+      document.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+      if (targetNodeEl && targetNodeEl.dataset.id !== id) {
+        connect(id, targetNodeEl.dataset.id);
+      }
+      return;
+    }
+
+    // No movement — a tap. Disambiguate single vs. double tap.
+    const now = Date.now();
+    if (lastTapNodeId === id && (now - lastTapTime) < DOUBLE_TAP_MS) {
+      if (pendingTapTimer) { clearTimeout(pendingTapTimer); pendingTapTimer = null; }
+      lastTapNodeId = null;
+      disconnectOutgoing(id);
+      saveMapState();
+      renderConnections();
+      renderDisplayPanel();
+    } else {
+      lastTapNodeId = id;
+      lastTapTime = now;
+      if (pendingTapTimer) clearTimeout(pendingTapTimer);
+      pendingTapTimer = setTimeout(() => {
+        pendingTapTimer = null;
+        cycleMarkMobile(id);
+      }, DOUBLE_TAP_MS);
+    }
+  }
+
+  function onCancel() {
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+    document.removeEventListener('touchcancel', onCancel);
+    connecting = null;
+    if (previewLine) { previewLine.remove(); previewLine = null; }
+    document.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+  }
+
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd);
+  document.addEventListener('touchcancel', onCancel);
 }
 
 document.addEventListener('mousemove', (e) => {
@@ -668,13 +935,67 @@ document.addEventListener('mouseup', () => {
 // ─────────────────────────────────────────────────────────────────
 // Pan & zoom
 // ─────────────────────────────────────────────────────────────────
-let panX = 40, panY = 20, zoom = 0.6;
+let panX = 40, panY = 20, zoom = 0.8;
 let isPanning = false, panStart = { x: 0, y: 0 }, panOrigin = { x: 0, y: 0 };
+
+const zoomSlider  = document.getElementById('zoom-slider');
+const zoomReadout = document.getElementById('zoom-readout');
+const zoomInput   = document.getElementById('zoom-input');
+
+const ZOOM_MIN = 0.6, ZOOM_MAX = 1.2;
 
 function applyTransform() {
   canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-  document.getElementById('zoom-readout').textContent = `${Math.round(zoom * 100)}%`;
+  const pct = Math.round(zoom * 100);
+  zoomReadout.textContent = `${pct}%`;
+  zoomSlider.value = pct;
 }
+
+// ── Slider input ───────────────────────────────────────────────────
+zoomSlider.addEventListener('input', () => {
+  const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomSlider.value / 100));
+  // Zoom toward viewport centre
+  const rect = viewport.getBoundingClientRect();
+  const cx = rect.width / 2, cy = rect.height / 2;
+  panX = cx - ((cx - panX) / zoom) * newZoom;
+  panY = cy - ((cy - panY) / zoom) * newZoom;
+  zoom = newZoom;
+  applyTransform();
+});
+
+// ── Click readout → inline text input ─────────────────────────────
+zoomReadout.addEventListener('click', () => {
+  zoomReadout.style.display = 'none';
+  zoomInput.style.display = '';
+  zoomInput.value = Math.round(zoom * 100);
+  zoomInput.focus();
+  zoomInput.select();
+});
+
+function commitZoomInput() {
+  let val = parseInt(zoomInput.value, 10);
+  if (!isNaN(val)) {
+    val = Math.min(Math.round(ZOOM_MAX * 100), Math.max(Math.round(ZOOM_MIN * 100), val));
+    const newZoom = val / 100;
+    const rect = viewport.getBoundingClientRect();
+    const cx = rect.width / 2, cy = rect.height / 2;
+    panX = cx - ((cx - panX) / zoom) * newZoom;
+    panY = cy - ((cy - panY) / zoom) * newZoom;
+    zoom = newZoom;
+    applyTransform();
+  }
+  zoomInput.style.display = 'none';
+  zoomReadout.style.display = '';
+}
+
+zoomInput.addEventListener('blur', commitZoomInput);
+zoomInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { zoomInput.blur(); }
+  if (e.key === 'Escape') {
+    zoomInput.style.display = 'none';
+    zoomReadout.style.display = '';
+  }
+});
 
 viewport.addEventListener('mousedown', (e) => {
   if (e.target !== viewport && e.target !== canvas) return; // only pan on empty background
@@ -704,7 +1025,7 @@ viewport.addEventListener('wheel', (e) => {
 
   const prevZoom = zoom;
   const delta = e.deltaY > 0 ? -0.1 : 0.1;
-  zoom = Math.min(2, Math.max(0.25, zoom + delta));
+  zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom + delta));
 
   // Keep the point under the cursor stable while zooming
   panX = mouseX - ((mouseX - panX) / prevZoom) * zoom;
@@ -712,6 +1033,79 @@ viewport.addEventListener('wheel', (e) => {
 
   applyTransform();
 }, { passive: false });
+
+// ── Touch pan & pinch-zoom for the canvas (mobile/tablet) ──────────
+// Mirrors the mouse drag-to-pan / wheel-to-zoom behavior above, using
+// touches instead. Only engages when starting on empty canvas background
+// (not on a node — node touches are handled by handleNodeTouchStart).
+let touchPanState = null;
+let pinchState = null;
+
+function touchDist(t1, t2) {
+  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+}
+
+function beginPinch(touches) {
+  const rect = viewport.getBoundingClientRect();
+  return {
+    startDist: touchDist(touches[0], touches[1]),
+    startZoom: zoom,
+    midX: (touches[0].clientX + touches[1].clientX) / 2 - rect.left,
+    midY: (touches[0].clientY + touches[1].clientY) / 2 - rect.top,
+    panOriginX: panX,
+    panOriginY: panY,
+  };
+}
+
+viewport.addEventListener('touchstart', (e) => {
+  if (e.target !== viewport && e.target !== canvas) return; // a node handles its own touch
+  if (e.touches.length === 1) {
+    touchPanState = {
+      startX: e.touches[0].clientX, startY: e.touches[0].clientY,
+      originX: panX, originY: panY,
+    };
+  } else if (e.touches.length === 2) {
+    touchPanState = null;
+    pinchState = beginPinch(e.touches);
+  }
+}, { passive: false });
+
+viewport.addEventListener('touchmove', (e) => {
+  if (e.touches.length === 2 && pinchState) {
+    e.preventDefault();
+    const newDist = touchDist(e.touches[0], e.touches[1]);
+    const scale = newDist / pinchState.startDist;
+    const newZoom = Math.min(2, Math.max(0.25, pinchState.startZoom * scale));
+    panX = pinchState.midX - ((pinchState.midX - pinchState.panOriginX) / pinchState.startZoom) * newZoom;
+    panY = pinchState.midY - ((pinchState.midY - pinchState.panOriginY) / pinchState.startZoom) * newZoom;
+    zoom = newZoom;
+    applyTransform();
+  } else if (e.touches.length === 1 && touchPanState) {
+    e.preventDefault();
+    panX = touchPanState.originX + (e.touches[0].clientX - touchPanState.startX);
+    panY = touchPanState.originY + (e.touches[0].clientY - touchPanState.startY);
+    applyTransform();
+  }
+}, { passive: false });
+
+viewport.addEventListener('touchend', (e) => {
+  if (e.touches.length === 0) {
+    touchPanState = null;
+    pinchState = null;
+  } else if (e.touches.length === 1) {
+    // Dropped from two fingers to one — resume single-finger panning from here
+    pinchState = null;
+    touchPanState = {
+      startX: e.touches[0].clientX, startY: e.touches[0].clientY,
+      originX: panX, originY: panY,
+    };
+  }
+});
+
+viewport.addEventListener('touchcancel', () => {
+  touchPanState = null;
+  pinchState = null;
+});
 
 // ─────────────────────────────────────────────────────────────────
 // Top bar buttons
