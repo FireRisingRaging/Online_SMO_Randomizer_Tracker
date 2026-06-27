@@ -502,6 +502,33 @@
     z-index: 10;
   }
   #image-viewer-resize:hover { background: var(--accent); }
+
+  /* ── Mobile-only overrides ─────────────────────────────────── */
+  @media (pointer: coarse) {
+    /* Image viewer fills most of the screen on touch devices */
+    #image-viewer {
+      top: 5vh;
+      left: 5vw;
+      transform: none;
+      width: 90vw;
+      height: 85vh;
+      min-width: unset;
+      min-height: unset;
+    }
+    /* Clip the zoomed image to the body area */
+    #image-viewer-body { overflow: hidden; }
+    /* No resize handle — viewer is already full-screen */
+    #image-viewer-resize { display: none; }
+    /* Header is not draggable on mobile */
+    #image-viewer-header { cursor: default; }
+    /* Show a grab cursor while image is zoomed */
+    #image-viewer img { cursor: grab; }
+    /* Activated cluster panel gets an accent border */
+    .cluster-bg.mobile-active {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+  }
 </style>
 </head>
 <body>
@@ -603,6 +630,27 @@
 
 <script>
 'use strict';
+
+// ─────────────────────────────────────────────────────────────────
+// Mobile detection & image-viewer zoom state
+// ─────────────────────────────────────────────────────────────────
+const IS_MOBILE = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
+// Per-open zoom/pan state for the mobile image viewer
+let mobileImgScale = 1, mobileImgPanX = 0, mobileImgPanY = 0;
+
+function resetMobileImgZoom() {
+  mobileImgScale = 1; mobileImgPanX = 0; mobileImgPanY = 0;
+  const img = document.querySelector('#image-viewer-body img');
+  if (img) img.style.transform = '';
+}
+
+function applyMobileImgTransform() {
+  const img = document.querySelector('#image-viewer-body img');
+  if (!img) return;
+  img.style.transformOrigin = 'center center';
+  img.style.transform = `translate(${mobileImgPanX}px,${mobileImgPanY}px) scale(${mobileImgScale})`;
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Data
@@ -1127,6 +1175,7 @@ function renderClusters() {
 // Cluster drag (move entire cluster)
 // ─────────────────────────────────────────────────────────────────
 let activeClusDrag = null;
+let activeMobileCluster = null; // Mobile: key of the currently selected (tap-activated) cluster
 
 function wireClusterDrag(div, key) {
   div.addEventListener('mousedown', (e) => {
@@ -1174,6 +1223,68 @@ function wireClusterDrag(div, key) {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
+
+  // ── Mobile: tap once to activate panel, then drag to move it ─────
+  div.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    // Ignore touches on the resize handle (it has its own handler)
+    if (e.target.classList.contains('cluster-resize-handle')) return;
+
+    e.preventDefault(); e.stopPropagation();
+
+    if (activeMobileCluster !== key) {
+      // Deactivate any previously active cluster
+      if (activeMobileCluster) {
+        const prevDiv = canvasEl.querySelector(`.cluster-bg[data-kingdom="${activeMobileCluster}"]`);
+        if (prevDiv) prevDiv.classList.remove('mobile-active');
+      }
+      // First tap: activate this cluster (shows accent border)
+      activeMobileCluster = key;
+      div.classList.add('mobile-active');
+      return; // don't start a drag yet
+    }
+
+    // Second+ touch on an already-active panel: start dragging
+    const t = e.touches[0];
+    const kn = nodes[`kingdom:${key}`];
+    const startCx = kn.clusterX, startCy = kn.clusterY;
+    const startMx = t.clientX, startMy = t.clientY;
+    let hasMoved = false;
+
+    div.classList.add('dragging-cluster');
+    viewport.classList.add('cluster-dragging');
+
+    function onTouchMove(ev) {
+      if (ev.touches.length !== 1) return;
+      ev.preventDefault();
+      hasMoved = true;
+      const tc = ev.touches[0];
+      const dx = (tc.clientX - startMx) / zoom;
+      const dy = (tc.clientY - startMy) / zoom;
+      moveCluster(key, Math.max(0, startCx + dx), Math.max(0, startCy + dy), div);
+    }
+
+    function onTouchEnd() {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', onTouchEnd);
+      div.classList.remove('dragging-cluster');
+      viewport.classList.remove('cluster-dragging');
+      if (hasMoved) {
+        // Persist new position and auto-deactivate after a completed drag
+        clusterPositions[key] = { x: nodes[`kingdom:${key}`].clusterX, y: nodes[`kingdom:${key}`].clusterY };
+        savePositions();
+        updateCanvasBounds();
+        div.classList.remove('mobile-active');
+        activeMobileCluster = null;
+      }
+      // If no movement (accidental tap on an active panel) keep it active
+    }
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchcancel', onTouchEnd);
+  }, { passive: false });
 }
 
 function moveCluster(key, nx, ny, div) {
@@ -1258,6 +1369,36 @@ function wireClusterResize(handle, key) {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
+
+  // ── Mobile: touch-drag the triangle handle to resize ─────────────
+  handle.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault(); e.stopPropagation();
+
+    const startW = clusterSizes[key]?.w ?? defaultClusterWidth();
+    const startMx = e.touches[0].clientX;
+
+    function onTouchMove(ev) {
+      if (ev.touches.length !== 1) return;
+      ev.preventDefault();
+      const dw = (ev.touches[0].clientX - startMx) / zoom;
+      const newW = Math.max(CLUSTER_MIN_W, startW + dw);
+      clusterSizes[key] = { w: newW };
+      resizeCluster(key, newW);
+    }
+
+    function onTouchEnd() {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', onTouchEnd);
+      saveSizes();
+      updateCanvasBounds();
+    }
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchcancel', onTouchEnd);
+  }, { passive: false });
 }
 
 function resizeCluster(key, newW) {
@@ -1428,6 +1569,18 @@ function openImageViewer(nodeId) {
   const isKingdom = n.type === 'kingdom';
   const isTodo = imgFile === null;
 
+  // On mobile, clear any inline styles set by the desktop drag handler
+  // so the CSS @media (pointer: coarse) rules can position the viewer
+  if (IS_MOBILE) {
+    imageViewer.style.left = '';
+    imageViewer.style.top = '';
+    imageViewer.style.transform = '';
+    imageViewer.style.width = '';
+    imageViewer.style.height = '';
+  }
+  // Reset image zoom/pan every time a new image is opened
+  resetMobileImgZoom();
+
   imgTitle.textContent = isKingdom ? `${n.label} Kingdom` : `${n.kingdomKey}: ${n.label}`;
   imgTitle.style.color = n.color || 'var(--text)';
 
@@ -1518,6 +1671,65 @@ document.addEventListener('mousedown', (e) => {
   });
 
   document.addEventListener('mouseup', () => { resizing = false; });
+})();
+
+// ─────────────────────────────────────────────────────────────────
+// Mobile image viewer: pinch-to-zoom and single-finger pan
+// ─────────────────────────────────────────────────────────────────
+(function() {
+  let touchMode = null; // 'pinch' | 'pan' | null
+  let pinchStartDist = 0, pinchStartScale = 1;
+  let panStartX = 0, panStartY = 0, panStartImgX = 0, panStartImgY = 0;
+
+  imgBody.addEventListener('touchstart', (e) => {
+    if (!imageViewer.classList.contains('visible')) return;
+    e.preventDefault(); e.stopPropagation();
+
+    if (e.touches.length >= 2) {
+      touchMode = 'pinch';
+      pinchStartDist = Math.hypot(
+        e.touches[1].clientX - e.touches[0].clientX,
+        e.touches[1].clientY - e.touches[0].clientY
+      );
+      pinchStartScale = mobileImgScale;
+    } else if (e.touches.length === 1) {
+      touchMode = 'pan';
+      panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY;
+      panStartImgX = mobileImgPanX;     panStartImgY = mobileImgPanY;
+    }
+  }, { passive: false });
+
+  imgBody.addEventListener('touchmove', (e) => {
+    if (!imageViewer.classList.contains('visible')) return;
+    e.preventDefault(); e.stopPropagation();
+
+    if (touchMode === 'pinch' && e.touches.length >= 2) {
+      const dist = Math.hypot(
+        e.touches[1].clientX - e.touches[0].clientX,
+        e.touches[1].clientY - e.touches[0].clientY
+      );
+      mobileImgScale = Math.max(1, Math.min(5, pinchStartScale * (dist / pinchStartDist)));
+      applyMobileImgTransform();
+    } else if (touchMode === 'pan' && e.touches.length === 1 && mobileImgScale > 1) {
+      // Only pan when zoomed in (at scale 1 the image already fits the viewer)
+      mobileImgPanX = panStartImgX + (e.touches[0].clientX - panStartX);
+      mobileImgPanY = panStartImgY + (e.touches[0].clientY - panStartY);
+      applyMobileImgTransform();
+    }
+  }, { passive: false });
+
+  imgBody.addEventListener('touchend', (e) => {
+    if (e.touches.length === 0) {
+      touchMode = null;
+    } else if (e.touches.length === 1 && touchMode === 'pinch') {
+      // Fingers reduced from 2 → 1: switch to pan mode seamlessly
+      touchMode = 'pan';
+      panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY;
+      panStartImgX = mobileImgPanX;     panStartImgY = mobileImgPanY;
+    }
+  });
+
+  imgBody.addEventListener('touchcancel', () => { touchMode = null; });
 })();
 
 // ─────────────────────────────────────────────────────────────────
@@ -1633,11 +1845,31 @@ function handleNodeTouchStart(e, id) {
   const startX = e.touches[0].clientX, startY = e.touches[0].clientY;
   let moved = false, dragStarted = false;
 
+  // ── Long-press → open stage preview (2 s, only when Stage Previews is on) ──
+  // Timer is cancelled the moment the finger moves past the movement threshold,
+  // so it can never fire during an intentional connection drag.
+  let longPressTimer = null;
+  if (showImages) {
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      if (!moved) {
+        // Consume the touch gesture — remove all listeners before opening the viewer
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onEnd);
+        document.removeEventListener('touchcancel', onCancel);
+        connecting = null;
+        openImageViewer(id);
+      }
+    }, 2000);
+  }
+
   function onMove(ev) {
     if (ev.touches.length !== 1) return;
     const ct = ev.touches[0];
     if (!moved && Math.hypot(ct.clientX-startX, ct.clientY-startY) > TAP_MOVE_THRESHOLD) {
       moved = true; dragStarted = true;
+      // User is dragging — cancel the long-press immediately
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
       connecting = id;
       previewLine = drawLine(nodeCenter(id), nodeCenter(id), '#7c87f5', false);
       previewLine.setAttribute('stroke-dasharray','5,4');
@@ -1651,6 +1883,7 @@ function handleNodeTouchStart(e, id) {
   }
 
   function onEnd(ev) {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onEnd);
     document.removeEventListener('touchcancel', onCancel);
@@ -1682,6 +1915,7 @@ function handleNodeTouchStart(e, id) {
   }
 
   function onCancel() {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onEnd);
     document.removeEventListener('touchcancel', onCancel);
@@ -1849,6 +2083,12 @@ let touchPanState=null, pinchState=null;
 function touchDist(t1,t2) { return Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY); }
 
 viewport.addEventListener('touchstart', (e) => {
+  // Tapping the open canvas deactivates any selected cluster panel
+  if (activeMobileCluster && (e.target === viewport || e.target === canvasEl)) {
+    const prevDiv = canvasEl.querySelector(`.cluster-bg[data-kingdom="${activeMobileCluster}"]`);
+    if (prevDiv) prevDiv.classList.remove('mobile-active');
+    activeMobileCluster = null;
+  }
   if (e.target!==viewport && e.target!==canvasEl) return;
   if (e.touches.length===1) {
     touchPanState = { startX:e.touches[0].clientX, startY:e.touches[0].clientY, originX:panX, originY:panY };
