@@ -24,7 +24,7 @@
     --btn-hover:   #444444;
     --font:        'Arial Rounded MT Bold', 'Arial', sans-serif;
   }
-  * , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     height: 100%;
     background: var(--bg);
@@ -34,37 +34,32 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-  }
+  #app { display: flex; flex-direction: column; height: 100vh; }
 
-  /* ── Top bar ─────────────────────────────────────────────────── */
+  /* ── Top bar ───────────────────────────────────────────────── */
   #topbar {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 8px 12px;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    flex-wrap: wrap;
   }
-  #topbar h1 {
-    font-size: 1.05rem;
-    margin-right: auto;
-  }
+  #topbar h1 { font-size: 1.05rem; margin-right: auto; }
   .map-btn {
     background: var(--btn-bg);
     border: none;
     color: var(--text);
     font-family: var(--font);
-    font-size: 0.85rem;
-    height: 34px;
-    padding: 0 14px;
+    font-size: 0.82rem;
+    height: 32px;
+    padding: 0 12px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: background 0.15s;
+    white-space: nowrap;
   }
   .map-btn:hover { background: var(--btn-hover); }
   .map-btn.active { background: var(--accent); }
@@ -72,8 +67,14 @@
   .map-btn.danger { color: var(--red); }
   .map-btn.danger:hover { background: #3a2020; }
 
-  /* ── Controls legend (toggleable) ───────────────────────────── */
-  #controls-panel {
+  .topbar-sep {
+    width: 1px; height: 22px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* ── Collapsible panels ─────────────────────────────────────── */
+  .side-panel {
     background: var(--bg-card2);
     border-bottom: 1px solid var(--border);
     padding: 10px 16px;
@@ -82,38 +83,149 @@
     color: var(--text-dim);
     flex-shrink: 0;
   }
-  #controls-panel.hidden { display: none; }
+  .side-panel.hidden { display: none; }
+
   #controls-panel ul { padding-left: 18px; }
   #controls-panel strong { color: var(--text); }
 
-  /* ── Read-only "Display" panel (all chains, top, non-editable) ── */
-  #display-panel {
+  /* ── Settings modal ────────────────────────────────────────── */
+  #settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  #settings-overlay.visible { display: flex; }
+
+  #settings-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+    overflow: hidden;
+  }
+
+  #settings-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
     background: var(--bg-card2);
     border-bottom: 1px solid var(--border);
-    padding: 10px 16px;
-    max-height: 160px;
-    overflow-y: auto;
-    flex-shrink: 0;
-    font-size: 0.85rem;
   }
-  #display-panel.hidden { display: none; }
-  #display-panel .empty-note {
+  #settings-modal-header h2 {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: var(--text);
+  }
+  #settings-modal-close {
+    background: none;
+    border: none;
     color: var(--text-dim);
-    font-style: italic;
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 2px;
   }
-  .chain-row {
-    padding: 3px 0;
+  #settings-modal-close:hover { color: var(--red); }
+
+  #settings-modal-body {
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .settings-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .settings-row-label {
+    font-size: 0.82rem;
+    font-weight: bold;
+    color: var(--text);
+  }
+  .settings-row-desc {
+    font-size: 0.78rem;
+    color: var(--text-dim);
     line-height: 1.5;
   }
-  .chain-row .arrow {
-    color: var(--text-dim);
-    margin: 0 4px;
+  .settings-row-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
-  .chain-row .loop-tag {
-    color: var(--text-dim);
-    font-size: 0.78rem;
-    margin-left: 6px;
+  .settings-row-control input[type="number"] {
+    width: 50px;
+    height: 30px;
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.83rem;
+    text-align: center;
+    padding: 0 4px;
+    outline: none;
   }
+  .settings-row-control input[type="number"]:focus { border-color: var(--accent); }
+  .settings-row-control .x-sep { color: var(--text-dim); font-size: 0.83rem; }
+  .settings-divider {
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Toggle switch */
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--btn-bg);
+    border-radius: 20px;
+    transition: background 0.2s;
+    cursor: pointer;
+  }
+  .toggle-switch input:checked + .toggle-track { background: var(--accent); }
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track::after { transform: translateX(16px); }
+  .toggle-label { font-size: 0.83rem; color: var(--text); cursor: pointer; }
+
+  /* Display panel */
+  #display-panel {
+    max-height: 150px;
+    overflow-y: auto;
+    font-size: 0.84rem;
+  }
+  #display-panel .empty-note { color: var(--text-dim); font-style: italic; }
+  .chain-row { padding: 3px 0; line-height: 1.5; }
+  .chain-row .arrow { color: var(--text-dim); margin: 0 4px; }
+  .chain-row .loop-tag { color: var(--text-dim); font-size: 0.78rem; margin-left: 6px; }
 
   /* ── Canvas viewport ─────────────────────────────────────────── */
   #viewport {
@@ -126,29 +238,48 @@
     background-size: 22px 22px;
   }
   #viewport.panning { cursor: grabbing; }
+  #viewport.cluster-dragging { cursor: move; }
 
   #canvas {
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 0; left: 0;
     transform-origin: 0 0;
   }
 
   svg#lines-layer {
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 0; left: 0;
     overflow: visible;
     pointer-events: none;
   }
 
-  /* ── Cluster background panels ──────────────────────────────── */
+  /* ── Cluster panels ─────────────────────────────────────────── */
   .cluster-bg {
     position: absolute;
     background: rgba(255,255,255,0.02);
     border: 1px solid var(--border);
     border-radius: var(--radius);
+    cursor: move;
+    /* prevent text selection while dragging */
+    user-select: none;
   }
+  .cluster-bg:hover { border-color: rgba(88,101,242,0.3); }
+  .cluster-bg.dragging-cluster { border-color: var(--accent); z-index: 50; }
+
+  /* Resize handle – bottom-right triangle */
+  .cluster-resize-handle {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 18px; height: 18px;
+    cursor: se-resize;
+    z-index: 10;
+    /* Painted as a bottom-right triangle via clip-path */
+    background: var(--border);
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    border-radius: 0 0 var(--radius) 0;
+    transition: background 0.15s;
+  }
+  .cluster-resize-handle:hover { background: var(--accent); }
 
   /* ── Nodes ───────────────────────────────────────────────────── */
   .map-node {
@@ -176,53 +307,42 @@
   }
   .map-node.drag-target {
     border-color: var(--green);
-    background: rgba(74, 222, 128, 0.15);
+    background: rgba(74,222,128,0.15);
   }
-
   .map-node.kingdom-node {
     font-weight: bold;
     font-size: 0.85rem;
     background: var(--bg-card2);
     border-width: 2px;
+    cursor: move; /* header drag hint */
   }
   .map-node.kingdom-node img {
-    height: 18px;
-    width: 18px;
-    object-fit: contain;
-    flex-shrink: 0;
+    height: 18px; width: 18px;
+    object-fit: contain; flex-shrink: 0;
   }
-
   .map-node.mark-green {
     border-color: var(--green);
-    background-color: rgba(74, 222, 128, 0.18);
+    background-color: rgba(74,222,128,0.18);
   }
   .map-node.mark-red {
     border-color: var(--red);
-    background-color: rgba(248, 113, 113, 0.18);
+    background-color: rgba(248,113,113,0.18);
   }
-
-  /* Dead-end zones (e.g. shops) diagonal hatch, layered independently of
-     background-color so it stays visible even when also marked green/red. */
   .map-node.dead-end {
     background-image: repeating-linear-gradient(
       45deg,
-      rgba(255, 255, 255, 0.09) 0px,
-      rgba(255, 255, 255, 0.09) 2px,
+      rgba(255,255,255,0.09) 0px,
+      rgba(255,255,255,0.09) 2px,
       transparent 2px,
       transparent 8px
     );
   }
+  .map-node .node-label { overflow: hidden; text-overflow: ellipsis; }
 
-  .map-node .node-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* ── Zoom control bar ───────────────────────────────────────── */
+  /* ── Zoom control ───────────────────────────────────────────── */
   #zoom-control {
     position: absolute;
-    bottom: 10px;
-    right: 14px;
+    bottom: 10px; right: 14px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -232,7 +352,6 @@
     border: 1px solid var(--border);
     user-select: none;
   }
-
   #zoom-readout {
     font-size: 0.75rem;
     color: var(--text-dim);
@@ -242,7 +361,6 @@
     transition: color 0.15s;
   }
   #zoom-readout:hover { color: var(--text); }
-
   #zoom-input {
     width: 46px;
     font-size: 0.75rem;
@@ -255,12 +373,10 @@
     text-align: center;
     outline: none;
   }
-
   #zoom-slider {
     -webkit-appearance: none;
     appearance: none;
-    width: 110px;
-    height: 4px;
+    width: 110px; height: 4px;
     border-radius: 2px;
     background: var(--border);
     outline: none;
@@ -268,18 +384,13 @@
   }
   #zoom-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    appearance: none;
-    width: 13px;
-    height: 13px;
+    width: 13px; height: 13px;
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
-    transition: background 0.15s;
   }
-  #zoom-slider::-webkit-slider-thumb:hover { background: var(--accent-h); }
   #zoom-slider::-moz-range-thumb {
-    width: 13px;
-    height: 13px;
+    width: 13px; height: 13px;
     border-radius: 50%;
     background: var(--accent);
     border: none;
@@ -288,8 +399,7 @@
 
   #author-credit {
     position: absolute;
-    bottom: 10px;
-    left: 14px;
+    bottom: 10px; left: 14px;
     background: rgba(36,36,36,0.90);
     padding: 5px 10px;
     border-radius: var(--radius-sm);
@@ -299,6 +409,99 @@
     user-select: none;
     pointer-events: none;
   }
+
+  /* ── Zone Image Viewer ──────────────────────────────────────── */
+  #image-viewer {
+    position: fixed;
+    top: 80px; left: 50%;
+    transform: translateX(-50%);
+    width: 380px;
+    min-width: 180px;
+    min-height: 120px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--accent);
+    border-radius: var(--radius);
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+  #image-viewer.visible { display: flex; }
+
+  #image-viewer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: var(--bg-card2);
+    border-bottom: 1px solid var(--border);
+    cursor: move;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  #image-viewer-title {
+    font-size: 0.82rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  #image-viewer-close {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 2px;
+    flex-shrink: 0;
+  }
+  #image-viewer-close:hover { color: var(--red); }
+
+  #image-viewer-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: 80px;
+    padding: 8px;
+  }
+
+  #image-viewer img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    border-radius: 4px;
+  }
+  #image-viewer .img-placeholder {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 20px;
+    line-height: 1.6;
+  }
+  #image-viewer .img-todo {
+    color: #f5a623;
+    font-size: 0.78rem;
+    text-align: center;
+    padding: 4px 0 0;
+  }
+
+  /* Resize handle for image viewer */
+  #image-viewer-resize {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 18px; height: 18px;
+    cursor: se-resize;
+    background: rgba(88,101,242,0.4);
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    z-index: 10;
+  }
+  #image-viewer-resize:hover { background: var(--accent); }
 </style>
 </head>
 <body>
@@ -306,21 +509,33 @@
 
   <div id="topbar">
     <h1>SMO Connection Map</h1>
-    <button class="map-btn" id="btn-controls">Show Controls</button>
+    <button class="map-btn" id="btn-controls">Info & Controls</button>
+    <button class="map-btn" id="btn-settings">Settings</button>
     <button class="map-btn active" id="btn-display">Hide Display</button>
+    <div class="topbar-sep"></div>
     <button class="map-btn danger" id="btn-clear">Clear</button>
   </div>
 
-  <div id="controls-panel" class="hidden">
+  <!-- Controls panel -->
+  <div id="controls-panel" class="side-panel hidden">
+    <strong>Controls</strong>
     <ul>
-      <li><strong>Left Mouse Button</strong> hold &amp; drag to connect stages.</li>
+      <li><strong>Left Mouse Button</strong> hold and drag a zone/kingdom to draw a connection arrow.</li>
       <li><strong>Double Left Mouse Button</strong> to disconnect a path. This disconnects the stage connected to the one clicked. e.g. with Cascade→Sand→Lake→Wooded→Lost, double-clicking Lake gives you two paths: Wooded→Lost and Cascade→Sand→Lake.</li>
       <li><strong>Middle Mouse Button</strong> to mark/unmark a stage green. <strong>Right Mouse Button</strong> to mark/unmark a stage red.</li>
+      <li><strong>Drag the panel background or kingdom header</strong> to move a kingdom panel.</li>
+      <li><strong>Triangle handle</strong> (bottom-right of each panel) to resize it. Zones reflow automatically in that space.</li>
+      <li><strong>Single-click</strong> a node (with Stage Previews on) to view its loading zone screenshot.</li>
       <li>Scroll to zoom, drag empty space to pan.</li>
+    </ul>
+    <strong>Info</strong>
+    <ul>
+      <li>The <strong>stripped loading zones</strong> represent one-ways, one entrance in or out</li>
     </ul>
   </div>
 
-  <div id="display-panel"></div>
+  <!-- Display panel -->
+  <div id="display-panel" class="side-panel"></div>
 
   <div id="viewport">
     <div id="canvas">
@@ -333,250 +548,771 @@
       <input id="zoom-input" type="number" min="60" max="120" style="display:none">
     </div>
   </div>
+</div>
 
+<!-- Settings modal -->
+<div id="settings-overlay">
+  <div id="settings-modal">
+    <div id="settings-modal-header">
+      <h2>Settings</h2>
+      <button id="settings-modal-close" title="Close">✕</button>
+    </div>
+    <div id="settings-modal-body">
+
+      <div class="settings-row">
+        <div class="settings-row-label">Grid Layout</div>
+        <div class="settings-row-desc">Set how many columns to arrange kingdom panels in. Rows are calculated automatically. Resets any manual panel positions and sizes.</div>
+        <div class="settings-row-control">
+          <input type="number" id="grid-cols" min="1" max="15" value="4" title="Columns">
+          <span class="x-sep">cols</span>
+          <button class="map-btn" id="btn-apply-grid">Apply</button>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">Stage Previews</div>
+        <div class="settings-row-desc">Single-click any kingdom or zone node to view its loading zone screenshot.</div>
+        <div class="settings-row-control">
+          <label class="toggle-wrap" for="toggle-images">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-images">
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label" id="toggle-images-label">Off</span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Zone Image Viewer -->
+<div id="image-viewer">
+  <div id="image-viewer-header">
+    <span id="image-viewer-title">Zone Name</span>
+    <button id="image-viewer-close" title="Close">✕</button>
+  </div>
+  <div id="image-viewer-body">
+    <!-- content injected by JS -->
+  </div>
+  <div id="image-viewer-resize" title="Drag to resize"></div>
 </div>
 
 <script>
 'use strict';
 
 // ─────────────────────────────────────────────────────────────────
-// Data (mirrors app.js's LOADING_ZONES_TEMPLATE)
+// Data
 // ─────────────────────────────────────────────────────────────────
 const LOADING_ZONES_TEMPLATE = {
-  'Cap': { color: '#fff500', icon: 'Cap.png', zones: { 'Orange': {}, 'Paragoomba': {}, 'Frog': {}, 'Rolling On': {} } },
-  'Cascade': { color: '#ff9900', icon: 'Cascade.png', zones: { 'Dino': {}, '2D': {}, 'Chain Chomp': {}, 'Swings': {}, 'Windy': {} } },
-  'Sand': { color: '#8bf12c', icon: 'Sand.png', zones: { "Icy Cave": {}, "Moe-eye": {}, "Shop": {}, "Employees": {}, "Slots": {}, "Rumble": {}, "Outfit": {}, "Jaxi Ruins": {}, "Bullet Bill": {}, "Gushen": {}, "Sphynx": {}, "Moving Platform": {}, "Rocket": {}, "Colossal Ruins": {} } },
-  'Lake': { color: '#e46cab', icon: 'Lake.png', zones: { "Poison Waves": {}, "Zipper": {}, "Grab Climb": {}, "Shop": {}, "Puzzle": {} } },
-  'Wooded': { color: '#1e65e7', icon: 'Wooded.png', zones: { "DW Odyssey": {}, "DW Red Maze": {}, "DW Pond": {}, "DW Treasure": {}, "DW Outfit": {}, "Rocket": {}, "Sheep": {}, "Tank": {}, "Vine Clouds": {}, "Breakdown": {}, "Invisible": {}, "Flooded Pipes": {}, "Flower Road": {}, "Treasure Room": {} } },
-  'Lost': { color: '#e71edd', icon: 'Lost.png', zones: { 'Wiggler': {}, 'Shop': {}, 'Klepto': {} } },
-  'Metro': { color: '#de7d5e', icon: 'Metro.png', zones: { "Yellow Shop": {}, "Purple Shop": {}, "Dino": {}, "Bullet Billding": {}, "Taxi": {}, "Notes": {}, "2D": {}, "Slots": {}, "People": {}, "Outfit": {}, "Rocket": {}, "Dark": {}, "Scaffolding": {}, "Scooter": {}, "Rotating Maze": {}, "RC Car": {} } },
-  'Snow': { color: '#e7930a', icon: 'Snow.png', zones: { "Puzzle": {}, "Capless": {}, "Rocket Flower": {}, "Iceburn": {}, "Flower Road": {}, "Tracewalking": {}, "Clouds": {}, "Outfit": {}, "Shop": {} } },
-  'Seaside': { color: '#b36fe9', icon: 'Seaside.png', zones: { "Well Enter": {}, "Well Exit": {}, "Rumble": {}, "Rocket": {}, "Outfit": {}, "Gushen": {}, "Sphynx": {}, "Pokio": {}, "Lava Rising": {}, "Sandy Bottom": {}, "Spinning Maze": {} } },
-  'Luncheon': { color: '#3fddbb', icon: 'Luncheon.png', zones: { "Magma Swamp": {}, "Forks": {}, "Cheese Rocks": {}, "Veggie Room": {}, "Slots": {}, "Shop": {}, "Outfit": {}, "Spinning Athletics": {}, "Lava Islands": {}, "Volcano Cave": {}, "Gears": {}, "Magma Path": {} } },
-  'Ruined': { color: '#ffd7e2', icon: 'Ruin.png', zones: { "Chargin' Chuck": {}, 'Rocket': {} } },
-  "Bowser's": { color: '#d3304c', icon: 'Bowser.png', zones: { "Jizo": {}, "Shop": {}, "Outfit": {}, "Treasure Room": {}, "Spinning Tower": {}, "Vine Clouds": {}, "Hexagon Tower": {}, "Wooden Tower": {} } },
-  'Mushroom': { color: '#fff672', icon: 'Star.png', zones: { "Shop": {}, "Castle Door": {}, "Outfit": {}, "Cloud Sea": {}, "Well": {}, "Knucklotec": {}, "Torkdrift": {}, "Mechawiggler": {}, "Octopus": {}, "Cookatiel": {}, "Dragon": {}, "Rocket": {} } },
-  'Darkside': { color: '#fff2c6', icon: 'Dark.png', zones: { 'Breakdown': {}, 'Invisible': {}, 'Vanishing': {}, 'Yoshi Siege': {}, 'Lava Rising': {}, 'Magma Swamp': {} } },
-  'Darkerside': { color: '#fff2c6', icon: 'Dark.png', zones: { 'End': {} } },
+  'Cap':       { color: '#fff500', icon: 'Cap.png',     zones: { 'Orange': {}, 'Paragoomba': {}, 'Frog': {}, 'Rolling On': {} } },
+  'Cascade':   { color: '#ff9900', icon: 'Cascade.png', zones: { 'Dino': {}, '2D': {}, 'Chain Chomp': {}, 'Swings': {}, 'Windy': {} } },
+  'Sand':      { color: '#8bf12c', icon: 'Sand.png',    zones: { "Icy Cave": {}, "Moe-eye": {}, "Shop": {}, "Employees": {}, "Slots": {}, "Rumble": {}, "Outfit": {}, "Jaxi Ruins": {}, "Bullet Bill": {}, "Gushen": {}, "Sphynx": {}, "Moving Platform": {}, "Rocket": {}, "Colossal Ruins": {} } },
+  'Lake':      { color: '#e46cab', icon: 'Lake.png',    zones: { "Poison Waves": {}, "Zipper": {}, "Grab Climb": {}, "Shop": {}, "Puzzle": {} } },
+  'Wooded':    { color: '#1e65e7', icon: 'Wooded.png',  zones: { "DW Odyssey": {}, "DW Red Maze": {}, "DW Pond": {}, "DW Treasure": {}, "DW Outfit": {}, "Rocket": {}, "Sheep": {}, "Tank": {}, "Vine Clouds": {}, "Breakdown": {}, "Invisible": {}, "Flooded Pipes": {}, "Flower Road": {}, "Treasure Room": {} } },
+  'Lost':      { color: '#e71edd', icon: 'Lost.png',    zones: { 'Wiggler': {}, 'Shop': {}, 'Klepto': {} } },
+  'Metro':     { color: '#de7d5e', icon: 'Metro.png',   zones: { "Yellow Shop": {}, "Purple Shop": {}, "Dino": {}, "Bullet Billding": {}, "Taxi": {}, "Notes": {}, "2D": {}, "Slots": {}, "People": {}, "Outfit": {}, "Rocket": {}, "Dark": {}, "Scaffolding": {}, "Scooter": {}, "Rotating Maze": {}, "RC Car": {} } },
+  'Snow':      { color: '#e7930a', icon: 'Snow.png',    zones: { "Puzzle": {}, "Capless": {}, "Rocket Flower": {}, "Iceburn": {}, "Flower Road": {}, "Tracewalking": {}, "Clouds": {}, "Outfit": {}, "Shop": {} } },
+  'Seaside':   { color: '#b36fe9', icon: 'Seaside.png', zones: { "Well Enter": {}, "Well Exit": {}, "Rumble": {}, "Rocket": {}, "Outfit": {}, "Gushen": {}, "Sphynx": {}, "Pokio": {}, "Lava Rising": {}, "Sandy Bottom": {}, "Spinning Maze": {} } },
+  'Luncheon':  { color: '#3fddbb', icon: 'Luncheon.png',zones: { "Magma Swamp": {}, "Forks": {}, "Cheese Rocks": {}, "Veggie Room": {}, "Slots": {}, "Shop": {}, "Outfit": {}, "Spinning Athletics": {}, "Lava Islands": {}, "Volcano Cave": {}, "Gears": {}, "Magma Path": {} } },
+  'Ruined':    { color: '#ffd7e2', icon: 'Ruin.png',    zones: { "Chargin' Chuck": {}, 'Rocket': {} } },
+  "Bowser's":  { color: '#d3304c', icon: 'Bowser.png',  zones: { "Jizo": {}, "Shop": {}, "Outfit": {}, "Treasure Room": {}, "Spinning Tower": {}, "Vine Clouds": {}, "Hexagon Tower": {}, "Wooden Tower": {} } },
+  'Mushroom':  { color: '#fff672', icon: 'Star.png',    zones: { "Shop": {}, "Castle Door": {}, "Outfit": {}, "Cloud Sea": {}, "Well": {}, "Knucklotec": {}, "Torkdrift": {}, "Mechawiggler": {}, "Octopus": {}, "Cookatiel": {}, "Dragon": {}, "Rocket": {} } },
+  'Darkside':  { color: '#fff2c6', icon: 'Dark.png',    zones: { 'Breakdown': {}, 'Invisible': {}, 'Vanishing': {}, 'Yoshi Siege': {}, 'Lava Rising': {}, 'Magma Swamp': {} } },
+  'Darkerside':{ color: '#fff2c6', icon: 'Dark.png',    zones: { 'End': {} } },
 };
 
-const STORAGE_KEY = 'smo_map_state';
-
-// Dead-end zones rooms with no further connection (e.g. shops). Diagonal
-// hatching is applied to any zone listed here. To add more later, just add
-// another [kingdom, exact zone name] pair.
-const DEAD_END_ZONES = [
-  ['Cascade', 'Dino'],
-  ['Sand', 'Shop'],
-  ['Sand', 'Employees'],
-  ['Sand', 'Slots'],
-  ['Sand', 'Rumble'],
-  ['Sand', 'Outfit'],
-  ['Sand', 'Sphynx'],
-  ['Sand', 'Colossal Ruins'],
-  ['Lake', 'Zipper'],
-  ['Lake', 'Shop'],
-  ['Lake', 'Puzzle'],
-  ['Wooded', 'DW Treasure'],
-  ['Wooded', 'DW Outfit'],
-  ['Wooded', 'Sheep'],
-  ['Wooded', 'Vine Clouds'],
-  ['Wooded', 'Breakdown'],
-  ['Lost', 'Shop'],
-  ['Lost', 'Klepto'],
-  ['Metro', 'Yellow Shop'],
-  ['Metro', 'Purple Shop'],
-  ['Metro', 'Notes'],
-  ['Metro', '2D'],
-  ['Metro', 'Slots'],
-  ['Metro', 'Dark'],
-  ['Metro', 'Rotating Maze'],
-  ['Metro', 'RC Car'],
-  ['Snow', 'Puzzle'],
-  ['Snow', 'Iceburn'],
-  ['Snow', 'Tracewalking'],
-  ['Snow', 'Clouds'],
-  ['Snow', 'Outfit'],
-  ['Snow', 'Shop'],
-  ['Seaside', 'Rumble'],
-  ['Seaside', 'Outfit'],
-  ['Seaside', 'Sphynx'],
-  ['Seaside', 'Sandy Bottom'],
-  ['Seaside', 'Spinning Maze'],
-  ['Luncheon', 'Cheese Rocks'],
-  ['Luncheon', 'Veggie Room'],
-  ['Luncheon', 'Slots'],
-  ['Luncheon', 'Shop'],
-  ["Bowser's", 'Shop'],
-  ["Bowser's", 'Outfit'],
-  ["Bowser's", 'Treasure Room'],
-  ["Bowser's", 'Vine Clouds'],
-  ["Bowser's", 'Hexagon Tower'],
-  ['Mushroom', 'Shop'],
-  ['Mushroom', 'Castle Door'],
-  ['Mushroom', 'Outfit'],
-  ['Mushroom', 'Cloud Sea'],
-  ['Mushroom', 'Well'],
-  ['Mushroom', 'Knucklotec'],
-  ['Mushroom', 'Torkdrift'],
-  ['Mushroom', 'Mechawiggler'],
-  ['Mushroom', 'Octopus'],
-  ['Mushroom', 'Cookatiel'],
-  ['Mushroom', 'Dragon'],
-  ['Mushroom', 'Rocket'],
-  ['Darkside', 'Breakdown'],
-  ['Darkerside', 'End'],
-];
-const DEAD_END_IDS = new Set(DEAD_END_ZONES.map(([kingdom, zone]) => `zone:${kingdom}:${zone}`));
+const DEAD_END_IDS = new Set([
+  ['Cascade','Dino'],['Sand','Shop'],['Sand','Employees'],['Sand','Slots'],['Sand','Rumble'],
+  ['Sand','Outfit'],['Sand','Sphynx'],['Sand','Colossal Ruins'],['Lake','Zipper'],
+  ['Lake','Shop'],['Lake','Puzzle'],['Wooded','DW Treasure'],['Wooded','DW Outfit'],
+  ['Wooded','Sheep'],['Wooded','Vine Clouds'],['Wooded','Breakdown'],['Lost','Shop'],
+  ['Lost','Klepto'],['Metro','Yellow Shop'],['Metro','Purple Shop'],['Metro','Notes'],
+  ['Metro','2D'],['Metro','Slots'],['Metro','Dark'],['Metro','Rotating Maze'],['Metro','RC Car'],
+  ['Snow','Puzzle'],['Snow','Iceburn'],['Snow','Tracewalking'],['Snow','Clouds'],
+  ['Snow','Outfit'],['Snow','Shop'],['Seaside','Rumble'],['Seaside','Outfit'],
+  ['Seaside','Sphynx'],['Seaside','Sandy Bottom'],['Seaside','Spinning Maze'],
+  ['Luncheon','Cheese Rocks'],['Luncheon','Veggie Room'],['Luncheon','Slots'],['Luncheon','Shop'],
+  ["Bowser's",'Shop'],["Bowser's",'Outfit'],["Bowser's",'Treasure Room'],["Bowser's",'Vine Clouds'],
+  ["Bowser's",'Hexagon Tower'],['Mushroom','Shop'],['Mushroom','Castle Door'],['Mushroom','Outfit'],
+  ['Mushroom','Cloud Sea'],['Mushroom','Well'],['Mushroom','Knucklotec'],['Mushroom','Torkdrift'],
+  ['Mushroom','Mechawiggler'],['Mushroom','Octopus'],['Mushroom','Cookatiel'],['Mushroom','Dragon'],
+  ['Mushroom','Rocket'],['Darkside','Breakdown'],['Darkerside','End'],
+].map(([k,z]) => `zone:${k}:${z}`));
 
 // ─────────────────────────────────────────────────────────────────
-// Layout
+// Zone → screenshot image mapping
+// Base URL: https://raw.githubusercontent.com/Amethyst-szs/smo-thumbnail-database/main/high/
+// Filenames follow internal SMO stage names (.jpg)
+// null = no image found (TODO)
 // ─────────────────────────────────────────────────────────────────
-const CLUSTER_COLS = 4;
-const ZONE_COLS = 3;
+const BASE_IMG = 'https://raw.githubusercontent.com/Amethyst-szs/smo-thumbnail-database/main/high/';
+
+const ZONE_IMAGES = {
+  // Kingdoms (main stages)
+  'kingdom:Cap':        'CapWorldHomeStage.jpg',
+  'kingdom:Cascade':    'WaterfallWorldHomeStage.jpg',
+  'kingdom:Sand':       'SandWorldHomeStage.jpg',
+  'kingdom:Lake':       'LakeWorldHomeStage.jpg',
+  'kingdom:Wooded':     'ForestWorldHomeStage.jpg',
+  'kingdom:Lost':       'ClashWorldHomeStage.jpg',
+  'kingdom:Metro':      'CityWorldHomeStage.jpg',
+  'kingdom:Snow':       'SnowWorldHomeStage.jpg',
+  'kingdom:Seaside':    'SeaWorldHomeStage.jpg',
+  'kingdom:Luncheon':   'LavaWorldHomeStage.jpg',
+  'kingdom:Ruined':     'BossRaidWorldHomeStage.jpg',
+  "kingdom:Bowser's":   'SkyWorldHomeStage.jpg',
+  'kingdom:Mushroom':   'PeachWorldHomeStage.jpg',
+  'kingdom:Darkside':   'Special1WorldHomeStage.jpg',
+  'kingdom:Darkerside': 'Special2WorldHomeStage.jpg',
+
+  // Cap zones
+  'zone:Cap:Orange':       null, // TODO
+  'zone:Cap:Paragoomba':   null, // TODO
+  'zone:Cap:Frog':         'CapWorldTowerStage.jpg',
+  'zone:Cap:Rolling On':   null, // TODO
+
+  // Cascade zones
+  'zone:Cascade:Dino':       null, // TODO
+  'zone:Cascade:2D':         null, // TODO
+  'zone:Cascade:Chain Chomp':null, // TODO
+  'zone:Cascade:Swings':     null, // TODO
+  'zone:Cascade:Windy':      null, // TODO
+
+  // Sand zones
+  'zone:Sand:Icy Cave':       'SandWorldPressExStage.jpg',
+  'zone:Sand:Moe-eye':        null, // TODO
+  'zone:Sand:Shop':           null, // TODO
+  'zone:Sand:Employees':      null, // TODO
+  'zone:Sand:Slots':          'SandWorldSlotStage.jpg',
+  'zone:Sand:Rumble':         'SandWorldVibrationStage.jpg',
+  'zone:Sand:Outfit':         null, // TODO
+  'zone:Sand:Jaxi Ruins':     null, // TODO
+  'zone:Sand:Bullet Bill':    null, // TODO
+  'zone:Sand:Gushen':         null, // TODO
+  'zone:Sand:Sphynx':         null, // TODO
+  'zone:Sand:Moving Platform':null, // TODO
+  'zone:Sand:Rocket':         null, // TODO
+  'zone:Sand:Colossal Ruins': null, // TODO
+
+  // Lake zones
+  'zone:Lake:Poison Waves':  null, // TODO
+  'zone:Lake:Zipper':        null, // TODO
+  'zone:Lake:Grab Climb':    null, // TODO
+  'zone:Lake:Shop':          null, // TODO
+  'zone:Lake:Puzzle':        null, // TODO
+
+  // Wooded zones
+  'zone:Wooded:DW Odyssey':   null, // TODO
+  'zone:Wooded:DW Red Maze':  null, // TODO
+  'zone:Wooded:DW Pond':      null, // TODO
+  'zone:Wooded:DW Treasure':  null, // TODO
+  'zone:Wooded:DW Outfit':    null, // TODO
+  'zone:Wooded:Rocket':       null, // TODO
+  'zone:Wooded:Sheep':        null, // TODO
+  'zone:Wooded:Tank':         null, // TODO
+  'zone:Wooded:Vine Clouds':  null, // TODO
+  'zone:Wooded:Breakdown':    null, // TODO
+  'zone:Wooded:Invisible':    null, // TODO
+  'zone:Wooded:Flooded Pipes':null, // TODO
+  'zone:Wooded:Flower Road':  null, // TODO
+  'zone:Wooded:Treasure Room':null, // TODO
+
+  // Lost zones
+  'zone:Lost:Wiggler':  null, // TODO
+  'zone:Lost:Shop':     null, // TODO
+  'zone:Lost:Klepto':   null, // TODO
+
+  // Metro zones
+  'zone:Metro:Yellow Shop':    null, // TODO
+  'zone:Metro:Purple Shop':    null, // TODO
+  'zone:Metro:Dino':           null, // TODO
+  'zone:Metro:Bullet Billding':null, // TODO
+  'zone:Metro:Taxi':           null, // TODO
+  'zone:Metro:Notes':          null, // TODO
+  'zone:Metro:2D':             null, // TODO
+  'zone:Metro:Slots':          null, // TODO
+  'zone:Metro:People':         null, // TODO
+  'zone:Metro:Outfit':         null, // TODO
+  'zone:Metro:Rocket':         null, // TODO
+  'zone:Metro:Dark':           null, // TODO
+  'zone:Metro:Scaffolding':    null, // TODO
+  'zone:Metro:Scooter':        null, // TODO
+  'zone:Metro:Rotating Maze':  null, // TODO
+  'zone:Metro:RC Car':         null, // TODO
+
+  // Snow zones
+  'zone:Snow:Puzzle':        null, // TODO
+  'zone:Snow:Capless':       null, // TODO
+  'zone:Snow:Rocket Flower': null, // TODO
+  'zone:Snow:Iceburn':       null, // TODO
+  'zone:Snow:Flower Road':   null, // TODO
+  'zone:Snow:Tracewalking':  null, // TODO
+  'zone:Snow:Clouds':        null, // TODO
+  'zone:Snow:Outfit':        null, // TODO
+  'zone:Snow:Shop':          null, // TODO
+
+  // Seaside zones
+  'zone:Seaside:Well Enter':     null, // TODO
+  'zone:Seaside:Well Exit':      null, // TODO
+  'zone:Seaside:Rumble':         null, // TODO
+  'zone:Seaside:Rocket':         null, // TODO
+  'zone:Seaside:Outfit':         null, // TODO
+  'zone:Seaside:Gushen':         null, // TODO
+  'zone:Seaside:Sphynx':         null, // TODO
+  'zone:Seaside:Pokio':          null, // TODO
+  'zone:Seaside:Lava Rising':    null, // TODO
+  'zone:Seaside:Sandy Bottom':   null, // TODO
+  'zone:Seaside:Spinning Maze':  null, // TODO
+
+  // Luncheon zones
+  'zone:Luncheon:Magma Swamp':       null, // TODO
+  'zone:Luncheon:Forks':             null, // TODO
+  'zone:Luncheon:Cheese Rocks':      null, // TODO
+  'zone:Luncheon:Veggie Room':       null, // TODO
+  'zone:Luncheon:Slots':             null, // TODO
+  'zone:Luncheon:Shop':              null, // TODO
+  'zone:Luncheon:Outfit':            null, // TODO
+  'zone:Luncheon:Spinning Athletics':null, // TODO
+  'zone:Luncheon:Lava Islands':      null, // TODO
+  'zone:Luncheon:Volcano Cave':      null, // TODO
+  'zone:Luncheon:Gears':             null, // TODO
+  'zone:Luncheon:Magma Path':        null, // TODO
+
+  // Ruined zones
+  "zone:Ruined:Chargin' Chuck": null, // TODO
+  'zone:Ruined:Rocket':         null, // TODO
+
+  // Bowser's zones
+  "zone:Bowser's:Jizo":          null, // TODO
+  "zone:Bowser's:Shop":          null, // TODO
+  "zone:Bowser's:Outfit":        null, // TODO
+  "zone:Bowser's:Treasure Room": null, // TODO
+  "zone:Bowser's:Spinning Tower":null, // TODO
+  "zone:Bowser's:Vine Clouds":   null, // TODO
+  "zone:Bowser's:Hexagon Tower": null, // TODO
+  "zone:Bowser's:Wooden Tower":  null, // TODO
+
+  // Mushroom zones
+  'zone:Mushroom:Shop':        null, // TODO
+  'zone:Mushroom:Castle Door': 'PeachWorldCastleStage.jpg',
+  'zone:Mushroom:Outfit':      null, // TODO
+  'zone:Mushroom:Cloud Sea':   null, // TODO
+  'zone:Mushroom:Well':        null, // TODO
+  'zone:Mushroom:Knucklotec':  null, // TODO
+  'zone:Mushroom:Torkdrift':   null, // TODO
+  'zone:Mushroom:Mechawiggler':null, // TODO
+  'zone:Mushroom:Octopus':     null, // TODO
+  'zone:Mushroom:Cookatiel':   null, // TODO
+  'zone:Mushroom:Dragon':      null, // TODO
+  'zone:Mushroom:Rocket':      null, // TODO
+
+  // Darkside zones
+  'zone:Darkside:Breakdown':  null, // TODO
+  'zone:Darkside:Invisible':  null, // TODO
+  'zone:Darkside:Vanishing':  null, // TODO
+  'zone:Darkside:Yoshi Siege':  null, // TODO
+  'zone:Darkside:Lava Rising':  null, // TODO
+  'zone:Darkside:Magma Swamp':  null, // TODO
+
+  // Darkerside zones
+  'zone:Darkerside:End': 'Special2WorldHomeStage.jpg',
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Storage keys
+// ─────────────────────────────────────────────────────────────────
+const STORAGE_KEY         = 'smo_map_state';
+const STORAGE_POSITIONS   = 'smo_map_positions';
+const STORAGE_SIZES       = 'smo_map_sizes';
+const STORAGE_GRID        = 'smo_map_grid';
+const STORAGE_SETTINGS    = 'smo_map_settings';
+
+// ─────────────────────────────────────────────────────────────────
+// Layout constants
+// ─────────────────────────────────────────────────────────────────
+const ZONE_COLS_DEFAULT = 3;
 const NODE_W = 124, NODE_H = 30;
 const ZONE_GAP_X = 8, ZONE_GAP_Y = 7;
 const CLUSTER_PAD = 14;
 const CLUSTER_GAP_X = 46, CLUSTER_GAP_Y = 46;
 const KINGDOM_NODE_W = 150, KINGDOM_NODE_H = 36;
+const CLUSTER_MIN_W = 140;
 
-let nodes = {};       // id -> {id,label,kingdomKey,type,x,y,w,h,color,icon}
+// ─────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────
+let nodes = {};
 let canvasW = 2000, canvasH = 1400;
-let clusterBoxes = []; // {x,y,w,h}
 
+// Connection / mark state
+let outgoing = {}, incoming = {}, marks = {};
+
+// Per-cluster overrides (keyed by kingdomKey)
+let clusterPositions = {};  // {x, y} absolute canvas positions for each cluster
+let clusterSizes = {};      // {w} user-set width for each cluster
+
+// Grid setting
+let gridRows = 4, gridCols = 4;
+
+// App settings
+let showImages = false;
+
+// ─────────────────────────────────────────────────────────────────
+// Cluster geometry helpers
+// ─────────────────────────────────────────────────────────────────
+
+/** Compute effective zone column count from cluster width */
+function zoneCols(clusterW) {
+  const innerW = clusterW - CLUSTER_PAD * 2;
+  const cols = Math.max(1, Math.floor((innerW + ZONE_GAP_X) / (NODE_W + ZONE_GAP_X)));
+  return cols;
+}
+
+/** Compute cluster height from its width and number of zones */
+function clusterHeight(clusterW, numZones) {
+  const cols = zoneCols(clusterW);
+  const rows = Math.ceil(numZones / cols);
+  return KINGDOM_NODE_H + 10 + rows * NODE_H + Math.max(0, rows - 1) * ZONE_GAP_Y + CLUSTER_PAD * 2;
+}
+
+/** Default cluster width = 3 zone columns */
+function defaultClusterWidth() {
+  return ZONE_COLS_DEFAULT * NODE_W + (ZONE_COLS_DEFAULT - 1) * ZONE_GAP_X + CLUSTER_PAD * 2;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Layout builder
+// ─────────────────────────────────────────────────────────────────
 function buildLayout() {
   nodes = {};
-  clusterBoxes = [];
-
   const kingdomKeys = Object.keys(LOADING_ZONES_TEMPLATE);
-  let x = 0, y = 0, rowMaxH = 0, col = 0, maxRight = 0, maxBottom = 0;
+  const numKingdoms = kingdomKeys.length;
 
-  kingdomKeys.forEach((key) => {
+  // Determine grid dimensions
+  const cols = gridCols;
+  const rows = gridRows;
+
+  // Compute per-cluster widths and cluster boxes
+  // Start with stored positions if available, else compute from grid
+  let x = 0, y = 0;
+  let col = 0, row = 0;
+  let rowHeights = {}; // row index -> max cluster height in that row
+
+  // First pass: compute heights per row (needed for y offsets)
+  kingdomKeys.forEach((key, idx) => {
+    const r = Math.floor(idx / cols);
+    const w = clusterSizes[key]?.w ?? defaultClusterWidth();
+    const h = clusterHeight(w, Object.keys(LOADING_ZONES_TEMPLATE[key].zones).length);
+    rowHeights[r] = Math.max(rowHeights[r] || 0, h);
+  });
+
+  // Compute cumulative row y-offsets
+  const rowYOffsets = {};
+  let accY = 0;
+  for (let r = 0; r <= rows; r++) {
+    rowYOffsets[r] = accY;
+    accY += (rowHeights[r] || 0) + CLUSTER_GAP_Y;
+  }
+
+  // Compute per-column widths for grid x-offsets
+  const colWidths = {};
+  kingdomKeys.forEach((key, idx) => {
+    const c = idx % cols;
+    const w = clusterSizes[key]?.w ?? defaultClusterWidth();
+    colWidths[c] = Math.max(colWidths[c] || 0, w);
+  });
+  const colXOffsets = {};
+  let accX = 0;
+  for (let c = 0; c < cols; c++) {
+    colXOffsets[c] = accX;
+    accX += (colWidths[c] || defaultClusterWidth()) + CLUSTER_GAP_X;
+  }
+
+  let maxRight = 0, maxBottom = 0;
+
+  kingdomKeys.forEach((key, idx) => {
     const data = LOADING_ZONES_TEMPLATE[key];
     const zoneNames = Object.keys(data.zones);
-    const rows = Math.ceil(zoneNames.length / ZONE_COLS);
-    const clusterW = ZONE_COLS * NODE_W + (ZONE_COLS - 1) * ZONE_GAP_X + CLUSTER_PAD * 2;
-    const clusterH = KINGDOM_NODE_H + 10 + rows * NODE_H + Math.max(0, rows - 1) * ZONE_GAP_Y + CLUSTER_PAD * 2;
+    const cw = clusterSizes[key]?.w ?? defaultClusterWidth();
+    const ch = clusterHeight(cw, zoneNames.length);
+    const zc = zoneCols(cw);
 
-    clusterBoxes.push({ x, y, w: clusterW, h: clusterH });
-    maxRight = Math.max(maxRight, x + clusterW);
-    maxBottom = Math.max(maxBottom, y + clusterH);
+    // Position: use stored if available, else compute from grid
+    let cx, cy;
+    if (clusterPositions[key]) {
+      cx = clusterPositions[key].x;
+      cy = clusterPositions[key].y;
+    } else {
+      const gridC = idx % cols;
+      const gridR = Math.floor(idx / cols);
+      cx = colXOffsets[gridC] ?? 0;
+      cy = rowYOffsets[gridR] ?? 0;
+    }
 
+    maxRight = Math.max(maxRight, cx + cw);
+    maxBottom = Math.max(maxBottom, cy + ch);
+
+    // Kingdom node (header)
     const kingdomId = `kingdom:${key}`;
     nodes[kingdomId] = {
       id: kingdomId, label: key, kingdomKey: key, type: 'kingdom',
-      x: x + CLUSTER_PAD + (clusterW - CLUSTER_PAD * 2) / 2 - KINGDOM_NODE_W / 2,
-      y: y + CLUSTER_PAD, w: KINGDOM_NODE_W, h: KINGDOM_NODE_H,
+      // Position within cluster
+      localX: cx + CLUSTER_PAD + (cw - CLUSTER_PAD * 2) / 2 - KINGDOM_NODE_W / 2,
+      localY: cy + CLUSTER_PAD,
+      x: cx + CLUSTER_PAD + (cw - CLUSTER_PAD * 2) / 2 - KINGDOM_NODE_W / 2,
+      y: cy + CLUSTER_PAD,
+      w: KINGDOM_NODE_W, h: KINGDOM_NODE_H,
       color: data.color, icon: data.icon,
+      clusterX: cx, clusterY: cy, clusterW: cw, clusterH: ch,
     };
 
+    // Zone nodes
     zoneNames.forEach((zone, i) => {
-      const r = Math.floor(i / ZONE_COLS);
-      const c = i % ZONE_COLS;
+      const r = Math.floor(i / zc);
+      const c = i % zc;
       const zoneId = `zone:${key}:${zone}`;
       nodes[zoneId] = {
         id: zoneId, label: zone, kingdomKey: key, type: 'zone',
-        x: x + CLUSTER_PAD + c * (NODE_W + ZONE_GAP_X),
-        y: y + CLUSTER_PAD + KINGDOM_NODE_H + 10 + r * (NODE_H + ZONE_GAP_Y),
+        x: cx + CLUSTER_PAD + c * (NODE_W + ZONE_GAP_X),
+        y: cy + CLUSTER_PAD + KINGDOM_NODE_H + 10 + r * (NODE_H + ZONE_GAP_Y),
         w: NODE_W, h: NODE_H, color: data.color,
+        clusterX: cx, clusterY: cy,
       };
     });
-
-    rowMaxH = Math.max(rowMaxH, clusterH);
-    x += clusterW + CLUSTER_GAP_X;
-    col++;
-    if (col >= CLUSTER_COLS) {
-      col = 0; x = 0; y += rowMaxH + CLUSTER_GAP_Y; rowMaxH = 0;
-    }
   });
 
-  canvasW = maxRight + 60;
-  canvasH = maxBottom + 60;
+  canvasW = maxRight + 80;
+  canvasH = maxBottom + 80;
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Connection / mark state
+// Persistence
 // ─────────────────────────────────────────────────────────────────
-let outgoing = {}; // sourceId -> targetId
-let incoming = {}; // targetId -> sourceId
-let marks = {};    // nodeId -> 'green' | 'red'
-
-function loadMapState() {
+function loadAll() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    outgoing = data.outgoing || {};
-    marks = data.marks || {};
-    incoming = {};
-    for (const [src, tgt] of Object.entries(outgoing)) incoming[tgt] = src;
-  } catch (e) {
-    console.error('Failed to load map state:', e);
-  }
-}
+    if (raw) {
+      const d = JSON.parse(raw);
+      outgoing = d.outgoing || {};
+      marks = d.marks || {};
+      incoming = {};
+      for (const [s, t] of Object.entries(outgoing)) incoming[t] = s;
+    }
+  } catch (e) { console.error('State load failed:', e); }
 
-function saveMapState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ outgoing, marks }));
-  } catch (e) {
-    console.error('Failed to save map state:', e);
-  }
+    const raw = localStorage.getItem(STORAGE_POSITIONS);
+    if (raw) clusterPositions = JSON.parse(raw);
+  } catch (e) {}
+
+  try {
+    const raw = localStorage.getItem(STORAGE_SIZES);
+    if (raw) clusterSizes = JSON.parse(raw);
+  } catch (e) {}
+
+  try {
+    const raw = localStorage.getItem(STORAGE_GRID);
+    if (raw) {
+      const g = JSON.parse(raw);
+      gridRows = g.rows || 4;
+      gridCols = g.cols || 4;
+    }
+  } catch (e) {}
+
+  try {
+    const raw = localStorage.getItem(STORAGE_SETTINGS);
+    if (raw) {
+      const s = JSON.parse(raw);
+      showImages = !!s.showImages;
+    }
+  } catch (e) {}
 }
 
-function connect(sourceId, targetId) {
-  if (sourceId === targetId) return;
-  if (!nodes[sourceId] || !nodes[targetId]) return;
-  disconnectOutgoing(sourceId);
-  disconnectIncoming(targetId);
-  outgoing[sourceId] = targetId;
-  incoming[targetId] = sourceId;
-  saveMapState();
+function saveState()    { localStorage.setItem(STORAGE_KEY, JSON.stringify({ outgoing, marks })); }
+function savePositions(){ localStorage.setItem(STORAGE_POSITIONS, JSON.stringify(clusterPositions)); }
+function saveSizes()    { localStorage.setItem(STORAGE_SIZES, JSON.stringify(clusterSizes)); }
+function saveGrid()     { localStorage.setItem(STORAGE_GRID, JSON.stringify({ rows: gridRows, cols: gridCols })); }
+function saveSettings() { localStorage.setItem(STORAGE_SETTINGS, JSON.stringify({ showImages })); }
+
+// ─────────────────────────────────────────────────────────────────
+// Connection helpers
+// ─────────────────────────────────────────────────────────────────
+function connect(src, tgt) {
+  if (src === tgt || !nodes[src] || !nodes[tgt]) return;
+  disconnectOutgoing(src);
+  disconnectIncoming(tgt);
+  outgoing[src] = tgt;
+  incoming[tgt] = src;
+  saveState();
   renderConnections();
   renderDisplayPanel();
 }
 
-function disconnectOutgoing(nodeId) {
-  const target = outgoing[nodeId];
-  if (target) {
-    delete outgoing[nodeId];
-    delete incoming[target];
-  }
+function disconnectOutgoing(id) {
+  const t = outgoing[id];
+  if (t) { delete outgoing[id]; delete incoming[t]; }
+}
+function disconnectIncoming(id) {
+  const s = incoming[id];
+  if (s) { delete outgoing[s]; delete incoming[id]; }
 }
 
-function disconnectIncoming(nodeId) {
-  const source = incoming[nodeId];
-  if (source) {
-    delete outgoing[source];
-    delete incoming[nodeId];
-  }
-}
-
-function toggleMark(nodeId, color) {
-  marks[nodeId] = (marks[nodeId] === color) ? null : color;
-  if (!marks[nodeId]) delete marks[nodeId];
-  saveMapState();
-  applyMarkClass(nodeId);
+function toggleMark(id, color) {
+  marks[id] = (marks[id] === color) ? null : color;
+  if (!marks[id]) delete marks[id];
+  saveState();
+  applyMarkClass(id);
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Rendering
+// DOM refs
 // ─────────────────────────────────────────────────────────────────
-const viewport = document.getElementById('viewport');
-const canvas = document.getElementById('canvas');
+const viewport   = document.getElementById('viewport');
+const canvasEl   = document.getElementById('canvas');
 const linesLayer = document.getElementById('lines-layer');
+const imageViewer= document.getElementById('image-viewer');
+const imgTitle   = document.getElementById('image-viewer-title');
+const imgBody    = document.getElementById('image-viewer-body');
 
-function renderClusterBackgrounds() {
-  clusterBoxes.forEach(b => {
+// ─────────────────────────────────────────────────────────────────
+// Full re-render
+// ─────────────────────────────────────────────────────────────────
+function fullRender() {
+  // Remove all existing cluster-bgs and nodes (keep SVG)
+  canvasEl.querySelectorAll('.cluster-bg, .map-node').forEach(el => el.remove());
+  buildLayout();
+  canvasEl.style.width = canvasW + 'px';
+  canvasEl.style.height = canvasH + 'px';
+  renderClusters();
+  renderNodes();
+  renderConnections();
+  renderDisplayPanel();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Cluster backgrounds + resize handles
+// ─────────────────────────────────────────────────────────────────
+function renderClusters() {
+  const kingdomKeys = Object.keys(LOADING_ZONES_TEMPLATE);
+  kingdomKeys.forEach(key => {
+    const kn = nodes[`kingdom:${key}`];
+    if (!kn) return;
+    const cx = kn.clusterX, cy = kn.clusterY;
+    const cw = kn.clusterW, ch = kn.clusterH;
+
     const div = document.createElement('div');
     div.className = 'cluster-bg';
-    div.style.left = b.x + 'px';
-    div.style.top = b.y + 'px';
-    div.style.width = b.w + 'px';
-    div.style.height = b.h + 'px';
-    canvas.appendChild(div);
+    div.dataset.kingdom = key;
+    div.style.left = cx + 'px';
+    div.style.top  = cy + 'px';
+    div.style.width = cw + 'px';
+    div.style.height = ch + 'px';
+
+    // Resize handle
+    const handle = document.createElement('div');
+    handle.className = 'cluster-resize-handle';
+    div.appendChild(handle);
+
+    canvasEl.insertBefore(div, linesLayer);
+    wireClusterDrag(div, key);
+    wireClusterResize(handle, key);
   });
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Cluster drag (move entire cluster)
+// ─────────────────────────────────────────────────────────────────
+let activeClusDrag = null;
+
+function wireClusterDrag(div, key) {
+  div.addEventListener('mousedown', (e) => {
+    // Only drag on the background itself or kingdom header (not zone nodes, not resize handle)
+    if (e.button !== 0) return;
+    const target = e.target;
+    if (target.classList.contains('cluster-resize-handle')) return;
+    if (target.classList.contains('map-node') && !target.classList.contains('kingdom-node')) return;
+    if (connecting) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const kn = nodes[`kingdom:${key}`];
+    const startCx = kn.clusterX, startCy = kn.clusterY;
+    const startMx = e.clientX, startMy = e.clientY;
+
+    activeClusDrag = { key, startCx, startCy, startMx, startMy };
+    div.classList.add('dragging-cluster');
+    viewport.classList.add('cluster-dragging');
+
+    function onMove(ev) {
+      if (!activeClusDrag) return;
+      const dx = (ev.clientX - startMx) / zoom;
+      const dy = (ev.clientY - startMy) / zoom;
+      const nx = Math.max(0, startCx + dx);
+      const ny = Math.max(0, startCy + dy);
+      moveCluster(key, nx, ny, div);
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      div.classList.remove('dragging-cluster');
+      viewport.classList.remove('cluster-dragging');
+      if (activeClusDrag) {
+        clusterPositions[key] = { x: nodes[`kingdom:${key}`].clusterX, y: nodes[`kingdom:${key}`].clusterY };
+        savePositions();
+        activeClusDrag = null;
+        // Update canvas bounds
+        updateCanvasBounds();
+      }
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function moveCluster(key, nx, ny, div) {
+  const data = LOADING_ZONES_TEMPLATE[key];
+  const zoneNames = Object.keys(data.zones);
+  const cw = clusterSizes[key]?.w ?? defaultClusterWidth();
+  const ch = clusterHeight(cw, zoneNames.length);
+  const zc = zoneCols(cw);
+
+  // Update cluster bg element
+  if (div) {
+    div.style.left = nx + 'px';
+    div.style.top  = ny + 'px';
+  }
+
+  // Update kingdom node
+  const kingdomId = `kingdom:${key}`;
+  const kn = nodes[kingdomId];
+  kn.clusterX = nx; kn.clusterY = ny; kn.clusterH = ch;
+  kn.x = nx + CLUSTER_PAD + (cw - CLUSTER_PAD * 2) / 2 - KINGDOM_NODE_W / 2;
+  kn.y = ny + CLUSTER_PAD;
+  const knEl = canvasEl.querySelector(`.map-node[data-id="${cssEscape(kingdomId)}"]`);
+  if (knEl) { knEl.style.left = kn.x + 'px'; knEl.style.top = kn.y + 'px'; }
+
+  // Update zone nodes
+  zoneNames.forEach((zone, i) => {
+    const r = Math.floor(i / zc);
+    const c = i % zc;
+    const zid = `zone:${key}:${zone}`;
+    const zn = nodes[zid];
+    if (!zn) return;
+    zn.clusterX = nx; zn.clusterY = ny;
+    zn.x = nx + CLUSTER_PAD + c * (NODE_W + ZONE_GAP_X);
+    zn.y = ny + CLUSTER_PAD + KINGDOM_NODE_H + 10 + r * (NODE_H + ZONE_GAP_Y);
+    const znEl = canvasEl.querySelector(`.map-node[data-id="${cssEscape(zid)}"]`);
+    if (znEl) { znEl.style.left = zn.x + 'px'; znEl.style.top = zn.y + 'px'; }
+  });
+
+  renderConnections();
+}
+
+function updateCanvasBounds() {
+  let maxRight = 0, maxBottom = 0;
+  Object.values(nodes).forEach(n => {
+    if (n.type === 'kingdom') {
+      maxRight = Math.max(maxRight, n.clusterX + n.clusterW);
+      maxBottom = Math.max(maxBottom, n.clusterY + n.clusterH);
+    }
+  });
+  canvasW = maxRight + 80; canvasH = maxBottom + 80;
+  canvasEl.style.width = canvasW + 'px';
+  canvasEl.style.height = canvasH + 'px';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Cluster resize
+// ─────────────────────────────────────────────────────────────────
+function wireClusterResize(handle, key) {
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const kn = nodes[`kingdom:${key}`];
+    const startW = clusterSizes[key]?.w ?? defaultClusterWidth();
+    const startMx = e.clientX;
+
+    function onMove(ev) {
+      const dw = (ev.clientX - startMx) / zoom;
+      const newW = Math.max(CLUSTER_MIN_W, startW + dw);
+      clusterSizes[key] = { w: newW };
+      resizeCluster(key, newW);
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      saveSizes();
+      updateCanvasBounds();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function resizeCluster(key, newW) {
+  const data = LOADING_ZONES_TEMPLATE[key];
+  const zoneNames = Object.keys(data.zones);
+  const zc = zoneCols(newW);
+  const newH = clusterHeight(newW, zoneNames.length);
+
+  const kn = nodes[`kingdom:${key}`];
+  const cx = kn.clusterX, cy = kn.clusterY;
+
+  // Update cluster bg DOM
+  const div = canvasEl.querySelector(`.cluster-bg[data-kingdom="${key}"]`);
+  if (div) { div.style.width = newW + 'px'; div.style.height = newH + 'px'; }
+
+  // Update kingdom header node
+  kn.clusterW = newW; kn.clusterH = newH;
+  kn.x = cx + CLUSTER_PAD + (newW - CLUSTER_PAD * 2) / 2 - KINGDOM_NODE_W / 2;
+  const knEl = canvasEl.querySelector(`.map-node[data-id="${cssEscape('kingdom:' + key)}"]`);
+  if (knEl) knEl.style.left = kn.x + 'px';
+
+  // Update zone nodes
+  zoneNames.forEach((zone, i) => {
+    const r = Math.floor(i / zc);
+    const c = i % zc;
+    const zid = `zone:${key}:${zone}`;
+    const zn = nodes[zid];
+    if (!zn) return;
+    zn.x = cx + CLUSTER_PAD + c * (NODE_W + ZONE_GAP_X);
+    zn.y = cy + CLUSTER_PAD + KINGDOM_NODE_H + 10 + r * (NODE_H + ZONE_GAP_Y);
+    const znEl = canvasEl.querySelector(`.map-node[data-id="${cssEscape(zid)}"]`);
+    if (znEl) { znEl.style.left = zn.x + 'px'; znEl.style.top = zn.y + 'px'; }
+  });
+
+  renderConnections();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Grid reflow
+// ─────────────────────────────────────────────────────────────────
+function applyGrid(rows, cols) {
+  gridRows = Math.max(1, Math.min(15, rows));
+  gridCols = Math.max(1, Math.min(15, cols));
+  // Clear stored positions and sizes so layout is recalculated from grid at default panel size
+  clusterPositions = {};
+  clusterSizes = {};
+  saveGrid();
+  savePositions();
+  saveSizes();
+  fullRender();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Node rendering
+// ─────────────────────────────────────────────────────────────────
 function renderNodes() {
   Object.values(nodes).forEach(n => {
     const el = document.createElement('div');
@@ -584,8 +1320,8 @@ function renderNodes() {
     if (DEAD_END_IDS.has(n.id)) el.classList.add('dead-end');
     el.dataset.id = n.id;
     el.style.left = n.x + 'px';
-    el.style.top = n.y + 'px';
-    el.style.width = n.w + 'px';
+    el.style.top  = n.y + 'px';
+    el.style.width  = n.w + 'px';
     el.style.height = n.h + 'px';
     el.style.borderColor = n.type === 'zone' ? hexWithAlpha(n.color, 0.5) : n.color;
 
@@ -602,50 +1338,47 @@ function renderNodes() {
     label.style.color = n.type === 'zone' ? n.color : 'var(--text)';
     el.appendChild(label);
 
-    canvas.appendChild(el);
+    canvasEl.appendChild(el);
     wireNodeEvents(el, n.id);
     applyMarkClass(n.id);
   });
 }
 
 function hexWithAlpha(hex, alpha) {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function applyMarkClass(nodeId) {
-  const el = canvas.querySelector(`.map-node[data-id="${cssEscape(nodeId)}"]`);
+function applyMarkClass(id) {
+  const el = canvasEl.querySelector(`.map-node[data-id="${cssEscape(id)}"]`);
   if (!el) return;
-  el.classList.remove('mark-green', 'mark-red');
-  if (marks[nodeId] === 'green') el.classList.add('mark-green');
-  if (marks[nodeId] === 'red') el.classList.add('mark-red');
+  el.classList.remove('mark-green','mark-red');
+  if (marks[id] === 'green') el.classList.add('mark-green');
+  if (marks[id] === 'red')   el.classList.add('mark-red');
 }
 
-function cssEscape(s) {
-  return s.replace(/[:.]/g, '\\$&');
-}
+function cssEscape(s) { return s.replace(/[:.]/g,'\\$&'); }
 
+// ─────────────────────────────────────────────────────────────────
+// Connection drawing
+// ─────────────────────────────────────────────────────────────────
 function nodeCenter(id) {
   const n = nodes[id];
-  return { x: n.x + n.w / 2, y: n.y + n.h / 2 };
+  return { x: n.x + n.w/2, y: n.y + n.h/2 };
 }
 
-// Finds where the straight segment from (fromX,fromY) toward this node's
-// center crosses the node's own box edge used so connection lines stop at
-// the border instead of being drawn to (and hidden under) the center.
 function edgePoint(node, fromX, fromY) {
-  const cx = node.x + node.w / 2;
-  const cy = node.y + node.h / 2;
-  const halfW = node.w / 2, halfH = node.h / 2;
-  const dx = cx - fromX, dy = cy - fromY;
-  if (dx === 0 && dy === 0) return { x: cx, y: cy };
-  const tx = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
-  const ty = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
-  const t = Math.min(tx, ty);
-  return { x: cx - dx * t, y: cy - dy * t };
+  const cx = node.x + node.w/2, cy = node.y + node.h/2;
+  const halfW = node.w/2, halfH = node.h/2;
+  const dx = cx-fromX, dy = cy-fromY;
+  if (dx===0 && dy===0) return {x:cx,y:cy};
+  const tx = dx!==0 ? halfW/Math.abs(dx) : Infinity;
+  const ty = dy!==0 ? halfH/Math.abs(dy) : Infinity;
+  const t = Math.min(tx,ty);
+  return {x:cx-dx*t, y:cy-dy*t};
 }
 
 let previewLine = null;
@@ -656,147 +1389,188 @@ function renderConnections() {
   linesLayer.innerHTML = '';
   ensureArrowMarker();
 
-  Object.entries(outgoing).forEach(([src, tgt]) => {
+  Object.entries(outgoing).forEach(([src,tgt]) => {
     if (!nodes[src] || !nodes[tgt]) return;
     const p1 = nodeCenter(src);
     const p2 = edgePoint(nodes[tgt], p1.x, p1.y);
-    drawLine(p1, p2, 'var(--accent)', true);
+    drawLine(p1, p2, '#7c87f5', true);
   });
 
   if (previewLine) linesLayer.appendChild(previewLine);
 }
 
 function ensureArrowMarker() {
-  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-  defs.innerHTML = `
-    <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#7c87f5"></path>
-    </marker>`;
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = `<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L6,3 L0,6 Z" fill="#7c87f5"></path></marker>`;
   linesLayer.appendChild(defs);
 }
 
 function drawLine(p1, p2, color, withArrow) {
-  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  line.setAttribute('x1', p1.x);
-  line.setAttribute('y1', p1.y);
-  line.setAttribute('x2', p2.x);
-  line.setAttribute('y2', p2.y);
-  line.setAttribute('stroke', color === 'var(--accent)' ? '#7c87f5' : color);
+  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',p1.x); line.setAttribute('y1',p1.y);
+  line.setAttribute('x2',p2.x); line.setAttribute('y2',p2.y);
+  line.setAttribute('stroke', color);
   line.setAttribute('stroke-width', 2.5);
-  line.setAttribute('stroke-linecap', 'round');
-  if (withArrow) line.setAttribute('marker-end', 'url(#arrowhead)');
+  line.setAttribute('stroke-linecap','round');
+  if (withArrow) line.setAttribute('marker-end','url(#arrowhead)');
   linesLayer.appendChild(line);
   return line;
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Display panel (read-only chain summary)
+// Image viewer
 // ─────────────────────────────────────────────────────────────────
-function computeChains() {
-  const allIds = Object.keys(nodes);
-  const visited = new Set();
-  const chains = [];
+function openImageViewer(nodeId) {
+  const n = nodes[nodeId];
+  if (!n) return;
+  const imgFile = ZONE_IMAGES[nodeId];
+  const isKingdom = n.type === 'kingdom';
+  const isTodo = imgFile === null;
 
-  allIds.forEach(id => {
-    if (incoming[id] || visited.has(id) || !outgoing[id]) return;
-    const chain = [id];
-    visited.add(id);
-    let cur = id;
-    while (outgoing[cur] && !visited.has(outgoing[cur])) {
-      cur = outgoing[cur];
-      chain.push(cur);
-      visited.add(cur);
-    }
-    chains.push({ ids: chain, looped: false });
-  });
+  imgTitle.textContent = isKingdom ? `${n.label} Kingdom` : `${n.kingdomKey}: ${n.label}`;
+  imgTitle.style.color = n.color || 'var(--text)';
 
-  allIds.forEach(id => {
-    if (visited.has(id) || !outgoing[id]) return;
-    const chain = [id];
-    visited.add(id);
-    let cur = id;
-    while (outgoing[cur] && outgoing[cur] !== id && !visited.has(outgoing[cur])) {
-      cur = outgoing[cur];
-      chain.push(cur);
-      visited.add(cur);
-    }
-    chains.push({ ids: chain, looped: true });
-  });
+  imgBody.innerHTML = '';
 
-  return chains;
-}
-
-function renderDisplayPanel() {
-  const panel = document.getElementById('display-panel');
-  const chains = computeChains();
-  panel.innerHTML = '';
-
-  if (chains.length === 0) {
+  if (imgFile) {
+    const img = document.createElement('img');
+    img.src = BASE_IMG + imgFile;
+    img.alt = n.label;
+    img.onerror = () => {
+      img.style.display = 'none';
+      const p = document.createElement('div');
+      p.className = 'img-placeholder';
+      p.textContent = 'Image not found.\nFilename: ' + imgFile;
+      imgBody.appendChild(p);
+    };
+    imgBody.appendChild(img);
+  } else {
     const p = document.createElement('div');
-    p.className = 'empty-note';
-    p.textContent = 'No connections yet? Drag between stages below to build a path.';
-    panel.appendChild(p);
-    return;
+    p.className = 'img-placeholder';
+    p.innerHTML = `No image mapped yet.<br><span class="img-todo">TODO: add image for ${n.label}</span>`;
+    imgBody.appendChild(p);
   }
 
-  chains.forEach(chain => {
-    const row = document.createElement('div');
-    row.className = 'chain-row';
-    chain.ids.forEach((id, idx) => {
-      const span = document.createElement('span');
-      span.textContent = nodes[id].label;
-      span.style.color = nodes[id].type === 'zone' ? nodes[id].color : 'var(--text)';
-      span.style.fontWeight = nodes[id].type === 'kingdom' ? 'bold' : 'normal';
-      row.appendChild(span);
-      if (idx < chain.ids.length - 1) {
-        const arrow = document.createElement('span');
-        arrow.className = 'arrow';
-        arrow.textContent = '→';
-        row.appendChild(arrow);
-      }
-    });
-    if (chain.looped) {
-      const tag = document.createElement('span');
-      tag.className = 'loop-tag';
-      tag.textContent = '(loop)';
-      row.appendChild(tag);
-    }
-    panel.appendChild(row);
-  });
+  imageViewer.classList.add('visible');
 }
 
+function closeImageViewer() {
+  imageViewer.classList.remove('visible');
+}
+
+document.getElementById('image-viewer-close').addEventListener('click', closeImageViewer);
+
+// Close when clicking outside the viewer
+document.addEventListener('mousedown', (e) => {
+  if (imageViewer.classList.contains('visible') && !imageViewer.contains(e.target)) {
+    // Don't close if it's a node click (we'll handle that in wireNodeEvents)
+    if (!e.target.closest('.map-node')) closeImageViewer();
+  }
+});
+
+// Image viewer drag (header)
+(function() {
+  const header = document.getElementById('image-viewer-header');
+  let dragging = false, startX, startY, origLeft, origTop;
+
+  header.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    dragging = true;
+    startX = e.clientX; startY = e.clientY;
+    const rect = imageViewer.getBoundingClientRect();
+    origLeft = rect.left; origTop = rect.top;
+    imageViewer.style.transform = 'none';
+    imageViewer.style.left = origLeft + 'px';
+    imageViewer.style.top  = origTop + 'px';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    imageViewer.style.left = (origLeft + e.clientX - startX) + 'px';
+    imageViewer.style.top  = (origTop  + e.clientY - startY) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => { dragging = false; });
+})();
+
+// Image viewer resize (bottom-right handle)
+(function() {
+  const resizeHandle = document.getElementById('image-viewer-resize');
+  let resizing = false, startX, startY, origW, origH;
+
+  resizeHandle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    resizing = true;
+    startX = e.clientX; startY = e.clientY;
+    origW = imageViewer.offsetWidth;
+    origH = imageViewer.offsetHeight;
+    e.preventDefault(); e.stopPropagation();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!resizing) return;
+    const newW = Math.max(180, origW + (e.clientX - startX));
+    const newH = Math.max(120, origH + (e.clientY - startY));
+    imageViewer.style.width  = newW + 'px';
+    imageViewer.style.height = newH + 'px';
+  });
+
+  document.addEventListener('mouseup', () => { resizing = false; });
+})();
+
 // ─────────────────────────────────────────────────────────────────
-// Node interaction: drag-to-connect, double-click disconnect, marks
+// Node interaction
 // ─────────────────────────────────────────────────────────────────
-let connecting = null; // sourceId while dragging a new connection
+let connecting = null;
+let mouseDownTime = 0;
+let mouseDownPos = null;
+const CLICK_THRESHOLD = 5;   // px movement threshold
+const DRAG_DELAY = 0;        // immediate (single-click opens image on mouseup without drag)
 
 function wireNodeEvents(el, id) {
   el.addEventListener('mousedown', (e) => {
     if (e.button === 0) {
       e.stopPropagation();
+      mouseDownTime = Date.now();
+      mouseDownPos = { x: e.clientX, y: e.clientY };
       connecting = id;
       previewLine = drawLine(nodeCenter(id), nodeCenter(id), '#7c87f5', false);
-      previewLine.setAttribute('stroke-dasharray', '5,4');
+      previewLine.setAttribute('stroke-dasharray','5,4');
     } else if (e.button === 1) {
-      e.preventDefault();
-      e.stopPropagation();
+      e.preventDefault(); e.stopPropagation();
       toggleMark(id, 'green');
     }
   });
 
   el.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     toggleMark(id, 'red');
   });
 
   el.addEventListener('dblclick', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     disconnectOutgoing(id);
-    saveMapState();
+    saveState();
     renderConnections();
     renderDisplayPanel();
+  });
+
+  el.addEventListener('mouseup', (e) => {
+    if (e.button !== 0) return;
+    const moved = mouseDownPos && (
+      Math.abs(e.clientX - mouseDownPos.x) > CLICK_THRESHOLD ||
+      Math.abs(e.clientY - mouseDownPos.y) > CLICK_THRESHOLD
+    );
+
+    if (connecting && connecting !== id && moved) {
+      // Completed a drag to make connections
+      connect(connecting, id);
+    } else if (!moved && showImages) {
+      // It was a click (no drag movement) then open image
+      openImageViewer(id);
+    }
   });
 
   el.addEventListener('mouseenter', () => {
@@ -806,75 +1580,72 @@ function wireNodeEvents(el, id) {
     el.classList.remove('drag-target');
   });
 
-  // ── Touch (mobile/tablet) ──────────────────────────────────────
-  // Purely additive: touch events never fire on non-touch devices, so this
-  // can't change anything about the existing mouse-driven desktop behavior.
+  // Touch
   el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, id), { passive: false });
-
-  el.addEventListener('mouseup', (e) => {
-    if (e.button === 0 && connecting && connecting !== id) {
-      connect(connecting, id);
-    }
-  });
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Global mouse events
+// ─────────────────────────────────────────────────────────────────
 function canvasPointFromEvent(e) {
   const rect = viewport.getBoundingClientRect();
-  return {
-    x: (e.clientX - rect.left - panX) / zoom,
-    y: (e.clientY - rect.top - panY) / zoom,
-  };
+  return { x: (e.clientX - rect.left - panX) / zoom, y: (e.clientY - rect.top - panY) / zoom };
 }
 
-// ── Mobile/tablet node interaction ─────────────────────────────────
-// Tap: cycles none -> green -> red -> none (no separate middle/right click
-// on touch devices). Hold + drag: same as mouse drag, creates a connection.
-// Double-tap: disconnects (same as double-click).
-let pendingTapTimer = null;
-let lastTapNodeId = null;
-let lastTapTime = 0;
-const DOUBLE_TAP_MS = 320;
-const TAP_MOVE_THRESHOLD = 10;
+document.addEventListener('mousemove', (e) => {
+  if (connecting && previewLine) {
+    const p = canvasPointFromEvent(e);
+    previewLine.setAttribute('x2', p.x);
+    previewLine.setAttribute('y2', p.y);
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  if (connecting) {
+    connecting = null;
+    if (previewLine) { previewLine.remove(); previewLine = null; }
+    canvasEl.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Touch interaction (mobile/tablet)
+// ─────────────────────────────────────────────────────────────────
+let pendingTapTimer = null, lastTapNodeId = null, lastTapTime = 0;
+const DOUBLE_TAP_MS = 320, TAP_MOVE_THRESHOLD = 10;
 
 function cycleMarkMobile(id) {
-  const current = marks[id] || null;
-  let next;
-  if (current === 'green') next = 'red';
-  else if (current === 'red') next = null;
-  else next = 'green';
+  const cur = marks[id] || null;
+  const next = cur==='green' ? 'red' : cur==='red' ? null : 'green';
   if (next) marks[id] = next; else delete marks[id];
-  saveMapState();
-  applyMarkClass(id);
+  saveState(); applyMarkClass(id);
 }
 
-function updateTouchDragHover(clientX, clientY, sourceId) {
-  document.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
-  const el = document.elementFromPoint(clientX, clientY);
+function updateTouchDragHover(cx, cy, src) {
+  canvasEl.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+  const el = document.elementFromPoint(cx, cy);
   const nodeEl = el && el.closest('.map-node');
-  if (nodeEl && nodeEl.dataset.id !== sourceId) nodeEl.classList.add('drag-target');
+  if (nodeEl && nodeEl.dataset.id !== src) nodeEl.classList.add('drag-target');
 }
 
 function handleNodeTouchStart(e, id) {
-  e.preventDefault();
-  e.stopPropagation();
+  e.preventDefault(); e.stopPropagation();
   const startX = e.touches[0].clientX, startY = e.touches[0].clientY;
   let moved = false, dragStarted = false;
 
   function onMove(ev) {
-    if (ev.touches.length !== 1) return; // a second finger landed let pinch/pan take over
+    if (ev.touches.length !== 1) return;
     const ct = ev.touches[0];
-    if (!moved && Math.hypot(ct.clientX - startX, ct.clientY - startY) > TAP_MOVE_THRESHOLD) {
-      moved = true;
-      dragStarted = true;
+    if (!moved && Math.hypot(ct.clientX-startX, ct.clientY-startY) > TAP_MOVE_THRESHOLD) {
+      moved = true; dragStarted = true;
       connecting = id;
       previewLine = drawLine(nodeCenter(id), nodeCenter(id), '#7c87f5', false);
-      previewLine.setAttribute('stroke-dasharray', '5,4');
+      previewLine.setAttribute('stroke-dasharray','5,4');
     }
     if (dragStarted) {
       ev.preventDefault();
       const p = canvasPointFromEvent(ct);
-      previewLine.setAttribute('x2', p.x);
-      previewLine.setAttribute('y2', p.y);
+      previewLine.setAttribute('x2',p.x); previewLine.setAttribute('y2',p.y);
       updateTouchDragHover(ct.clientX, ct.clientY, id);
     }
   }
@@ -890,25 +1661,18 @@ function handleNodeTouchStart(e, id) {
       const targetNodeEl = targetEl && targetEl.closest('.map-node');
       connecting = null;
       if (previewLine) { previewLine.remove(); previewLine = null; }
-      document.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
-      if (targetNodeEl && targetNodeEl.dataset.id !== id) {
-        connect(id, targetNodeEl.dataset.id);
-      }
+      canvasEl.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+      if (targetNodeEl && targetNodeEl.dataset.id !== id) connect(id, targetNodeEl.dataset.id);
       return;
     }
 
-    // No movement a tap. Disambiguate single vs. double tap.
     const now = Date.now();
     if (lastTapNodeId === id && (now - lastTapTime) < DOUBLE_TAP_MS) {
       if (pendingTapTimer) { clearTimeout(pendingTapTimer); pendingTapTimer = null; }
       lastTapNodeId = null;
-      disconnectOutgoing(id);
-      saveMapState();
-      renderConnections();
-      renderDisplayPanel();
+      disconnectOutgoing(id); saveState(); renderConnections(); renderDisplayPanel();
     } else {
-      lastTapNodeId = id;
-      lastTapTime = now;
+      lastTapNodeId = id; lastTapTime = now;
       if (pendingTapTimer) clearTimeout(pendingTapTimer);
       pendingTapTimer = setTimeout(() => {
         pendingTapTimer = null;
@@ -923,7 +1687,7 @@ function handleNodeTouchStart(e, id) {
     document.removeEventListener('touchcancel', onCancel);
     connecting = null;
     if (previewLine) { previewLine.remove(); previewLine = null; }
-    document.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+    canvasEl.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
   }
 
   document.addEventListener('touchmove', onMove, { passive: false });
@@ -931,196 +1695,199 @@ function handleNodeTouchStart(e, id) {
   document.addEventListener('touchcancel', onCancel);
 }
 
-document.addEventListener('mousemove', (e) => {
-  if (connecting && previewLine) {
-    const p = canvasPointFromEvent(e);
-    previewLine.setAttribute('x2', p.x);
-    previewLine.setAttribute('y2', p.y);
-  }
-});
+// ─────────────────────────────────────────────────────────────────
+// Display panel
+// ─────────────────────────────────────────────────────────────────
+function computeChains() {
+  const allIds = Object.keys(nodes);
+  const visited = new Set();
+  const chains = [];
 
-document.addEventListener('mouseup', () => {
-  if (connecting) {
-    connecting = null;
-    if (previewLine) { previewLine.remove(); previewLine = null; }
-    document.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+  allIds.forEach(id => {
+    if (incoming[id] || visited.has(id) || !outgoing[id]) return;
+    const chain = [id]; visited.add(id);
+    let cur = id;
+    while (outgoing[cur] && !visited.has(outgoing[cur])) {
+      cur = outgoing[cur]; chain.push(cur); visited.add(cur);
+    }
+    chains.push({ ids: chain, looped: false });
+  });
+
+  allIds.forEach(id => {
+    if (visited.has(id) || !outgoing[id]) return;
+    const chain = [id]; visited.add(id);
+    let cur = id;
+    while (outgoing[cur] && outgoing[cur] !== id && !visited.has(outgoing[cur])) {
+      cur = outgoing[cur]; chain.push(cur); visited.add(cur);
+    }
+    chains.push({ ids: chain, looped: true });
+  });
+
+  return chains;
+}
+
+function renderDisplayPanel() {
+  const panel = document.getElementById('display-panel');
+  const chains = computeChains();
+  panel.innerHTML = '';
+
+  if (chains.length === 0) {
+    const p = document.createElement('div');
+    p.className = 'empty-note';
+    p.textContent = 'No connections yet. Drag between stages to build a path.';
+    panel.appendChild(p);
+    return;
   }
-});
+
+  chains.forEach(chain => {
+    const row = document.createElement('div');
+    row.className = 'chain-row';
+    chain.ids.forEach((id, idx) => {
+      const span = document.createElement('span');
+      span.textContent = nodes[id].label;
+      span.style.color = nodes[id].type==='zone' ? nodes[id].color : 'var(--text)';
+      span.style.fontWeight = nodes[id].type==='kingdom' ? 'bold' : 'normal';
+      row.appendChild(span);
+      if (idx < chain.ids.length-1) {
+        const arrow = document.createElement('span');
+        arrow.className = 'arrow'; arrow.textContent = '→';
+        row.appendChild(arrow);
+      }
+    });
+    if (chain.looped) {
+      const tag = document.createElement('span');
+      tag.className = 'loop-tag'; tag.textContent = '(loop)';
+      row.appendChild(tag);
+    }
+    panel.appendChild(row);
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Pan & zoom
 // ─────────────────────────────────────────────────────────────────
 let panX = 40, panY = 20, zoom = 0.8;
-let isPanning = false, panStart = { x: 0, y: 0 }, panOrigin = { x: 0, y: 0 };
+let isPanning = false, panStart = {x:0,y:0}, panOrigin = {x:0,y:0};
 
 const zoomSlider  = document.getElementById('zoom-slider');
 const zoomReadout = document.getElementById('zoom-readout');
 const zoomInput   = document.getElementById('zoom-input');
-
 const ZOOM_MIN = 0.6, ZOOM_MAX = 1.2;
 
 function applyTransform() {
-  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-  const pct = Math.round(zoom * 100);
+  canvasEl.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
+  const pct = Math.round(zoom*100);
   zoomReadout.textContent = `${pct}%`;
   zoomSlider.value = pct;
 }
 
-// ── Slider input ───────────────────────────────────────────────────
 zoomSlider.addEventListener('input', () => {
-  const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomSlider.value / 100));
-  // Zoom toward viewport centre
+  const nz = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomSlider.value/100));
   const rect = viewport.getBoundingClientRect();
-  const cx = rect.width / 2, cy = rect.height / 2;
-  panX = cx - ((cx - panX) / zoom) * newZoom;
-  panY = cy - ((cy - panY) / zoom) * newZoom;
-  zoom = newZoom;
-  applyTransform();
+  const cx = rect.width/2, cy = rect.height/2;
+  panX = cx - ((cx-panX)/zoom)*nz;
+  panY = cy - ((cy-panY)/zoom)*nz;
+  zoom = nz; applyTransform();
 });
 
-// ── Click readout → inline text input ─────────────────────────────
 zoomReadout.addEventListener('click', () => {
   zoomReadout.style.display = 'none';
   zoomInput.style.display = '';
-  zoomInput.value = Math.round(zoom * 100);
-  zoomInput.focus();
-  zoomInput.select();
+  zoomInput.value = Math.round(zoom*100);
+  zoomInput.focus(); zoomInput.select();
 });
 
 function commitZoomInput() {
   let val = parseInt(zoomInput.value, 10);
   if (!isNaN(val)) {
-    val = Math.min(Math.round(ZOOM_MAX * 100), Math.max(Math.round(ZOOM_MIN * 100), val));
-    const newZoom = val / 100;
+    val = Math.min(Math.round(ZOOM_MAX*100), Math.max(Math.round(ZOOM_MIN*100), val));
+    const nz = val/100;
     const rect = viewport.getBoundingClientRect();
-    const cx = rect.width / 2, cy = rect.height / 2;
-    panX = cx - ((cx - panX) / zoom) * newZoom;
-    panY = cy - ((cy - panY) / zoom) * newZoom;
-    zoom = newZoom;
-    applyTransform();
+    const cx=rect.width/2, cy=rect.height/2;
+    panX=cx-((cx-panX)/zoom)*nz; panY=cy-((cy-panY)/zoom)*nz;
+    zoom=nz; applyTransform();
   }
-  zoomInput.style.display = 'none';
-  zoomReadout.style.display = '';
+  zoomInput.style.display='none'; zoomReadout.style.display='';
 }
-
 zoomInput.addEventListener('blur', commitZoomInput);
 zoomInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { zoomInput.blur(); }
-  if (e.key === 'Escape') {
-    zoomInput.style.display = 'none';
-    zoomReadout.style.display = '';
-  }
+  if (e.key==='Enter') zoomInput.blur();
+  if (e.key==='Escape') { zoomInput.style.display='none'; zoomReadout.style.display=''; }
 });
 
 viewport.addEventListener('mousedown', (e) => {
-  if (e.target !== viewport && e.target !== canvas) return; // only pan on empty background
-  isPanning = true;
-  viewport.classList.add('panning');
-  panStart = { x: e.clientX, y: e.clientY };
-  panOrigin = { x: panX, y: panY };
+  if (activeClusDrag) return;
+  if (e.target!==viewport && e.target!==canvasEl) return;
+  isPanning=true; viewport.classList.add('panning');
+  panStart={x:e.clientX, y:e.clientY}; panOrigin={x:panX, y:panY};
 });
 
 document.addEventListener('mousemove', (e) => {
   if (!isPanning) return;
-  panX = panOrigin.x + (e.clientX - panStart.x);
-  panY = panOrigin.y + (e.clientY - panStart.y);
+  panX=panOrigin.x+(e.clientX-panStart.x);
+  panY=panOrigin.y+(e.clientY-panStart.y);
   applyTransform();
 });
 
-document.addEventListener('mouseup', () => {
-  isPanning = false;
-  viewport.classList.remove('panning');
-});
+document.addEventListener('mouseup', () => { isPanning=false; viewport.classList.remove('panning'); });
 
 viewport.addEventListener('wheel', (e) => {
   e.preventDefault();
-  const rect = viewport.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
-
-  const prevZoom = zoom;
-  const delta = e.deltaY > 0 ? -0.1 : 0.1;
-  zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom + delta));
-
-  // Keep the point under the cursor stable while zooming
-  panX = mouseX - ((mouseX - panX) / prevZoom) * zoom;
-  panY = mouseY - ((mouseY - panY) / prevZoom) * zoom;
-
+  const rect=viewport.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const prev=zoom;
+  const delta=e.deltaY>0?-0.1:0.1;
+  zoom=Math.min(ZOOM_MAX,Math.max(ZOOM_MIN,zoom+delta));
+  panX=mx-((mx-panX)/prev)*zoom;
+  panY=my-((my-panY)/prev)*zoom;
   applyTransform();
 }, { passive: false });
 
-// ── Touch pan & pinch-zoom for the canvas (mobile/tablet) ──────────
-// Mirrors the mouse drag-to-pan / wheel-to-zoom behavior above, using
-// touches instead. Only engages when starting on empty canvas background
-// (not on a node node touches are handled by handleNodeTouchStart).
-let touchPanState = null;
-let pinchState = null;
+// Touch pan & pinch zoom
+let touchPanState=null, pinchState=null;
 
-function touchDist(t1, t2) {
-  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-}
-
-function beginPinch(touches) {
-  const rect = viewport.getBoundingClientRect();
-  return {
-    startDist: touchDist(touches[0], touches[1]),
-    startZoom: zoom,
-    midX: (touches[0].clientX + touches[1].clientX) / 2 - rect.left,
-    midY: (touches[0].clientY + touches[1].clientY) / 2 - rect.top,
-    panOriginX: panX,
-    panOriginY: panY,
-  };
-}
+function touchDist(t1,t2) { return Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY); }
 
 viewport.addEventListener('touchstart', (e) => {
-  if (e.target !== viewport && e.target !== canvas) return; // a node handles its own touch
-  if (e.touches.length === 1) {
-    touchPanState = {
-      startX: e.touches[0].clientX, startY: e.touches[0].clientY,
-      originX: panX, originY: panY,
+  if (e.target!==viewport && e.target!==canvasEl) return;
+  if (e.touches.length===1) {
+    touchPanState = { startX:e.touches[0].clientX, startY:e.touches[0].clientY, originX:panX, originY:panY };
+  } else if (e.touches.length===2) {
+    touchPanState=null;
+    const rect=viewport.getBoundingClientRect();
+    pinchState = {
+      startDist: touchDist(e.touches[0],e.touches[1]),
+      startZoom: zoom,
+      midX:(e.touches[0].clientX+e.touches[1].clientX)/2-rect.left,
+      midY:(e.touches[0].clientY+e.touches[1].clientY)/2-rect.top,
+      panOriginX:panX, panOriginY:panY,
     };
-  } else if (e.touches.length === 2) {
-    touchPanState = null;
-    pinchState = beginPinch(e.touches);
   }
-}, { passive: false });
+},{ passive:false });
 
 viewport.addEventListener('touchmove', (e) => {
-  if (e.touches.length === 2 && pinchState) {
+  if (e.touches.length===2 && pinchState) {
     e.preventDefault();
-    const newDist = touchDist(e.touches[0], e.touches[1]);
-    const scale = newDist / pinchState.startDist;
-    const newZoom = Math.min(2, Math.max(0.25, pinchState.startZoom * scale));
-    panX = pinchState.midX - ((pinchState.midX - pinchState.panOriginX) / pinchState.startZoom) * newZoom;
-    panY = pinchState.midY - ((pinchState.midY - pinchState.panOriginY) / pinchState.startZoom) * newZoom;
-    zoom = newZoom;
-    applyTransform();
-  } else if (e.touches.length === 1 && touchPanState) {
+    const nz=Math.min(2,Math.max(0.25,pinchState.startZoom*touchDist(e.touches[0],e.touches[1])/pinchState.startDist));
+    panX=pinchState.midX-((pinchState.midX-pinchState.panOriginX)/pinchState.startZoom)*nz;
+    panY=pinchState.midY-((pinchState.midY-pinchState.panOriginY)/pinchState.startZoom)*nz;
+    zoom=nz; applyTransform();
+  } else if (e.touches.length===1 && touchPanState) {
     e.preventDefault();
-    panX = touchPanState.originX + (e.touches[0].clientX - touchPanState.startX);
-    panY = touchPanState.originY + (e.touches[0].clientY - touchPanState.startY);
+    panX=touchPanState.originX+(e.touches[0].clientX-touchPanState.startX);
+    panY=touchPanState.originY+(e.touches[0].clientY-touchPanState.startY);
     applyTransform();
   }
-}, { passive: false });
+},{ passive:false });
 
 viewport.addEventListener('touchend', (e) => {
-  if (e.touches.length === 0) {
-    touchPanState = null;
-    pinchState = null;
-  } else if (e.touches.length === 1) {
-    // Dropped from two fingers to one resume single-finger panning from here
-    pinchState = null;
-    touchPanState = {
-      startX: e.touches[0].clientX, startY: e.touches[0].clientY,
-      originX: panX, originY: panY,
-    };
+  if (e.touches.length===0) { touchPanState=null; pinchState=null; }
+  else if (e.touches.length===1) {
+    pinchState=null;
+    touchPanState={startX:e.touches[0].clientX,startY:e.touches[0].clientY,originX:panX,originY:panY};
   }
 });
-
-viewport.addEventListener('touchcancel', () => {
-  touchPanState = null;
-  pinchState = null;
-});
+viewport.addEventListener('touchcancel',()=>{ touchPanState=null; pinchState=null; });
 
 // ─────────────────────────────────────────────────────────────────
 // Top bar buttons
@@ -1129,7 +1896,19 @@ document.getElementById('btn-controls').addEventListener('click', (e) => {
   const panel = document.getElementById('controls-panel');
   const hidden = panel.classList.toggle('hidden');
   e.target.classList.toggle('active', !hidden);
-  e.target.textContent = hidden ? 'Show Controls' : 'Hide Controls';
+  e.target.textContent = hidden ? 'Info & Controls' : 'Info & Controls ✕';
+});
+
+document.getElementById('btn-settings').addEventListener('click', () => {
+  document.getElementById('settings-overlay').classList.add('visible');
+});
+document.getElementById('settings-modal-close').addEventListener('click', () => {
+  document.getElementById('settings-overlay').classList.remove('visible');
+});
+document.getElementById('settings-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('settings-overlay')) {
+    document.getElementById('settings-overlay').classList.remove('visible');
+  }
 });
 
 document.getElementById('btn-display').addEventListener('click', (e) => {
@@ -1141,24 +1920,49 @@ document.getElementById('btn-display').addEventListener('click', (e) => {
 
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (!confirm('Clear all connections and marks on the map?')) return;
-  outgoing = {};
-  incoming = {};
-  marks = {};
-  saveMapState();
-  document.querySelectorAll('.map-node').forEach(el => el.classList.remove('mark-green', 'mark-red'));
+  outgoing={}; incoming={}; marks={};
+  saveState();
+  canvasEl.querySelectorAll('.map-node').forEach(el => el.classList.remove('mark-green','mark-red'));
   renderConnections();
   renderDisplayPanel();
+});
+
+// Settings: grid apply
+document.getElementById('btn-apply-grid').addEventListener('click', () => {
+  const c = parseInt(document.getElementById('grid-cols').value, 10);
+  if (isNaN(c)||c<1||c>15) {
+    alert('Columns must be between 1 and 15.');
+    return;
+  }
+  const numKingdoms = Object.keys(LOADING_ZONES_TEMPLATE).length;
+  const r = Math.ceil(numKingdoms / c);
+  applyGrid(r, c);
+});
+
+// Settings: stage previews toggle
+const toggleImages = document.getElementById('toggle-images');
+const toggleImagesLabel = document.getElementById('toggle-images-label');
+toggleImages.addEventListener('change', () => {
+  showImages = toggleImages.checked;
+  toggleImagesLabel.textContent = showImages ? 'On' : 'Off';
+  saveSettings();
 });
 
 // ─────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────
 function init() {
+  loadAll();
+
+  // Sync UI with loaded settings
+  document.getElementById('grid-cols').value = gridCols;
+  toggleImages.checked = showImages;
+  toggleImagesLabel.textContent = showImages ? 'On' : 'Off';
+
   buildLayout();
-  loadMapState();
-  canvas.style.width = canvasW + 'px';
-  canvas.style.height = canvasH + 'px';
-  renderClusterBackgrounds();
+  canvasEl.style.width = canvasW + 'px';
+  canvasEl.style.height = canvasH + 'px';
+  renderClusters();
   renderNodes();
   renderConnections();
   renderDisplayPanel();
