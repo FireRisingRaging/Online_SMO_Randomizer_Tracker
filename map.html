@@ -88,6 +88,12 @@
   #controls-panel ul { padding-left: 18px; }
   #controls-panel strong { color: var(--text); }
 
+  .controls-mobile { display: none; }
+  @media (pointer: coarse) {
+    .controls-desktop { display: none; }
+    .controls-mobile  { display: block; }
+  }
+
   /* ── Settings modal ────────────────────────────────────────── */
   #settings-overlay {
     position: fixed;
@@ -545,6 +551,8 @@
 
   <!-- Controls panel -->
   <div id="controls-panel" class="side-panel hidden">
+    <!-- Desktop controls -->
+    <div class="controls-desktop">
     <strong>Controls</strong>
     <ul>
       <li><strong>Left Mouse Button</strong> hold and drag a zone/kingdom to draw a connection arrow.</li>
@@ -555,6 +563,21 @@
       <li><strong>Single-click</strong> a node (with Stage Previews on) to view its loading zone screenshot.</li>
       <li>Scroll to zoom, drag empty space to pan.</li>
     </ul>
+    </div>
+    <!-- Mobile controls -->
+    <div class="controls-mobile">
+      <strong>Controls</strong>
+      <ul>
+        <li><strong>Hold and drag</strong> any zone or kingdom to draw a connection arrow.</li>
+        <li><strong>Double-tap</strong> a node to disconnect its outgoing path. e.g. with Cascade→Sand→Lake→Wooded→Lost, double-tapping Lake gives you two paths: Wooded→Lost and Cascade→Sand→Lake.</li>
+        <li><strong>Single tap</strong> a node to cycle its color: green → red → none.</li>
+        <li><strong>Tap once</strong> a panel's empty background to select it (border lights up), then <strong>drag</strong> from that background to move it. Deactivates automatically when you lift your finger.</li>
+        <li><strong>Triangle handle</strong> (bottom-right of each panel): drag to resize it. Zones reflow automatically.</li>
+        <li><strong>Hold 2 seconds</strong> on a node without moving (Stage Previews must be on) to view its loading zone screenshot. Moving your finger cancels it and starts a connection drag instead.</li>
+        <li>Pinch to zoom, drag empty canvas to pan.</li>
+      </ul>
+    </div>
+    <!-- Info — same on all devices -->
     <strong>Info</strong>
     <ul>
       <li>The <strong>striped loading zones</strong> represent one-ways, one entrance in or out</li>
