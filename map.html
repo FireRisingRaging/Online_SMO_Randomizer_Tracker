@@ -573,7 +573,7 @@
         <li><strong>Single tap</strong> a node to cycle its color: green → red → none.</li>
         <li><strong>Tap once</strong> a panel's empty background to select it (border lights up), then <strong>drag</strong> from that background to move it. Deactivates automatically when you lift your finger.</li>
         <li><strong>Triangle handle</strong> (bottom-right of each panel): drag to resize it. Zones reflow automatically.</li>
-        <li><strong>Hold 2 seconds</strong> on a node without moving (Stage Previews must be on) to view its loading zone screenshot. Moving your finger cancels it and starts a connection drag instead.</li>
+        <li><strong>Hold for 1 second</strong> on a node without moving (Stage Previews must be on) to view its loading zone screenshot. Moving your finger cancels it and starts a connection drag instead.</li>
         <li>Pinch to zoom, drag empty canvas to pan.</li>
       </ul>
     </div>
@@ -1883,7 +1883,7 @@ function handleNodeTouchStart(e, id) {
         connecting = null;
         openImageViewer(id);
       }
-    }, 2000);
+    }, 1000);
   }
 
   function onMove(ev) {
