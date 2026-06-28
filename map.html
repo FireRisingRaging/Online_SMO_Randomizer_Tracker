@@ -18,6 +18,7 @@
     --green:       #4ade80;
     --red:         #f87171;
     --border:      #3a3a3a;
+    --highlight-color: #0afbff;
     --radius:      10px;
     --radius-sm:   6px;
     --btn-bg:      #333333;
@@ -182,6 +183,22 @@
   }
   .settings-row-control input[type="number"]:focus { border-color: var(--accent); }
   .settings-row-control .x-sep { color: var(--text-dim); font-size: 0.83rem; }
+  .settings-row-control input[type="color"] {
+    width: 40px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card2);
+    cursor: pointer;
+  }
+  .settings-save-msg {
+    font-size: 0.78rem;
+    color: var(--green);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .settings-save-msg.visible { opacity: 1; }
   .settings-divider {
     height: 1px;
     background: var(--border);
@@ -229,7 +246,12 @@
     font-size: 0.84rem;
   }
   #display-panel .empty-note { color: var(--text-dim); font-style: italic; }
-  .chain-row { padding: 3px 0; line-height: 1.5; }
+  .chain-row { padding: 3px 4px; line-height: 1.5; border-radius: 6px; cursor: pointer; transition: box-shadow 0.1s, background 0.1s; }
+  .chain-row:hover { background: var(--bg-hover); }
+  .chain-row.chain-highlight {
+    box-shadow: 0 0 0 2px var(--highlight-color, #ffd60a);
+    background: rgba(255,255,255,0.04);
+  }
   .chain-row .arrow { color: var(--text-dim); margin: 0 4px; }
   .chain-row .loop-tag { color: var(--text-dim); font-size: 0.78rem; margin-left: 6px; }
 
@@ -272,7 +294,7 @@
   .cluster-bg:hover { border-color: rgba(88,101,242,0.3); }
   .cluster-bg.dragging-cluster { border-color: var(--accent); z-index: 50; }
 
-  /* Resize handle – bottom-right triangle */
+  /* Resize handle – bottom-right triangle (width) */
   .cluster-resize-handle {
     position: absolute;
     bottom: 0; right: 0;
@@ -286,6 +308,28 @@
     transition: background 0.15s;
   }
   .cluster-resize-handle:hover { background: var(--accent); }
+
+  /* Resize handle – bottom-center bar (height) */
+  .cluster-resize-height-handle {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px; height: 8px;
+    cursor: s-resize;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cluster-resize-height-handle::after {
+    content: '';
+    width: 28px; height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.15s;
+  }
+  .cluster-resize-height-handle:hover::after { background: var(--accent); }
 
   /* ── Nodes ───────────────────────────────────────────────────── */
   .map-node {
@@ -342,6 +386,17 @@
       transparent 2px,
       transparent 8px
     );
+  }
+  .map-node.connect-rejected {
+    animation: rejected-flash 0.35s ease;
+  }
+  @keyframes rejected-flash {
+    0%, 100% { box-shadow: none; }
+    30% { box-shadow: 0 0 0 3px var(--red); }
+  }
+  .map-node.chain-highlight {
+    box-shadow: 0 0 0 3px var(--highlight-color, #ffd60a);
+    z-index: 6;
   }
   .map-node .node-label { overflow: hidden; text-overflow: ellipsis; }
 
@@ -523,7 +578,7 @@
     }
     /* Clip the zoomed image to the body area */
     #image-viewer-body { overflow: hidden; }
-    /* No resize handle — viewer is already full-screen */
+    /* No resize handle viewer is already full-screen */
     #image-viewer-resize { display: none; }
     /* Header is not draggable on mobile */
     #image-viewer-header { cursor: default; }
@@ -555,8 +610,9 @@
     <div class="controls-desktop">
     <strong>Controls</strong>
     <ul>
-      <li><strong>Left Mouse Button</strong> hold and drag a zone/kingdom to draw a connection arrow.</li>
-      <li><strong>Double Left Mouse Button</strong> to disconnect a path. This disconnects the stage connected to the one clicked. e.g. with Cascade→Sand→Lake→Wooded→Lost, double-clicking Lake gives you two paths: Wooded→Lost and Cascade→Sand→Lake.</li>
+      <li><strong>Left Mouse Button</strong> hold and drag a zone/kingdom to draw a connection arrow. A node can have any number of outgoing and incoming arrows.</li>
+      <li><strong>Double Left Mouse Button</strong> on a node to remove ALL of its outgoing arrows at once.</li>
+      <li><strong>Click an arrow</strong> on the map (or a path in the Display panel) to highlight that path on both; click again to unhighlight.</li>
       <li><strong>Middle Mouse Button</strong> to mark/unmark a stage green. <strong>Right Mouse Button</strong> to mark/unmark a stage red.</li>
       <li><strong>Drag the panel background or kingdom header</strong> to move a kingdom panel.</li>
       <li><strong>Triangle handle</strong> (bottom-right of each panel) to resize it. Zones reflow automatically in that space.</li>
@@ -568,8 +624,9 @@
     <div class="controls-mobile">
       <strong>Controls</strong>
       <ul>
-        <li><strong>Hold and drag</strong> any zone or kingdom to draw a connection arrow.</li>
-        <li><strong>Double-tap</strong> a node to disconnect its outgoing path. e.g. with Cascade→Sand→Lake→Wooded→Lost, double-tapping Lake gives you two paths: Wooded→Lost and Cascade→Sand→Lake.</li>
+        <li><strong>Hold and drag</strong> any zone or kingdom to draw a connection arrow. A node can have any number of outgoing and incoming arrows.</li>
+        <li><strong>Double-tap</strong> a node to remove ALL of its outgoing arrows at once.</li>
+        <li><strong>Tap a path</strong> in the Display panel to highlight it on the map; tap again to unhighlight.</li>
         <li><strong>Single tap</strong> a node to cycle its color: green → red → none.</li>
         <li><strong>Tap once</strong> a panel's empty background to select it (border lights up), then <strong>drag</strong> from that background to move it. Deactivates automatically when you lift your finger.</li>
         <li><strong>Triangle handle</strong> (bottom-right of each panel): drag to resize it. Zones reflow automatically.</li>
@@ -577,10 +634,10 @@
         <li>Pinch to zoom, drag empty canvas to pan.</li>
       </ul>
     </div>
-    <!-- Info — same on all devices -->
+    <!-- Info same on all devices -->
     <strong>Info</strong>
     <ul>
-      <li>The <strong>striped loading zones</strong> represent one-ways, one entrance in or out</li>
+      <li>The <strong>striped loading zones</strong> represent one-ways, one entrance in or out.</li>
     </ul>
   </div>
 
@@ -632,6 +689,44 @@
             </span>
             <span class="toggle-label" id="toggle-images-label">Off</span>
           </label>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">Arrow Color</div>
+        <div class="settings-row-desc">Color used to draw connection arrows on the map.</div>
+        <div class="settings-row-control">
+          <input type="color" id="arrow-color" value="#7c87f5">
+          <button class="map-btn" id="btn-save-arrow-color">Save</button>
+          <span class="settings-save-msg" id="arrow-color-saved">Saved!</span>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">Chain Highlighting</div>
+        <div class="settings-row-desc">Hover or click an arrow on the map (or a path in the Display panel) to highlight it on both.</div>
+        <div class="settings-row-control">
+          <label class="toggle-wrap" for="toggle-highlight">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-highlight">
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label" id="toggle-highlight-label">On</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">Highlight Color</div>
+        <div class="settings-row-desc">Color used for the chain highlight box, on both the map and the Display panel.</div>
+        <div class="settings-row-control">
+          <input type="color" id="highlight-color" value="#ffd60a">
+          <button class="map-btn" id="btn-save-highlight-color">Save</button>
+          <span class="settings-save-msg" id="highlight-color-saved">Saved!</span>
         </div>
       </div>
 
@@ -931,6 +1026,13 @@ let gridRows = 4, gridCols = 4;
 
 // App settings
 let showImages = false;
+let arrowColor = '#7c87f5';
+let highlightColor = '#0afbff';
+let highlightEnabled = true;
+
+// Chain-highlight interaction state
+let hoverHighlightPath = null;  // transient (mouseover) path, array of node ids
+let pinnedHighlightPath = null; // persistent (click-toggled) path, array of node ids
 
 // ─────────────────────────────────────────────────────────────────
 // Cluster geometry helpers
@@ -977,7 +1079,8 @@ function buildLayout() {
   kingdomKeys.forEach((key, idx) => {
     const r = Math.floor(idx / cols);
     const w = clusterSizes[key]?.w ?? defaultClusterWidth();
-    const h = clusterHeight(w, Object.keys(LOADING_ZONES_TEMPLATE[key].zones).length);
+    const autoH = clusterHeight(w, Object.keys(LOADING_ZONES_TEMPLATE[key].zones).length);
+    const h = Math.max(autoH, clusterSizes[key]?.h ?? autoH);
     rowHeights[r] = Math.max(rowHeights[r] || 0, h);
   });
 
@@ -1009,7 +1112,8 @@ function buildLayout() {
     const data = LOADING_ZONES_TEMPLATE[key];
     const zoneNames = Object.keys(data.zones);
     const cw = clusterSizes[key]?.w ?? defaultClusterWidth();
-    const ch = clusterHeight(cw, zoneNames.length);
+    const autoH = clusterHeight(cw, zoneNames.length);
+    const ch = Math.max(autoH, clusterSizes[key]?.h ?? autoH);
     const zc = zoneCols(cw);
 
     // Position: use stored if available, else compute from grid
@@ -1063,15 +1167,42 @@ function buildLayout() {
 // ─────────────────────────────────────────────────────────────────
 // Persistence
 // ─────────────────────────────────────────────────────────────────
+/**
+ * Normalizes a stored outgoing map into { id: [tgt, tgt, ...] } form.
+ * Transparently migrates maps saved by older single-output versions,
+ * where each value was a single target id string instead of an array.
+ */
+function normalizeEdgeMap(raw) {
+  const out = {};
+  for (const [k, v] of Object.entries(raw || {})) {
+    if (Array.isArray(v)) {
+      out[k] = [...new Set(v)];
+    } else if (v) {
+      out[k] = [v];
+    }
+  }
+  return out;
+}
+
+/** Rebuilds the incoming map from outgoing so the two are always consistent. */
+function rebuildIncoming() {
+  incoming = {};
+  for (const [src, tgts] of Object.entries(outgoing)) {
+    tgts.forEach(tgt => {
+      if (!incoming[tgt]) incoming[tgt] = [];
+      if (!incoming[tgt].includes(src)) incoming[tgt].push(src);
+    });
+  }
+}
+
 function loadAll() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const d = JSON.parse(raw);
-      outgoing = d.outgoing || {};
+      outgoing = normalizeEdgeMap(d.outgoing);
       marks = d.marks || {};
-      incoming = {};
-      for (const [s, t] of Object.entries(outgoing)) incoming[t] = s;
+      rebuildIncoming();
     }
   } catch (e) { console.error('State load failed:', e); }
 
@@ -1098,7 +1229,10 @@ function loadAll() {
     const raw = localStorage.getItem(STORAGE_SETTINGS);
     if (raw) {
       const s = JSON.parse(raw);
-      showImages = !!s.showImages;
+      showImages      = !!s.showImages;
+      arrowColor      = s.arrowColor || arrowColor;
+      highlightColor  = s.highlightColor || highlightColor;
+      highlightEnabled= s.highlightEnabled !== undefined ? !!s.highlightEnabled : highlightEnabled;
     }
   } catch (e) {}
 }
@@ -1107,29 +1241,66 @@ function saveState()    { localStorage.setItem(STORAGE_KEY, JSON.stringify({ out
 function savePositions(){ localStorage.setItem(STORAGE_POSITIONS, JSON.stringify(clusterPositions)); }
 function saveSizes()    { localStorage.setItem(STORAGE_SIZES, JSON.stringify(clusterSizes)); }
 function saveGrid()     { localStorage.setItem(STORAGE_GRID, JSON.stringify({ rows: gridRows, cols: gridCols })); }
-function saveSettings() { localStorage.setItem(STORAGE_SETTINGS, JSON.stringify({ showImages })); }
+function saveSettings() {
+  localStorage.setItem(STORAGE_SETTINGS, JSON.stringify({
+    showImages, arrowColor, highlightColor, highlightEnabled
+  }));
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Connection helpers
 // ─────────────────────────────────────────────────────────────────
+function addEdge(map, key, val) {
+  if (!map[key]) map[key] = [];
+  if (!map[key].includes(val)) map[key].push(val);
+}
+function removeEdge(map, key, val) {
+  if (!map[key]) return;
+  map[key] = map[key].filter(v => v !== val);
+  if (map[key].length === 0) delete map[key];
+}
+
+/** True if connecting src→tgt is allowed under the dead-end rule. */
+function canConnect(src, tgt) {
+  if (src === tgt || !nodes[src] || !nodes[tgt]) return false;
+  if ((outgoing[src] || []).includes(tgt)) return false; // already connected
+  // A dead-end node cannot RECEIVE new incoming arrows once it already has one.
+  // It can always send outgoing arrows regardless of whether it has incoming ones.
+  if (DEAD_END_IDS.has(tgt) && (incoming[tgt] || []).length > 0) return false;
+  return true;
+}
+
 function connect(src, tgt) {
-  if (src === tgt || !nodes[src] || !nodes[tgt]) return;
-  disconnectOutgoing(src);
-  disconnectIncoming(tgt);
-  outgoing[src] = tgt;
-  incoming[tgt] = src;
+  if (!canConnect(src, tgt)) {
+    flashRejected(src);
+    return;
+  }
+  addEdge(outgoing, src, tgt);
+  addEdge(incoming, tgt, src);
   saveState();
   renderConnections();
   renderDisplayPanel();
 }
 
+/** Removes ALL outgoing arrows from a node (used by double-click). */
 function disconnectOutgoing(id) {
-  const t = outgoing[id];
-  if (t) { delete outgoing[id]; delete incoming[t]; }
+  const tgts = outgoing[id] || [];
+  tgts.forEach(t => removeEdge(incoming, t, id));
+  delete outgoing[id];
 }
+/** Removes ALL incoming arrows into a node. */
 function disconnectIncoming(id) {
-  const s = incoming[id];
-  if (s) { delete outgoing[s]; delete incoming[id]; }
+  const srcs = incoming[id] || [];
+  srcs.forEach(s => removeEdge(outgoing, s, id));
+  delete incoming[id];
+}
+
+/** Brief red flash on a node to signal a rejected connection attempt. */
+function flashRejected(id) {
+  const el = canvasEl.querySelector(`.map-node[data-id="${cssEscape(id)}"]`);
+  if (!el) return;
+  el.classList.add('connect-rejected');
+  setTimeout(() => el.classList.remove('connect-rejected'), 350);
 }
 
 function toggleMark(id, color) {
@@ -1183,7 +1354,7 @@ function renderClusters() {
     div.style.width = cw + 'px';
     div.style.height = ch + 'px';
 
-    // Resize handle
+    // Resize handle (width – bottom-right)
     const handle = document.createElement('div');
     handle.className = 'cluster-resize-handle';
     div.appendChild(handle);
@@ -1314,7 +1485,8 @@ function moveCluster(key, nx, ny, div) {
   const data = LOADING_ZONES_TEMPLATE[key];
   const zoneNames = Object.keys(data.zones);
   const cw = clusterSizes[key]?.w ?? defaultClusterWidth();
-  const ch = clusterHeight(cw, zoneNames.length);
+  const autoH = clusterHeight(cw, zoneNames.length);
+  const ch = Math.max(autoH, clusterSizes[key]?.h ?? autoH);
   const zc = zoneCols(cw);
 
   // Update cluster bg element
@@ -1326,7 +1498,7 @@ function moveCluster(key, nx, ny, div) {
   // Update kingdom node
   const kingdomId = `kingdom:${key}`;
   const kn = nodes[kingdomId];
-  kn.clusterX = nx; kn.clusterY = ny; kn.clusterH = ch;
+  kn.clusterX = nx; kn.clusterY = ny; kn.clusterH = ch; kn.clusterW = cw;
   kn.x = nx + CLUSTER_PAD + (cw - CLUSTER_PAD * 2) / 2 - KINGDOM_NODE_W / 2;
   kn.y = ny + CLUSTER_PAD;
   const knEl = canvasEl.querySelector(`.map-node[data-id="${cssEscape(kingdomId)}"]`);
@@ -1428,7 +1600,8 @@ function resizeCluster(key, newW) {
   const data = LOADING_ZONES_TEMPLATE[key];
   const zoneNames = Object.keys(data.zones);
   const zc = zoneCols(newW);
-  const newH = clusterHeight(newW, zoneNames.length);
+  const autoH = clusterHeight(newW, zoneNames.length);
+  const newH = Math.max(autoH, clusterSizes[key]?.h ?? autoH);
 
   const kn = nodes[`kingdom:${key}`];
   const cx = kn.clusterX, cy = kn.clusterY;
@@ -1553,20 +1726,38 @@ function renderConnections() {
   linesLayer.innerHTML = '';
   ensureArrowMarker();
 
-  Object.entries(outgoing).forEach(([src,tgt]) => {
-    if (!nodes[src] || !nodes[tgt]) return;
-    const p1 = nodeCenter(src);
-    const p2 = edgePoint(nodes[tgt], p1.x, p1.y);
-    drawLine(p1, p2, '#7c87f5', true);
+  Object.entries(outgoing).forEach(([src, tgts]) => {
+    (tgts || []).forEach(tgt => {
+      if (!nodes[src] || !nodes[tgt]) return;
+      const p1 = nodeCenter(src);
+      const p2 = edgePoint(nodes[tgt], p1.x, p1.y);
+      const line = drawLine(p1, p2, arrowColor, true);
+      line.dataset.src = src; line.dataset.tgt = tgt;
+      line.classList.add('conn-line');
+
+      // Wider invisible line layered on top, easier to hover/click than the
+      // thin visible stroke, and is what drives chain highlighting.
+      const hit = drawLine(p1, p2, 'transparent', false);
+      hit.setAttribute('stroke-width', 14);
+      hit.style.pointerEvents = 'stroke';
+      hit.style.cursor = 'pointer';
+      hit.dataset.src = src; hit.dataset.tgt = tgt;
+      hit.addEventListener('mouseenter', () => setHoverHighlight(getStraightPath(src, tgt)));
+      hit.addEventListener('mouseleave', () => setHoverHighlight(null));
+      hit.addEventListener('click', (e) => { e.stopPropagation(); togglePinnedHighlight(getStraightPath(src, tgt)); });
+    });
   });
 
   if (previewLine) linesLayer.appendChild(previewLine);
+  applyHighlightClasses();
 }
 
 function ensureArrowMarker() {
   const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
   defs.innerHTML = `<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-    <path d="M0,0 L6,3 L0,6 Z" fill="#7c87f5"></path></marker>`;
+    <path d="M0,0 L6,3 L0,6 Z" fill="${arrowColor}"></path></marker>
+    <marker id="arrowhead-highlight" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L6,3 L0,6 Z" fill="${highlightColor}"></path></marker>`;
   linesLayer.appendChild(defs);
 }
 
@@ -1580,6 +1771,65 @@ function drawLine(p1, p2, color, withArrow) {
   if (withArrow) line.setAttribute('marker-end','url(#arrowhead)');
   linesLayer.appendChild(line);
   return line;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Chain highlighting (hover / click, synced between map and display)
+// ─────────────────────────────────────────────────────────────────
+function setHoverHighlight(ids) {
+  hoverHighlightPath = ids;
+  applyHighlightClasses();
+}
+
+function togglePinnedHighlight(ids) {
+  if (pinnedHighlightPath && samePath(pinnedHighlightPath, ids)) {
+    pinnedHighlightPath = null;
+  } else {
+    pinnedHighlightPath = ids;
+  }
+  applyHighlightClasses();
+}
+
+function samePath(a, b) {
+  return a.length === b.length && a.every((v,i) => v === b[i]);
+}
+
+function clearAllHighlights() {
+  hoverHighlightPath = null;
+  pinnedHighlightPath = null;
+  applyHighlightClasses();
+}
+
+function applyHighlightClasses() {
+  const activePath = highlightEnabled ? (hoverHighlightPath || pinnedHighlightPath) : null;
+  const activeIds = new Set(activePath || []);
+  const activeEdges = new Set();
+  if (activePath) {
+    for (let i = 0; i < activePath.length - 1; i++) activeEdges.add(activePath[i] + '→' + activePath[i+1]);
+  }
+
+  // Keep the highlight arrowhead marker in sync with the current highlight color
+  const hlMarkerPath = linesLayer.querySelector('#arrowhead-highlight path');
+  if (hlMarkerPath) hlMarkerPath.setAttribute('fill', highlightColor);
+
+  canvasEl.querySelectorAll('.map-node').forEach(el => {
+    el.classList.toggle('chain-highlight', activeIds.has(el.dataset.id));
+  });
+  linesLayer.querySelectorAll('.conn-line').forEach(el => {
+    const isActive = activeEdges.has(el.dataset.src + '→' + el.dataset.tgt);
+    el.classList.toggle('chain-highlight-line', isActive);
+    el.setAttribute('stroke', isActive ? highlightColor : arrowColor);
+    el.setAttribute('stroke-width', isActive ? 4 : 2.5);
+    el.setAttribute('marker-end', isActive ? 'url(#arrowhead-highlight)' : 'url(#arrowhead)');
+  });
+  document.querySelectorAll('#display-panel .chain-row').forEach(row => {
+    let rowIds = [];
+    try { rowIds = JSON.parse(row.dataset.path || '[]'); } catch(e) {}
+    // Only highlight this exact row if its path is identical to the active path
+    const isExactMatch = activePath && rowIds.length === activePath.length &&
+      rowIds.every((id, i) => id === activePath[i]);
+    row.classList.toggle('chain-highlight', !!isExactMatch);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1771,7 +2021,7 @@ function wireNodeEvents(el, id) {
       mouseDownTime = Date.now();
       mouseDownPos = { x: e.clientX, y: e.clientY };
       connecting = id;
-      previewLine = drawLine(nodeCenter(id), nodeCenter(id), '#7c87f5', false);
+      previewLine = drawLine(nodeCenter(id), nodeCenter(id), arrowColor, false);
       previewLine.setAttribute('stroke-dasharray','5,4');
     } else if (e.button === 1) {
       e.preventDefault(); e.stopPropagation();
@@ -1876,7 +2126,7 @@ function handleNodeTouchStart(e, id) {
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
       if (!moved) {
-        // Consume the touch gesture — remove all listeners before opening the viewer
+        // Consume the touch gesture. Remove all listeners before opening the viewer
         document.removeEventListener('touchmove', onMove);
         document.removeEventListener('touchend', onEnd);
         document.removeEventListener('touchcancel', onCancel);
@@ -1891,10 +2141,10 @@ function handleNodeTouchStart(e, id) {
     const ct = ev.touches[0];
     if (!moved && Math.hypot(ct.clientX-startX, ct.clientY-startY) > TAP_MOVE_THRESHOLD) {
       moved = true; dragStarted = true;
-      // User is dragging — cancel the long-press immediately
+      // User is dragging, cancel the long-press immediately
       if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
       connecting = id;
-      previewLine = drawLine(nodeCenter(id), nodeCenter(id), '#7c87f5', false);
+      previewLine = drawLine(nodeCenter(id), nodeCenter(id), arrowColor, false);
       previewLine.setAttribute('stroke-dasharray','5,4');
     }
     if (dragStarted) {
@@ -1955,32 +2205,81 @@ function handleNodeTouchStart(e, id) {
 // ─────────────────────────────────────────────────────────────────
 // Display panel
 // ─────────────────────────────────────────────────────────────────
+const MAX_CHAINS = 2000; // safety cap against pathological branch/merge graphs
+
 function computeChains() {
   const allIds = Object.keys(nodes);
-  const visited = new Set();
   const chains = [];
 
-  allIds.forEach(id => {
-    if (incoming[id] || visited.has(id) || !outgoing[id]) return;
-    const chain = [id]; visited.add(id);
-    let cur = id;
-    while (outgoing[cur] && !visited.has(outgoing[cur])) {
-      cur = outgoing[cur]; chain.push(cur); visited.add(cur);
+  function extend(pathIds, pathSet, cur) {
+    if (chains.length >= MAX_CHAINS) return;
+    const outs = outgoing[cur] || [];
+    if (outs.length === 0) {
+      if (pathIds.length > 1) chains.push({ ids: pathIds.slice(), looped: false });
+      return;
     }
-    chains.push({ ids: chain, looped: false });
-  });
+    outs.forEach(next => {
+      if (pathSet.has(next)) {
+        chains.push({ ids: pathIds.concat(next), looped: true });
+      } else if (DEAD_END_IDS.has(next) && (incoming[next] || []).length > 0) {
+        // Dead-end with incoming: end the current chain here and start fresh from next
+        chains.push({ ids: pathIds.concat(next), looped: false });
+        if ((outgoing[next] || []).length > 0) {
+          extend([next], new Set([next]), next);
+        }
+      } else {
+        pathSet.add(next);
+        extend(pathIds.concat(next), pathSet, next);
+        pathSet.delete(next);
+      }
+    });
+  }
 
+  // Start a path at every node that has outputs but no inputs (a true root).
+  const roots = allIds.filter(id => (outgoing[id] || []).length > 0 && (incoming[id] || []).length === 0);
+  roots.forEach(r => extend([r], new Set([r]), r));
+
+  // Any node with outputs that wasn't reached from a root is part of a pure
+  // cycle (every node in it has both incoming and outgoing). Trace those too.
+  const reached = new Set();
+  chains.forEach(c => c.ids.forEach(id => reached.add(id)));
+  const cycleHandled = new Set();
   allIds.forEach(id => {
-    if (visited.has(id) || !outgoing[id]) return;
-    const chain = [id]; visited.add(id);
-    let cur = id;
-    while (outgoing[cur] && outgoing[cur] !== id && !visited.has(outgoing[cur])) {
-      cur = outgoing[cur]; chain.push(cur); visited.add(cur);
-    }
-    chains.push({ ids: chain, looped: true });
+    if (reached.has(id) || cycleHandled.has(id) || !(outgoing[id] || []).length) return;
+    cycleHandled.add(id);
+    extend([id], new Set([id]), id);
+    chains.length && chains[chains.length - 1].ids.forEach(n => cycleHandled.add(n));
   });
 
   return chains;
+}
+
+/**
+ * Returns the maximal unbranched run of nodes that a given src→tgt arrow is
+ * part of: walk backward through src while each node has exactly one
+ * incoming arrow, and forward through tgt while each node has exactly one
+ * outgoing arrow. Used for hover/click highlighting on the map.
+ */
+function getStraightPath(src, tgt) {
+  const path = [src, tgt];
+  const seen = new Set(path);
+  let cur = src;
+  while ((incoming[cur] || []).length === 1) {
+    const prev = incoming[cur][0];
+    if (seen.has(prev)) break;
+    path.unshift(prev);
+    seen.add(prev);
+    cur = prev;
+  }
+  cur = tgt;
+  while ((outgoing[cur] || []).length === 1) {
+    const next = outgoing[cur][0];
+    if (seen.has(next)) break;
+    path.push(next);
+    seen.add(next);
+    cur = next;
+  }
+  return path;
 }
 
 function renderDisplayPanel() {
@@ -2016,8 +2315,13 @@ function renderDisplayPanel() {
       tag.className = 'loop-tag'; tag.textContent = '(loop)';
       row.appendChild(tag);
     }
+    row.dataset.path = JSON.stringify(chain.ids);
+    row.addEventListener('mouseenter', () => setHoverHighlight(chain.ids));
+    row.addEventListener('mouseleave', () => setHoverHighlight(null));
+    row.addEventListener('click', () => togglePinnedHighlight(chain.ids));
     panel.appendChild(row);
   });
+  applyHighlightClasses();
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2075,6 +2379,7 @@ zoomInput.addEventListener('keydown', (e) => {
 viewport.addEventListener('mousedown', (e) => {
   if (activeClusDrag) return;
   if (e.target!==viewport && e.target!==canvasEl) return;
+  if (pinnedHighlightPath) { pinnedHighlightPath = null; applyHighlightClasses(); }
   isPanning=true; viewport.classList.add('panning');
   panStart={x:e.clientX, y:e.clientY}; panOrigin={x:panX, y:panY};
 });
@@ -2184,6 +2489,7 @@ document.getElementById('btn-display').addEventListener('click', (e) => {
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (!confirm('Clear all connections and marks on the map?')) return;
   outgoing={}; incoming={}; marks={};
+  hoverHighlightPath = null; pinnedHighlightPath = null;
   saveState();
   canvasEl.querySelectorAll('.map-node').forEach(el => el.classList.remove('mark-green','mark-red'));
   renderConnections();
@@ -2211,6 +2517,44 @@ toggleImages.addEventListener('change', () => {
   saveSettings();
 });
 
+// Settings: brief "Saved!" confirmation flash next to a save button
+function flashSaved(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('visible');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.classList.remove('visible'), 1400);
+}
+
+// Settings: arrow color
+const arrowColorInput = document.getElementById('arrow-color');
+document.getElementById('btn-save-arrow-color').addEventListener('click', () => {
+  arrowColor = arrowColorInput.value;
+  saveSettings();
+  renderConnections();
+  flashSaved('arrow-color-saved');
+});
+
+// Settings: chain highlighting toggle (applies immediately, no save button needed)
+const toggleHighlight = document.getElementById('toggle-highlight');
+const toggleHighlightLabel = document.getElementById('toggle-highlight-label');
+toggleHighlight.addEventListener('change', () => {
+  highlightEnabled = toggleHighlight.checked;
+  toggleHighlightLabel.textContent = highlightEnabled ? 'On' : 'Off';
+  saveSettings();
+  applyHighlightClasses();
+});
+
+// Settings: highlight color
+const highlightColorInput = document.getElementById('highlight-color');
+document.getElementById('btn-save-highlight-color').addEventListener('click', () => {
+  highlightColor = highlightColorInput.value;
+  document.documentElement.style.setProperty('--highlight-color', highlightColor);
+  saveSettings();
+  applyHighlightClasses();
+  flashSaved('highlight-color-saved');
+});
+
 // ─────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────
@@ -2221,6 +2565,11 @@ function init() {
   document.getElementById('grid-cols').value = gridCols;
   toggleImages.checked = showImages;
   toggleImagesLabel.textContent = showImages ? 'On' : 'Off';
+  arrowColorInput.value = arrowColor;
+  highlightColorInput.value = highlightColor;
+  document.documentElement.style.setProperty('--highlight-color', highlightColor);
+  toggleHighlight.checked = highlightEnabled;
+  toggleHighlightLabel.textContent = highlightEnabled ? 'On' : 'Off';
 
   buildLayout();
   canvasEl.style.width = canvasW + 'px';
