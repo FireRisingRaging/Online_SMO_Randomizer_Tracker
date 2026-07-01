@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS = {
   show_multi_moon: true,
   show_moon_range: true,
   show_complete_color: false,
-  overlay_scale: 1,
+  overlay_scale: 3,
   notes_scroll_px: 500,
   scroll_left_binding: { type: 'mouse', code: 3 },  // MB4 (back)
   scroll_right_binding: { type: 'mouse', code: 4 },  // MB5 (forward)
