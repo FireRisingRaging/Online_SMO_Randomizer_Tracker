@@ -35,6 +35,21 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* ── Cohesive scrollbars (match dark theme instead of default white) ── */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--btn-bg) var(--bg-card2);
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: var(--bg-card2); }
+  *::-webkit-scrollbar-thumb {
+    background: var(--btn-bg);
+    border-radius: 20px;
+    border: 2px solid var(--bg-card2);
+  }
+  *::-webkit-scrollbar-thumb:hover { background: var(--btn-hover); }
+  *::-webkit-scrollbar-corner { background: var(--bg-card2); }
+
   #app { display: flex; flex-direction: column; height: 100vh; }
 
   /* ── Top bar ───────────────────────────────────────────────── */
@@ -204,6 +219,15 @@
     background: var(--border);
   }
 
+  /* Arrow Color sub-options (Random / One Color / Kingdom Gradients) */
+  .arrow-color-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
   /* Toggle switch */
   .toggle-wrap {
     display: flex;
@@ -239,14 +263,44 @@
   .toggle-switch input:checked + .toggle-track::after { transform: translateX(16px); }
   .toggle-label { font-size: 0.83rem; color: var(--text); cursor: pointer; }
 
+  /* ── Main area (wraps display + viewport) ───────────────────── */
+  #main-area {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+  #main-area.dp-top    { flex-direction: column; }
+  #main-area.dp-bottom { flex-direction: column; }
+  #main-area.dp-left   { flex-direction: row; }
+  #main-area.dp-right  { flex-direction: row; }
+
   /* Display panel */
   #display-panel {
-    max-height: 150px;
-    overflow-y: auto;
+    position: relative;
+    overflow: hidden;
     font-size: 0.84rem;
+    flex-shrink: 0;
+    padding: 0;
+    border-bottom: none; /* overridden by position classes below */
   }
+  /* Scrollable inner wrapper keeps the resize handle fixed to the panel
+     edge regardless of scroll position, since the handle now lives outside
+     the scrolling element instead of scrolling along with its content. */
+  #display-panel-content {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px 16px;
+  }
+  .dp-top    #display-panel { border-bottom: 1px solid var(--border); order: 0; }
+  .dp-bottom #display-panel { border-top:    1px solid var(--border); order: 1; }
+  .dp-left   #display-panel { border-right:  1px solid var(--border); order: 0; }
+  .dp-right  #display-panel { border-left:   1px solid var(--border); order: 1; }
+
   #display-panel .empty-note { color: var(--text-dim); font-style: italic; }
-  .chain-row { padding: 3px 4px; line-height: 1.5; border-radius: 6px; cursor: pointer; transition: box-shadow 0.1s, background 0.1s; }
+  .chain-row { display: flex; align-items: center; flex-wrap: wrap; padding: 3px 4px; line-height: 1.5; border-radius: 6px; cursor: pointer; transition: box-shadow 0.1s, background 0.1s; }
   .chain-row:hover { background: var(--bg-hover); }
   .chain-row.chain-highlight {
     box-shadow: 0 0 0 2px var(--highlight-color, #ffd60a);
@@ -254,6 +308,123 @@
   }
   .chain-row .arrow { color: var(--text-dim); margin: 0 4px; }
   .chain-row .loop-tag { color: var(--text-dim); font-size: 0.78rem; margin-left: 6px; }
+
+  /* Chain label badge (in display panel rows) */
+  .chain-label-badge {
+    font-size: 0.72rem;
+    font-weight: bold;
+    min-width: 16px;
+    margin-right: 5px;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  /* ── Display panel resize handle ─────────────────────────────── */
+  #display-resize-handle {
+    position: absolute;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .dp-top #display-resize-handle, .dp-bottom #display-resize-handle {
+    bottom: 0; left: 0; right: 0; height: 10px;
+    cursor: ns-resize;
+  }
+  .dp-bottom #display-resize-handle { bottom: auto; top: 0; }
+  .dp-left  #display-resize-handle  { top: 0; bottom: 0; right: 0; width: 10px; cursor: ew-resize; left: auto; }
+  .dp-right #display-resize-handle  { top: 0; bottom: 0; left: 0;  width: 10px; cursor: ew-resize; right: auto; }
+
+  #display-resize-handle::after {
+    content: '';
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.15s;
+  }
+  .dp-top #display-resize-handle::after, .dp-bottom #display-resize-handle::after {
+    width: 40px; height: 3px;
+  }
+  .dp-left #display-resize-handle::after, .dp-right #display-resize-handle::after {
+    width: 3px; height: 40px;
+  }
+  #display-resize-handle:hover::after,
+  #display-resize-handle.dragging::after { background: var(--accent); }
+
+  /* ── Chain picker popup ──────────────────────────────────────── */
+  .chain-picker-popup {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+    min-width: 100px;
+    max-width: 240px;
+  }
+  .chain-picker-header {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-bottom: 7px;
+    font-weight: bold;
+    letter-spacing: 0.02em;
+  }
+  .chain-picker-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chain-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 2px solid currentColor;
+    font-size: 0.72rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.1s;
+    user-select: none;
+  }
+  .chain-badge:hover { transform: scale(1.18); }
+  .chain-badge-active { box-shadow: 0 0 0 2px #fff; }
+  .chain-badge-new {
+    color: var(--text-dim) !important;
+    border-color: var(--text-dim) !important;
+    font-size: 1.1rem;
+  }
+  .chain-badge-new:hover { color: var(--green) !important; border-color: var(--green) !important; }
+
+  /* ── Arrow chain tooltip (hover label) ──────────────────────── */
+  #arrow-chain-tooltip {
+    position: fixed;
+    z-index: 900;
+    background: var(--bg-card);
+    border: 2px solid;
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 0.78rem;
+    font-weight: bold;
+    pointer-events: none;
+    display: none;
+    white-space: nowrap;
+  }
+
+  /* Settings select */
+  .settings-row-control select {
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.83rem;
+    padding: 4px 8px;
+    height: 30px;
+    outline: none;
+    cursor: pointer;
+  }
+  .settings-row-control select:focus { border-color: var(--accent); }
 
   /* ── Canvas viewport ─────────────────────────────────────────── */
   #viewport {
@@ -641,21 +812,29 @@
     </ul>
   </div>
 
-  <!-- Display panel -->
-  <div id="display-panel" class="side-panel"></div>
-
-  <div id="viewport">
-    <div id="canvas">
-      <svg id="lines-layer"></svg>
+  <div id="main-area" class="dp-top">
+    <!-- Display panel -->
+    <div id="display-panel" class="side-panel">
+      <div id="display-panel-content"></div>
+      <div id="display-resize-handle"></div>
     </div>
-    <div id="author-credit">Made by FireRisingRaging and gmo7</div>
-    <div id="zoom-control">
-      <input id="zoom-slider" type="range" min="60" max="120" value="80" step="1" title="Zoom">
-      <span id="zoom-readout" title="Click to type a zoom value">80%</span>
-      <input id="zoom-input" type="number" min="60" max="120" style="display:none">
+
+    <div id="viewport">
+      <div id="canvas">
+        <svg id="lines-layer"></svg>
+      </div>
+      <div id="author-credit">Made by FireRisingRaging and gmo7</div>
+      <div id="zoom-control">
+        <input id="zoom-slider" type="range" min="60" max="120" value="80" step="1" title="Zoom">
+        <span id="zoom-readout" title="Click to type a zoom value">80%</span>
+        <input id="zoom-input" type="number" min="60" max="120" style="display:none">
+      </div>
     </div>
   </div>
 </div>
+
+<!-- Arrow chain tooltip -->
+<div id="arrow-chain-tooltip"></div>
 
 <!-- Settings modal -->
 <div id="settings-overlay">
@@ -696,11 +875,41 @@
 
       <div class="settings-row">
         <div class="settings-row-label">Arrow Color</div>
-        <div class="settings-row-desc">Color used to draw connection arrows on the map.</div>
-        <div class="settings-row-control">
-          <input type="color" id="arrow-color" value="#7c87f5">
-          <button class="map-btn" id="btn-save-arrow-color">Save</button>
-          <span class="settings-save-msg" id="arrow-color-saved">Saved!</span>
+        <div class="settings-row-desc">Choose how connection arrows (and their chain letters) are colored on the map.</div>
+
+        <div class="arrow-color-option">
+          <label class="toggle-wrap" for="toggle-random-colors">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-random-colors" data-mode="random" checked>
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label" id="toggle-random-colors-label">Random Color</span>
+          </label>
+        </div>
+
+        <div class="arrow-color-option">
+          <label class="toggle-wrap" for="toggle-one-color">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-one-color" data-mode="one">
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label">One Color</span>
+          </label>
+          <div class="settings-row-control">
+            <input type="color" id="arrow-color" value="#7c87f5">
+            <button class="map-btn" id="btn-save-arrow-color">Save</button>
+            <span class="settings-save-msg" id="arrow-color-saved">Saved!</span>
+          </div>
+        </div>
+
+        <div class="arrow-color-option">
+          <label class="toggle-wrap" for="toggle-kingdom-gradients">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-kingdom-gradients" data-mode="gradient">
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label">Kingdom Gradients</span>
+          </label>
         </div>
       </div>
 
@@ -716,17 +925,25 @@
               <span class="toggle-track"></span>
             </span>
             <span class="toggle-label" id="toggle-highlight-label">On</span>
+            <input type="color" id="highlight-color" value="#ffd60a">
+            <button class="map-btn" id="btn-save-highlight-color">Save</button>
+            <span class="settings-save-msg" id="highlight-color-saved">Saved!</span>
           </label>
         </div>
       </div>
 
+      <div class="settings-divider"></div>
+
       <div class="settings-row">
-        <div class="settings-row-label">Highlight Color</div>
-        <div class="settings-row-desc">Color used for the chain highlight box, on both the map and the Display panel.</div>
+        <div class="settings-row-label">Display Panel Position</div>
+        <div class="settings-row-desc">Choose where the chain display panel appears relative to the map canvas.</div>
         <div class="settings-row-control">
-          <input type="color" id="highlight-color" value="#ffd60a">
-          <button class="map-btn" id="btn-save-highlight-color">Save</button>
-          <span class="settings-save-msg" id="highlight-color-saved">Saved!</span>
+          <select id="display-position-select">
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
         </div>
       </div>
 
@@ -989,6 +1206,23 @@ const ZONE_IMAGES = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// Chain color palette
+// ─────────────────────────────────────────────────────────────────
+const CHAIN_COLORS = [
+  '#ff6b6b','#ff9f43','#ffd93d','#6bcb77','#4d96ff','#c77dff',
+  '#00d2ff','#ff8c69','#b5e550','#f7a8d8','#ff4757','#2ed573',
+  '#1e90ff','#eccc68','#ff6348','#7bed9f','#70a1ff','#a29bfe',
+  '#fd79a8','#00b894','#0984e3','#e17055','#6c5ce7','#fdcb6e',
+  '#55efc4','#fab1a0','#74b9ff','#b2bec3',
+];
+
+function getChainLabel(i) {
+  if (i < 26) return String.fromCharCode(65 + i);
+  const i2 = i - 26;
+  return String.fromCharCode(65 + Math.floor(i2 / 26)) + String.fromCharCode(65 + (i2 % 26));
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Storage keys
 // ─────────────────────────────────────────────────────────────────
 const STORAGE_KEY         = 'smo_map_state';
@@ -996,6 +1230,8 @@ const STORAGE_POSITIONS   = 'smo_map_positions';
 const STORAGE_SIZES       = 'smo_map_sizes';
 const STORAGE_GRID        = 'smo_map_grid';
 const STORAGE_SETTINGS    = 'smo_map_settings';
+const STORAGE_EDGE_CHAINS = 'smo_edge_chains';
+const STORAGE_CHAIN_META  = 'smo_chain_meta';
 
 // ─────────────────────────────────────────────────────────────────
 // Layout constants
@@ -1029,10 +1265,24 @@ let showImages = false;
 let arrowColor = '#7c87f5';
 let highlightColor = '#0afbff';
 let highlightEnabled = true;
+let randomChainColors = true; // legacy, kept for old-save migration only
+let arrowColorMode = 'random'; // 'random' | 'one' | 'gradient'
+let displayPosition = 'top';
+let displaySize = 150;
 
-// Chain-highlight interaction state
-let hoverHighlightPath = null;  // transient (mouseover) path, array of node ids
-let pinnedHighlightPath = null; // persistent (click-toggled) path, array of node ids
+// Chain state
+let edgeChains = {};      // "src→tgt" → chainId (integer)
+let chainColors = {};     // chainId → hex color string
+let nextChainId = 0;
+let chainLabelMap = {};   // chainId → "A","B",... (recomputed)
+
+// Chain-highlight interaction state (chain-ID based)
+let hoverHighlightChainId  = null;
+let pinnedHighlightChainId = null;
+
+// Chain picker state
+let activePickerEdge = null;
+let activePickerEl   = null;
 
 // ─────────────────────────────────────────────────────────────────
 // Cluster geometry helpers
@@ -1229,10 +1479,33 @@ function loadAll() {
     const raw = localStorage.getItem(STORAGE_SETTINGS);
     if (raw) {
       const s = JSON.parse(raw);
-      showImages      = !!s.showImages;
-      arrowColor      = s.arrowColor || arrowColor;
-      highlightColor  = s.highlightColor || highlightColor;
-      highlightEnabled= s.highlightEnabled !== undefined ? !!s.highlightEnabled : highlightEnabled;
+      showImages        = !!s.showImages;
+      arrowColor        = s.arrowColor || arrowColor;
+      highlightColor    = s.highlightColor || highlightColor;
+      highlightEnabled  = s.highlightEnabled !== undefined ? !!s.highlightEnabled : highlightEnabled;
+      if (s.arrowColorMode) {
+        arrowColorMode = s.arrowColorMode;
+      } else if (s.randomChainColors !== undefined) {
+        // Migrate from legacy boolean setting
+        arrowColorMode = s.randomChainColors ? 'random' : 'gradient';
+      }
+      randomChainColors = arrowColorMode === 'random';
+      displayPosition   = s.displayPosition || displayPosition;
+      displaySize       = s.displaySize     || displaySize;
+    }
+  } catch (e) {}
+
+  try {
+    const raw = localStorage.getItem(STORAGE_EDGE_CHAINS);
+    if (raw) edgeChains = JSON.parse(raw);
+  } catch (e) {}
+
+  try {
+    const raw = localStorage.getItem(STORAGE_CHAIN_META);
+    if (raw) {
+      const m = JSON.parse(raw);
+      nextChainId  = m.nextChainId || 0;
+      chainColors  = m.colors || {};
     }
   } catch (e) {}
 }
@@ -1243,8 +1516,13 @@ function saveSizes()    { localStorage.setItem(STORAGE_SIZES, JSON.stringify(clu
 function saveGrid()     { localStorage.setItem(STORAGE_GRID, JSON.stringify({ rows: gridRows, cols: gridCols })); }
 function saveSettings() {
   localStorage.setItem(STORAGE_SETTINGS, JSON.stringify({
-    showImages, arrowColor, highlightColor, highlightEnabled
+    showImages, arrowColor, highlightColor, highlightEnabled,
+    randomChainColors, arrowColorMode, displayPosition, displaySize
   }));
+}
+function saveEdgeChains() {
+  localStorage.setItem(STORAGE_EDGE_CHAINS, JSON.stringify(edgeChains));
+  localStorage.setItem(STORAGE_CHAIN_META, JSON.stringify({ nextChainId, colors: chainColors }));
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1277,7 +1555,9 @@ function connect(src, tgt) {
   }
   addEdge(outgoing, src, tgt);
   addEdge(incoming, tgt, src);
+  autoAssignChain(src, tgt);
   saveState();
+  saveEdgeChains();
   renderConnections();
   renderDisplayPanel();
 }
@@ -1285,14 +1565,136 @@ function connect(src, tgt) {
 /** Removes ALL outgoing arrows from a node (used by double-click). */
 function disconnectOutgoing(id) {
   const tgts = outgoing[id] || [];
-  tgts.forEach(t => removeEdge(incoming, t, id));
+  tgts.forEach(t => {
+    removeEdge(incoming, t, id);
+    delete edgeChains[`${id}→${t}`];
+  });
   delete outgoing[id];
+  // Clear stale highlights
+  hoverHighlightChainId  = null;
+  pinnedHighlightChainId = null;
+  recomputeChainLabels();
 }
 /** Removes ALL incoming arrows into a node. */
 function disconnectIncoming(id) {
   const srcs = incoming[id] || [];
-  srcs.forEach(s => removeEdge(outgoing, s, id));
+  srcs.forEach(s => {
+    removeEdge(outgoing, s, id);
+    delete edgeChains[`${s}→${id}`];
+  });
   delete incoming[id];
+  hoverHighlightChainId  = null;
+  pinnedHighlightChainId = null;
+  recomputeChainLabels();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Chain management
+// ─────────────────────────────────────────────────────────────────
+function recomputeChainLabels() {
+  const sortedIds = [...new Set(Object.values(edgeChains))].sort((a, b) => a - b);
+  chainLabelMap = {};
+  sortedIds.forEach((id, idx) => { chainLabelMap[id] = getChainLabel(idx); });
+}
+
+// Color used for chain "letters" (display panel badges, picker badges,
+// hover tooltip). Only meaningful when Random Color mode is active
+// otherwise letters are plain white, since there's no per-chain color.
+function chainLetterColor(chainId) {
+  if (arrowColorMode !== 'random') return '#ffffff';
+  return (chainId !== undefined && chainColors[chainId]) ? chainColors[chainId] : arrowColor;
+}
+
+function pickChainColor() {
+  const used = new Set(Object.values(chainColors));
+  const avail = CHAIN_COLORS.filter(c => !used.has(c));
+  return avail.length > 0
+    ? avail[Math.floor(Math.random() * avail.length)]
+    : CHAIN_COLORS[Math.floor(Math.random() * CHAIN_COLORS.length)];
+}
+
+function createNewChain() {
+  const id = nextChainId++;
+  chainColors[id] = pickChainColor();
+  return id;
+}
+
+function assignChain(src, tgt, chainId) {
+  edgeChains[`${src}→${tgt}`] = chainId;
+  recomputeChainLabels();
+}
+
+function assignNewChain(src, tgt) {
+  const id = createNewChain();
+  edgeChains[`${src}→${tgt}`] = id;
+  recomputeChainLabels();
+  return id;
+}
+
+function getEdgeChainId(src, tgt) {
+  return edgeChains[`${src}→${tgt}`];
+}
+
+function getIncomingChainIds(nodeId) {
+  const ids = [], seen = new Set();
+  (incoming[nodeId] || []).forEach(src => {
+    const cid = edgeChains[`${src}→${nodeId}`];
+    if (cid !== undefined && !seen.has(cid)) { seen.add(cid); ids.push(cid); }
+  });
+  return ids;
+}
+
+/** Can the picker be shown for an outgoing arrow FROM src? */
+function canOpenChainPicker(src) {
+  if (DEAD_END_IDS.has(src)) return false;
+  if ((incoming[src] || []).length === 0) return false;
+  return true;
+}
+
+/** Auto-assign a chain to a newly created edge. */
+function autoAssignChain(src, tgt) {
+  if ((incoming[src] || []).length === 0 || DEAD_END_IDS.has(src)) {
+    assignNewChain(src, tgt);
+  } else {
+    const inChains = getIncomingChainIds(src);
+    if (inChains.length > 0) assignChain(src, tgt, inChains[0]);
+    else assignNewChain(src, tgt);
+  }
+}
+
+/** Migrate old state that has edges but no chain assignments. */
+function migrateOldEdgeChains() {
+  let needsMigration = false;
+  outer: for (const [src, tgts] of Object.entries(outgoing)) {
+    for (const tgt of tgts) {
+      if (edgeChains[`${src}→${tgt}`] === undefined) { needsMigration = true; break outer; }
+    }
+  }
+  if (!needsMigration) return;
+
+  // Use existing computeChains() to seed assignments
+  const chains = computeChains();
+  chains.forEach(chain => {
+    const cid = nextChainId++;
+    chainColors[cid] = pickChainColor();
+    for (let i = 0; i < chain.ids.length - 1; i++) {
+      const key = `${chain.ids[i]}→${chain.ids[i+1]}`;
+      if (edgeChains[key] === undefined) edgeChains[key] = cid;
+    }
+  });
+  // Catch any remaining unassigned edges
+  for (const [src, tgts] of Object.entries(outgoing)) {
+    for (const tgt of tgts) {
+      const key = `${src}→${tgt}`;
+      if (edgeChains[key] === undefined) {
+        const cid = nextChainId++;
+        chainColors[cid] = pickChainColor();
+        edgeChains[key] = cid;
+      }
+    }
+  }
+  recomputeChainLabels();
+  saveEdgeChains();
 }
 
 /** Brief red flash on a node to signal a rejected connection attempt. */
@@ -1720,31 +2122,239 @@ function edgePoint(node, fromX, fromY) {
 
 let previewLine = null;
 
+// ── SVG marker / gradient helpers ───────────────────────────────
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function makeMarker(id, color) {
+  const m = document.createElementNS(SVG_NS, 'marker');
+  m.id = id;
+  m.setAttribute('markerWidth','8'); m.setAttribute('markerHeight','8');
+  m.setAttribute('refX','6'); m.setAttribute('refY','3');
+  m.setAttribute('orient','auto');
+  const p = document.createElementNS(SVG_NS, 'path');
+  p.setAttribute('d','M0,0 L6,3 L0,6 Z'); p.setAttribute('fill', color);
+  m.appendChild(p); return m;
+}
+
+function ensureBaseMarkers(defs) {
+  if (!defs.querySelector('#arrowhead'))
+    defs.appendChild(makeMarker('arrowhead', arrowColor));
+  const hl = defs.querySelector('#arrowhead-highlight');
+  if (!hl) {
+    defs.appendChild(makeMarker('arrowhead-highlight', highlightColor));
+  } else {
+    const p = hl.querySelector('path');
+    if (p) p.setAttribute('fill', highlightColor);
+  }
+}
+
+function ensureChainMarker(defs, chainId, color) {
+  const id = chainId !== undefined ? `arrow-chain-${chainId}` : 'arrowhead';
+  if (!defs.querySelector(`#${id}`)) defs.appendChild(makeMarker(id, color));
+  return id;
+}
+
+function ensureKingdomMarker(defs, kingdom, color) {
+  const id = `arrow-k-${kingdom.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  if (!defs.querySelector(`#${id}`)) defs.appendChild(makeMarker(id, color));
+  return id;
+}
+
+function ensureGradient(defs, srcColor, tgtColor, p1, p2, src, tgt) {
+  const gradId = 'grad_' + `${src}→${tgt}`.replace(/[^a-zA-Z0-9]/g, '_');
+  let grad = defs.querySelector(`#${gradId}`);
+  if (!grad) {
+    grad = document.createElementNS(SVG_NS, 'linearGradient');
+    grad.id = gradId;
+    grad.setAttribute('gradientUnits','userSpaceOnUse');
+    const s1 = document.createElementNS(SVG_NS,'stop');
+    s1.setAttribute('offset','0%'); s1.setAttribute('stop-color', srcColor);
+    const s2 = document.createElementNS(SVG_NS,'stop');
+    s2.setAttribute('offset','100%'); s2.setAttribute('stop-color', tgtColor);
+    grad.appendChild(s1); grad.appendChild(s2);
+    defs.appendChild(grad);
+  }
+  grad.setAttribute('x1', p1.x); grad.setAttribute('y1', p1.y);
+  grad.setAttribute('x2', p2.x); grad.setAttribute('y2', p2.y);
+  return gradId;
+}
+
+// Arrow tooltip
+const arrowTooltipEl = document.getElementById('arrow-chain-tooltip');
+function showArrowTooltip(e, chainId) {
+  if (chainId === undefined || !chainLabelMap[chainId]) return;
+  const color = chainLetterColor(chainId);
+  arrowTooltipEl.textContent  = chainLabelMap[chainId];
+  arrowTooltipEl.style.color  = color;
+  arrowTooltipEl.style.borderColor = color;
+  arrowTooltipEl.style.display = 'block';
+  updateArrowTooltipPos(e);
+}
+function updateArrowTooltipPos(e) {
+  arrowTooltipEl.style.left = (e.clientX + 14) + 'px';
+  arrowTooltipEl.style.top  = (e.clientY - 10) + 'px';
+}
+function hideArrowTooltip() { arrowTooltipEl.style.display = 'none'; }
+
+// Chain picker
+function closeActiveChainPicker() {
+  if (activePickerEl && activePickerEl.parentNode) activePickerEl.remove();
+  activePickerEl = null; activePickerEdge = null;
+}
+
+function openChainPicker(event, src, tgt) {
+  closeActiveChainPicker();
+  const edgeKey = `${src}→${tgt}`;
+  const currentChainId = getEdgeChainId(src, tgt);
+  const inChains = getIncomingChainIds(src);
+
+  const picker = document.createElement('div');
+  picker.className = 'chain-picker-popup';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'chain-picker-header';
+  hdr.textContent = 'Assign chain:';
+  picker.appendChild(hdr);
+
+  const badges = document.createElement('div');
+  badges.className = 'chain-picker-badges';
+
+  inChains.forEach(cid => {
+    const lbl = chainLabelMap[cid] || '?';
+    const col = chainLetterColor(cid);
+    const badge = document.createElement('div');
+    badge.className = 'chain-badge' + (cid === currentChainId ? ' chain-badge-active' : '');
+    badge.textContent = lbl;
+    badge.style.color = col; badge.style.borderColor = col;
+    if (cid === currentChainId) badge.style.backgroundColor = hexWithAlpha(col, 0.2);
+    badge.title = `Chain ${lbl}`;
+    badge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      assignChain(src, tgt, cid);
+      saveEdgeChains();
+      closeActiveChainPicker();
+      renderConnections(); renderDisplayPanel();
+    });
+    badges.appendChild(badge);
+  });
+
+  const newBtn = document.createElement('div');
+  newBtn.className = 'chain-badge chain-badge-new';
+  newBtn.textContent = '+'; newBtn.title = 'Start a new chain';
+  newBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    assignNewChain(src, tgt);
+    saveEdgeChains();
+    closeActiveChainPicker();
+    renderConnections(); renderDisplayPanel();
+  });
+  badges.appendChild(newBtn);
+
+  picker.appendChild(badges);
+  document.body.appendChild(picker);
+  activePickerEl = picker; activePickerEdge = edgeKey;
+
+  const pw = 240, ph = 80;
+  let x = event.clientX + 14, y = event.clientY + 14;
+  if (x + pw > window.innerWidth)  x = event.clientX - pw - 8;
+  if (y + ph > window.innerHeight) y = event.clientY - ph - 8;
+  picker.style.left = `${Math.max(8, x)}px`;
+  picker.style.top  = `${Math.max(8, y)}px`;
+
+  setTimeout(() => {
+    document.addEventListener('click', function outsideClose(e) {
+      if (!picker.contains(e.target)) {
+        closeActiveChainPicker();
+        document.removeEventListener('click', outsideClose);
+      }
+    });
+  }, 0);
+}
+
 function renderConnections() {
   linesLayer.setAttribute('width', canvasW);
   linesLayer.setAttribute('height', canvasH);
   linesLayer.innerHTML = '';
-  ensureArrowMarker();
+
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  linesLayer.appendChild(defs);
+  ensureBaseMarkers(defs);
 
   Object.entries(outgoing).forEach(([src, tgts]) => {
     (tgts || []).forEach(tgt => {
       if (!nodes[src] || !nodes[tgt]) return;
+      const chainId = getEdgeChainId(src, tgt);
       const p1 = nodeCenter(src);
       const p2 = edgePoint(nodes[tgt], p1.x, p1.y);
-      const line = drawLine(p1, p2, arrowColor, true);
-      line.dataset.src = src; line.dataset.tgt = tgt;
-      line.classList.add('conn-line');
 
-      // Wider invisible line layered on top, easier to hover/click than the
-      // thin visible stroke, and is what drives chain highlighting.
-      const hit = drawLine(p1, p2, 'transparent', false);
+      let strokeVal, markerId;
+      if (arrowColorMode === 'gradient') {
+        const srcKingdom = nodes[src].kingdomKey;
+        const tgtKingdom = nodes[tgt].kingdomKey;
+        const srcColor = LOADING_ZONES_TEMPLATE[srcKingdom]?.color || '#888';
+        const tgtColor = LOADING_ZONES_TEMPLATE[tgtKingdom]?.color || '#888';
+        const gradId = ensureGradient(defs, srcColor, tgtColor, p1, p2, src, tgt);
+        strokeVal = `url(#${gradId})`;
+        markerId  = ensureKingdomMarker(defs, tgtKingdom, tgtColor);
+      } else if (arrowColorMode === 'one') {
+        strokeVal = arrowColor;
+        markerId  = ensureChainMarker(defs, chainId, arrowColor);
+      } else {
+        const color = (chainId !== undefined && chainColors[chainId]) ? chainColors[chainId] : arrowColor;
+        strokeVal = color;
+        markerId  = ensureChainMarker(defs, chainId, color);
+      }
+
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1',p1.x); line.setAttribute('y1',p1.y);
+      line.setAttribute('x2',p2.x); line.setAttribute('y2',p2.y);
+      line.setAttribute('stroke', strokeVal);
+      line.setAttribute('stroke-width', 2.5);
+      line.setAttribute('stroke-linecap', 'round');
+      line.setAttribute('marker-end', `url(#${markerId})`);
+      line.dataset.src = src; line.dataset.tgt = tgt;
+      line.dataset.normalStroke = strokeVal;
+      line.dataset.normalMarker = `url(#${markerId})`;
+      line.classList.add('conn-line');
+      linesLayer.appendChild(line);
+
+      // Invisible wide hit target
+      const hit = document.createElementNS(SVG_NS, 'line');
+      hit.setAttribute('x1',p1.x); hit.setAttribute('y1',p1.y);
+      hit.setAttribute('x2',p2.x); hit.setAttribute('y2',p2.y);
+      hit.setAttribute('stroke', 'transparent');
       hit.setAttribute('stroke-width', 14);
+      hit.setAttribute('stroke-linecap', 'round');
       hit.style.pointerEvents = 'stroke';
       hit.style.cursor = 'pointer';
       hit.dataset.src = src; hit.dataset.tgt = tgt;
-      hit.addEventListener('mouseenter', () => setHoverHighlight(getStraightPath(src, tgt)));
-      hit.addEventListener('mouseleave', () => setHoverHighlight(null));
-      hit.addEventListener('click', (e) => { e.stopPropagation(); togglePinnedHighlight(getStraightPath(src, tgt)); });
+      linesLayer.appendChild(hit);
+
+      hit.addEventListener('mouseenter', (e) => {
+        hoverHighlightChainId = chainId ?? null;
+        applyHighlightClasses();
+        if (chainId !== undefined) showArrowTooltip(e, chainId);
+      });
+      hit.addEventListener('mousemove', (e) => updateArrowTooltipPos(e));
+      hit.addEventListener('mouseleave', () => {
+        hoverHighlightChainId = null;
+        applyHighlightClasses();
+        hideArrowTooltip();
+      });
+      hit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideArrowTooltip();
+        // Pin / toggle highlight
+        const cid = chainId ?? null;
+        pinnedHighlightChainId = (pinnedHighlightChainId === cid) ? null : cid;
+        applyHighlightClasses();
+        // Chain picker
+        if (canOpenChainPicker(src)) {
+          const key = `${src}→${tgt}`;
+          if (activePickerEdge === key) closeActiveChainPicker();
+          else openChainPicker(e, src, tgt);
+        }
+      });
     });
   });
 
@@ -1752,23 +2362,15 @@ function renderConnections() {
   applyHighlightClasses();
 }
 
-function ensureArrowMarker() {
-  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-  defs.innerHTML = `<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-    <path d="M0,0 L6,3 L0,6 Z" fill="${arrowColor}"></path></marker>
-    <marker id="arrowhead-highlight" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-    <path d="M0,0 L6,3 L0,6 Z" fill="${highlightColor}"></path></marker>`;
-  linesLayer.appendChild(defs);
-}
-
-function drawLine(p1, p2, color, withArrow) {
-  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+function drawLine(p1, p2, stroke, markerBoolOrId) {
+  const line = document.createElementNS(SVG_NS,'line');
   line.setAttribute('x1',p1.x); line.setAttribute('y1',p1.y);
   line.setAttribute('x2',p2.x); line.setAttribute('y2',p2.y);
-  line.setAttribute('stroke', color);
+  line.setAttribute('stroke', stroke);
   line.setAttribute('stroke-width', 2.5);
   line.setAttribute('stroke-linecap','round');
-  if (withArrow) line.setAttribute('marker-end','url(#arrowhead)');
+  if (typeof markerBoolOrId === 'string')    line.setAttribute('marker-end',`url(#${markerBoolOrId})`);
+  else if (markerBoolOrId === true)          line.setAttribute('marker-end','url(#arrowhead)');
   linesLayer.appendChild(line);
   return line;
 }
@@ -1776,59 +2378,48 @@ function drawLine(p1, p2, color, withArrow) {
 // ─────────────────────────────────────────────────────────────────
 // Chain highlighting (hover / click, synced between map and display)
 // ─────────────────────────────────────────────────────────────────
-function setHoverHighlight(ids) {
-  hoverHighlightPath = ids;
-  applyHighlightClasses();
-}
-
-function togglePinnedHighlight(ids) {
-  if (pinnedHighlightPath && samePath(pinnedHighlightPath, ids)) {
-    pinnedHighlightPath = null;
-  } else {
-    pinnedHighlightPath = ids;
-  }
-  applyHighlightClasses();
-}
-
-function samePath(a, b) {
-  return a.length === b.length && a.every((v,i) => v === b[i]);
-}
-
-function clearAllHighlights() {
-  hoverHighlightPath = null;
-  pinnedHighlightPath = null;
-  applyHighlightClasses();
-}
-
 function applyHighlightClasses() {
-  const activePath = highlightEnabled ? (hoverHighlightPath || pinnedHighlightPath) : null;
-  const activeIds = new Set(activePath || []);
-  const activeEdges = new Set();
-  if (activePath) {
-    for (let i = 0; i < activePath.length - 1; i++) activeEdges.add(activePath[i] + '→' + activePath[i+1]);
+  const activeChainId = highlightEnabled ? (hoverHighlightChainId ?? pinnedHighlightChainId) : null;
+
+  // Build sets of highlighted edges and nodes
+  const activeEdgeKeys = new Set();
+  const activeNodeIds  = new Set();
+  if (activeChainId !== null) {
+    for (const [key, cid] of Object.entries(edgeChains)) {
+      if (cid === activeChainId) {
+        activeEdgeKeys.add(key);
+        const arrowPos = key.indexOf('→');
+        if (arrowPos !== -1) {
+          activeNodeIds.add(key.substring(0, arrowPos));
+          activeNodeIds.add(key.substring(arrowPos + 1));
+        }
+      }
+    }
   }
 
   // Keep the highlight arrowhead marker in sync with the current highlight color
-  const hlMarkerPath = linesLayer.querySelector('#arrowhead-highlight path');
-  if (hlMarkerPath) hlMarkerPath.setAttribute('fill', highlightColor);
+  const hlPath = linesLayer.querySelector('#arrowhead-highlight path');
+  if (hlPath) hlPath.setAttribute('fill', highlightColor);
 
+  // Nodes
   canvasEl.querySelectorAll('.map-node').forEach(el => {
-    el.classList.toggle('chain-highlight', activeIds.has(el.dataset.id));
+    el.classList.toggle('chain-highlight', activeNodeIds.has(el.dataset.id));
   });
+
+  // Lines
   linesLayer.querySelectorAll('.conn-line').forEach(el => {
-    const isActive = activeEdges.has(el.dataset.src + '→' + el.dataset.tgt);
+    const edgeKey = el.dataset.src + '→' + el.dataset.tgt;
+    const isActive = activeEdgeKeys.has(edgeKey);
     el.classList.toggle('chain-highlight-line', isActive);
-    el.setAttribute('stroke', isActive ? highlightColor : arrowColor);
+    el.setAttribute('stroke', isActive ? highlightColor : (el.dataset.normalStroke || arrowColor));
     el.setAttribute('stroke-width', isActive ? 4 : 2.5);
-    el.setAttribute('marker-end', isActive ? 'url(#arrowhead-highlight)' : 'url(#arrowhead)');
+    el.setAttribute('marker-end', isActive ? 'url(#arrowhead-highlight)' : (el.dataset.normalMarker || 'url(#arrowhead)'));
   });
+
+  // Display panel rows
   document.querySelectorAll('#display-panel .chain-row').forEach(row => {
-    let rowIds = [];
-    try { rowIds = JSON.parse(row.dataset.path || '[]'); } catch(e) {}
-    // Only highlight this exact row if its path is identical to the active path
-    const isExactMatch = activePath && rowIds.length === activePath.length &&
-      rowIds.every((id, i) => id === activePath[i]);
-    row.classList.toggle('chain-highlight', !!isExactMatch);
+    const rowCid = parseInt(row.dataset.chainId);
+    row.classList.toggle('chain-highlight', !isNaN(rowCid) && rowCid === activeChainId);
   });
 }
 
@@ -2038,6 +2629,7 @@ function wireNodeEvents(el, id) {
     e.preventDefault(); e.stopPropagation();
     disconnectOutgoing(id);
     saveState();
+    saveEdgeChains();
     renderConnections();
     renderDisplayPanel();
   });
@@ -2118,7 +2710,7 @@ function handleNodeTouchStart(e, id) {
   const startX = e.touches[0].clientX, startY = e.touches[0].clientY;
   let moved = false, dragStarted = false;
 
-  // ── Long-press → open stage preview (2 s, only when Stage Previews is on) ──
+  // ── Long-press → open stage preview (1 s, only when Stage Previews is on) ──
   // Timer is cancelled the moment the finger moves past the movement threshold,
   // so it can never fire during an intentional connection drag.
   let longPressTimer = null;
@@ -2176,7 +2768,7 @@ function handleNodeTouchStart(e, id) {
     if (lastTapNodeId === id && (now - lastTapTime) < DOUBLE_TAP_MS) {
       if (pendingTapTimer) { clearTimeout(pendingTapTimer); pendingTapTimer = null; }
       lastTapNodeId = null;
-      disconnectOutgoing(id); saveState(); renderConnections(); renderDisplayPanel();
+      disconnectOutgoing(id); saveState(); saveEdgeChains(); renderConnections(); renderDisplayPanel();
     } else {
       lastTapNodeId = id; lastTapTime = now;
       if (pendingTapTimer) clearTimeout(pendingTapTimer);
@@ -2282,10 +2874,112 @@ function getStraightPath(src, tgt) {
   return path;
 }
 
-function renderDisplayPanel() {
+// ─────────────────────────────────────────────────────────────────
+// Chain-based display computation
+// ─────────────────────────────────────────────────────────────────
+function computeChainsFromEdgeAssignments() {
+  const byChain = {};
+  for (const [key, cid] of Object.entries(edgeChains)) {
+    const arrowPos = key.indexOf('→');
+    if (arrowPos === -1) continue;
+    const src = key.substring(0, arrowPos), tgt = key.substring(arrowPos + 1);
+    if (!nodes[src] || !nodes[tgt]) continue;
+    if (!byChain[cid]) byChain[cid] = [];
+    byChain[cid].push({ src, tgt });
+  }
+
+  const result = [];
+  Object.keys(byChain).map(Number).sort((a, b) => a - b).forEach(cid => {
+    const edges = byChain[cid];
+    const outMap = {}, inChain = new Set(), allNodes = new Set();
+    edges.forEach(({ src, tgt }) => {
+      if (!outMap[src]) outMap[src] = [];
+      outMap[src].push(tgt);
+      inChain.add(tgt);
+      allNodes.add(src); allNodes.add(tgt);
+    });
+    const roots = [...allNodes].filter(n => !inChain.has(n));
+
+    function dfs(node, path, visited) {
+      const nexts = outMap[node] || [];
+      if (nexts.length === 0) {
+        if (path.length > 1) result.push({ chainId: cid, ids: path.slice(), looped: false });
+        return;
+      }
+      for (const next of nexts) {
+        if (visited.has(next)) {
+          result.push({ chainId: cid, ids: [...path, next], looped: true });
+        } else {
+          const v2 = new Set(visited); v2.add(next);
+          dfs(next, [...path, next], v2);
+        }
+      }
+    }
+
+    if (roots.length === 0 && allNodes.size > 0) {
+      const start = [...allNodes][0];
+      dfs(start, [start], new Set([start]));
+    } else {
+      roots.forEach(r => dfs(r, [r], new Set([r])));
+    }
+  });
+
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Display panel layout & resize
+// ─────────────────────────────────────────────────────────────────
+function applyDisplayLayout() {
+  const mainArea = document.getElementById('main-area');
+  mainArea.className = `dp-${displayPosition}`;
   const panel = document.getElementById('display-panel');
-  const chains = computeChains();
+  if (displayPosition === 'top' || displayPosition === 'bottom') {
+    panel.style.height = displaySize + 'px';
+    panel.style.width  = '';
+  } else {
+    panel.style.width  = displaySize + 'px';
+    panel.style.height = '';
+  }
+}
+
+(function setupDisplayResize() {
+  const handle = document.getElementById('display-resize-handle');
+  let dragging = false, startPos = 0, startSize = 0;
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    dragging = true;
+    handle.classList.add('dragging');
+    startPos  = (displayPosition === 'top' || displayPosition === 'bottom') ? e.clientY : e.clientX;
+    startSize = displaySize;
+    e.preventDefault(); e.stopPropagation();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    let delta;
+    if      (displayPosition === 'top')    delta =  (e.clientY - startPos);
+    else if (displayPosition === 'bottom') delta = -(e.clientY - startPos);
+    else if (displayPosition === 'left')   delta =  (e.clientX - startPos);
+    else                                   delta = -(e.clientX - startPos);
+    displaySize = Math.max(60, Math.min(700, startSize + delta));
+    applyDisplayLayout();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    saveSettings();
+  });
+})();
+
+function renderDisplayPanel() {
+  const panel = document.getElementById('display-panel-content');
   panel.innerHTML = '';
+
+  const chains = computeChainsFromEdgeAssignments();
 
   if (chains.length === 0) {
     const p = document.createElement('div');
@@ -2298,27 +2992,53 @@ function renderDisplayPanel() {
   chains.forEach(chain => {
     const row = document.createElement('div');
     row.className = 'chain-row';
+    row.dataset.chainId = chain.chainId;
+    row.dataset.path = JSON.stringify(chain.ids);
+
+    // Chain label badge (bold, chain's color)
+    const badge = document.createElement('span');
+    badge.className = 'chain-label-badge';
+    const lbl = chainLabelMap[chain.chainId] || '?';
+    const col = chainLetterColor(chain.chainId);
+    badge.textContent = lbl;
+    badge.style.color = col;
+    badge.title = `Chain ${lbl}`;
+    row.appendChild(badge);
+
+    // Node labels
     chain.ids.forEach((id, idx) => {
+      const n = nodes[id];
+      if (!n) return;
       const span = document.createElement('span');
-      span.textContent = nodes[id].label;
-      span.style.color = nodes[id].type==='zone' ? nodes[id].color : 'var(--text)';
-      span.style.fontWeight = nodes[id].type==='kingdom' ? 'bold' : 'normal';
+      span.textContent = n.label;
+      span.style.color = n.type === 'zone' ? n.color : 'var(--text)';
+      span.style.fontWeight = n.type === 'kingdom' ? 'bold' : 'normal';
       row.appendChild(span);
-      if (idx < chain.ids.length-1) {
+      if (idx < chain.ids.length - 1) {
         const arrow = document.createElement('span');
         arrow.className = 'arrow'; arrow.textContent = '→';
         row.appendChild(arrow);
       }
     });
+
     if (chain.looped) {
       const tag = document.createElement('span');
       tag.className = 'loop-tag'; tag.textContent = '(loop)';
       row.appendChild(tag);
     }
-    row.dataset.path = JSON.stringify(chain.ids);
-    row.addEventListener('mouseenter', () => setHoverHighlight(chain.ids));
-    row.addEventListener('mouseleave', () => setHoverHighlight(null));
-    row.addEventListener('click', () => togglePinnedHighlight(chain.ids));
+
+    row.addEventListener('mouseenter', () => {
+      hoverHighlightChainId = chain.chainId;
+      applyHighlightClasses();
+    });
+    row.addEventListener('mouseleave', () => {
+      hoverHighlightChainId = null;
+      applyHighlightClasses();
+    });
+    row.addEventListener('click', () => {
+      pinnedHighlightChainId = (pinnedHighlightChainId === chain.chainId) ? null : chain.chainId;
+      applyHighlightClasses();
+    });
     panel.appendChild(row);
   });
   applyHighlightClasses();
@@ -2379,7 +3099,7 @@ zoomInput.addEventListener('keydown', (e) => {
 viewport.addEventListener('mousedown', (e) => {
   if (activeClusDrag) return;
   if (e.target!==viewport && e.target!==canvasEl) return;
-  if (pinnedHighlightPath) { pinnedHighlightPath = null; applyHighlightClasses(); }
+  if (pinnedHighlightChainId !== null) { pinnedHighlightChainId = null; applyHighlightClasses(); }
   isPanning=true; viewport.classList.add('panning');
   panStart={x:e.clientX, y:e.clientY}; panOrigin={x:panX, y:panY};
 });
@@ -2489,8 +3209,12 @@ document.getElementById('btn-display').addEventListener('click', (e) => {
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (!confirm('Clear all connections and marks on the map?')) return;
   outgoing={}; incoming={}; marks={};
-  hoverHighlightPath = null; pinnedHighlightPath = null;
+  edgeChains={}; chainColors={}; nextChainId=0;
+  hoverHighlightChainId = null; pinnedHighlightChainId = null;
+  closeActiveChainPicker();
+  recomputeChainLabels();
   saveState();
+  saveEdgeChains();
   canvasEl.querySelectorAll('.map-node').forEach(el => el.classList.remove('mark-green','mark-red'));
   renderConnections();
   renderDisplayPanel();
@@ -2555,11 +3279,52 @@ document.getElementById('btn-save-highlight-color').addEventListener('click', ()
   flashSaved('highlight-color-saved');
 });
 
+// Arrow color mode toggles: Random Color / One Color / Kingdom Gradients.
+// Only one may be on at a time.
+const toggleRandomColors     = document.getElementById('toggle-random-colors');
+const toggleOneColor         = document.getElementById('toggle-one-color');
+const toggleKingdomGradients = document.getElementById('toggle-kingdom-gradients');
+const arrowModeToggles = [toggleRandomColors, toggleOneColor, toggleKingdomGradients].filter(Boolean);
+
+function setArrowColorMode(mode) {
+  arrowColorMode = mode;
+  randomChainColors = mode === 'random';
+  arrowModeToggles.forEach(t => { t.checked = (t.dataset.mode === mode); });
+  saveSettings();
+  renderConnections();
+  renderDisplayPanel();
+}
+
+arrowModeToggles.forEach(toggle => {
+  toggle.addEventListener('change', () => {
+    if (!toggle.checked) {
+      // Prevent turning the active mode off with nothing selected
+      // exactly one mode must always be active.
+      toggle.checked = true;
+      return;
+    }
+    setArrowColorMode(toggle.dataset.mode);
+  });
+});
+
+// Display position select
+const displayPositionSelect = document.getElementById('display-position-select');
+if (displayPositionSelect) {
+  displayPositionSelect.addEventListener('change', () => {
+    displayPosition = displayPositionSelect.value;
+    saveSettings();
+    applyDisplayLayout();
+    renderDisplayPanel(); // redraw to reattach resize handle
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────
 function init() {
   loadAll();
+  migrateOldEdgeChains();
+  recomputeChainLabels();
 
   // Sync UI with loaded settings
   document.getElementById('grid-cols').value = gridCols;
@@ -2571,9 +3336,14 @@ function init() {
   toggleHighlight.checked = highlightEnabled;
   toggleHighlightLabel.textContent = highlightEnabled ? 'On' : 'Off';
 
+  // Sync new settings UI
+  arrowModeToggles.forEach(t => { t.checked = (t.dataset.mode === arrowColorMode); });
+  if (displayPositionSelect) displayPositionSelect.value = displayPosition;
+
   buildLayout();
   canvasEl.style.width = canvasW + 'px';
   canvasEl.style.height = canvasH + 'px';
+  applyDisplayLayout();
   renderClusters();
   renderNodes();
   renderConnections();
