@@ -128,8 +128,12 @@
     border-radius: var(--radius);
     width: 340px;
     max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 64px);
+    max-height: calc(100dvh - 64px);
     box-shadow: 0 12px 40px rgba(0,0,0,0.7);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   #settings-modal-header {
@@ -139,6 +143,7 @@
     padding: 12px 16px;
     background: var(--bg-card2);
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
   #settings-modal-header h2 {
     font-size: 0.95rem;
@@ -161,6 +166,11 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
   .settings-row {
@@ -788,6 +798,8 @@
       <li><strong>Drag the panel background or kingdom header</strong> to move a kingdom panel.</li>
       <li><strong>Triangle handle</strong> (bottom-right of each panel) to resize it. Zones reflow automatically in that space.</li>
       <li><strong>Single-click</strong> a node (with Stage Previews on) to view its loading zone screenshot.</li>
+      <li><strong>Hover</strong> over an arrow to see what letter chain it is part of.</li>
+      <li><strong>Single-click</strong> an arrow to view its chain and what chain it can be linked to or add it to a new chain.</li>
       <li>Scroll to zoom, drag empty space to pan.</li>
     </ul>
     </div>
@@ -935,6 +947,33 @@
       <div class="settings-divider"></div>
 
       <div class="settings-row">
+        <div class="settings-row-label">Kingdoms</div>
+        <div class="settings-row-desc">Toggle whether a kingdom (and its zones) appears on the map. Any arrows connected to a hidden kingdom are removed from view until it's shown again.</div>
+
+        <div class="arrow-color-option">
+          <label class="toggle-wrap" for="toggle-kingdom-Moon">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-kingdom-Moon" data-kingdom="Moon" checked>
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label">Moon Kingdom</span>
+          </label>
+        </div>
+
+        <div class="arrow-color-option">
+          <label class="toggle-wrap" for="toggle-kingdom-Cloud">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-kingdom-Cloud" data-kingdom="Cloud" checked>
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label">Cloud Kingdom</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-row">
         <div class="settings-row-label">Display Panel Position</div>
         <div class="settings-row-desc">Choose where the chain display panel appears relative to the map canvas.</div>
         <div class="settings-row-control">
@@ -998,7 +1037,7 @@ const LOADING_ZONES_TEMPLATE = {
   'Wooded':    { color: '#1e65e7', icon: 'Wooded.png',  zones: { "DW Odyssey": {}, "DW Red Maze": {}, "DW Pond": {}, "DW Treasure": {}, "DW Outfit": {}, "Rocket": {}, "Sheep": {}, "Tank": {}, "Vine Clouds": {}, "Breakdown": {}, "Invisible": {}, "Flooded Pipes": {}, "Flower Road": {}, "Treasure Room": {} } },
   'Lost':      { color: '#e71edd', icon: 'Lost.png',    zones: { 'Wiggler': {}, 'Shop': {}, 'Klepto': {} } },
   'Metro':     { color: '#de7d5e', icon: 'Metro.png',   zones: { "Yellow Shop": {}, "Purple Shop": {}, "Dino": {}, "Bullet Billding": {}, "Taxi": {}, "Notes": {}, "2D": {}, "Slots": {}, "People": {}, "Outfit": {}, "Rocket": {}, "Dark": {}, "Scaffolding": {}, "Scooter": {}, "Rotating Maze": {}, "RC Car": {} } },
-  'Snow':      { color: '#e7930a', icon: 'Snow.png',    zones: { "Puzzle": {}, "Capless": {}, "Rocket Flower": {}, "Iceburn": {}, "Flower Road": {}, "Tracewalking": {}, "Clouds": {}, "Outfit": {}, "Shop": {} } },
+  'Snow':      { color: '#e7930a', icon: 'Snow.png',    zones: { "Puzzle": {}, "Capless": {}, "Rocket Flower": {}, "Iceburn Circuit": {}, "Flower Road": {}, "Tracewalking": {}, "Clouds": {}, "Outfit": {}, "Shop": {} } },
   'Seaside':   { color: '#b36fe9', icon: 'Seaside.png', zones: { "Well Enter": {}, "Well Exit": {}, "Rumble": {}, "Rocket": {}, "Outfit": {}, "Gushen": {}, "Sphynx": {}, "Pokio": {}, "Lava Rising": {}, "Sandy Bottom": {}, "Spinning Maze": {} } },
   'Luncheon':  { color: '#3fddbb', icon: 'Luncheon.png',zones: { "Magma Swamp": {}, "Forks": {}, "Cheese Rocks": {}, "Veggie Room": {}, "Slots": {}, "Shop": {}, "Outfit": {}, "Spinning Athletics": {}, "Lava Islands": {}, "Volcano Cave": {}, "Gears": {}, "Magma Path": {} } },
   'Ruined':    { color: '#ffd7e2', icon: 'Ruin.png',    zones: { "Chargin' Chuck": {}, 'Rocket': {} } },
@@ -1006,6 +1045,8 @@ const LOADING_ZONES_TEMPLATE = {
   'Mushroom':  { color: '#fff672', icon: 'Star.png',    zones: { "Shop": {}, "Castle Door": {}, "Outfit": {}, "Cloud Sea": {}, "Well": {}, "Knucklotec": {}, "Torkdrift": {}, "Mechawiggler": {}, "Octopus": {}, "Cookatiel": {}, "Dragon": {}, "Rocket": {} } },
   'Darkside':  { color: '#fff2c6', icon: 'Dark.png',    zones: { 'Breakdown': {}, 'Invisible': {}, 'Vanishing': {}, 'Yoshi Siege': {}, 'Lava Rising': {}, 'Magma Swamp': {} } },
   'Darkerside':{ color: '#fff2c6', icon: 'Dark.png',    zones: { 'End': {} } },
+  'Moon':      { color: '#b5c1cb', icon: 'MoonK.png',   zones: { '2D Snowman': {}, 'Shop': {}, 'Swings': {}, 'Sphynx': {}} },
+  'Cloud':     { color: '#65ceff', icon: 'Cloud.png',   zones: { '2D Cube': {}, 'Picture Match': {} } },
 };
 
 const DEAD_END_IDS = new Set([
@@ -1015,7 +1056,7 @@ const DEAD_END_IDS = new Set([
   ['Wooded','Sheep'],['Wooded','Vine Clouds'],['Wooded','Breakdown'],['Lost','Shop'],
   ['Lost','Klepto'],['Metro','Yellow Shop'],['Metro','Purple Shop'],['Metro','Notes'],
   ['Metro','2D'],['Metro','Slots'],['Metro','Dark'],['Metro','Rotating Maze'],['Metro','RC Car'],
-  ['Snow','Puzzle'],['Snow','Iceburn'],['Snow','Tracewalking'],['Snow','Clouds'],
+  ['Snow','Puzzle'],['Snow','Iceburn Circuit'],['Snow','Tracewalking'],['Snow','Clouds'],
   ['Snow','Outfit'],['Snow','Shop'],['Seaside','Rumble'],['Seaside','Outfit'],
   ['Seaside','Sphynx'],['Seaside','Sandy Bottom'],['Seaside','Spinning Maze'],
   ['Luncheon','Cheese Rocks'],['Luncheon','Veggie Room'],['Luncheon','Slots'],['Luncheon','Shop'],
@@ -1023,7 +1064,8 @@ const DEAD_END_IDS = new Set([
   ["Bowser's",'Hexagon Tower'],['Mushroom','Shop'],['Mushroom','Castle Door'],['Mushroom','Outfit'],
   ['Mushroom','Cloud Sea'],['Mushroom','Well'],['Mushroom','Knucklotec'],['Mushroom','Torkdrift'],
   ['Mushroom','Mechawiggler'],['Mushroom','Octopus'],['Mushroom','Cookatiel'],['Mushroom','Dragon'],
-  ['Mushroom','Rocket'],['Darkside','Breakdown'],['Darkerside','End'],
+  ['Mushroom','Rocket'],['Darkside','Breakdown'],['Darkerside','End'],['Cloud','2D Cube'],['Cloud','Picture Match'],
+  ['Moon','Shop'],['Moon','Sphynx']
 ].map(([k,z]) => `zone:${k}:${z}`));
 
 // ─────────────────────────────────────────────────────────────────
@@ -1051,6 +1093,8 @@ const ZONE_IMAGES = {
   'kingdom:Mushroom':   'PeachWorldHomeStage.jpg',
   'kingdom:Darkside':   'Special1WorldHomeStage.jpg',
   'kingdom:Darkerside': 'Special2WorldHomeStage.jpg',
+  'kingdom:Moon':       'MoonWorldHomeStage_2.jpg',
+  'kingdom:Cloud':      'CloudWorldHomeStage.jpg',
 
   // Cap zones
   'zone:Cap:Orange':       'PushBlockExStage.jpg',
@@ -1203,6 +1247,16 @@ const ZONE_IMAGES = {
 
   // Darkerside zones
   'zone:Darkerside:End': 'Special2WorldHomeStage.jpg',
+
+  //Moon zones
+  'zone:Moon:2D Snowman':  'Galaxy2DExStage.jpg',
+  'zone:Moon:Shop':        'MoonWorldShopRoom.jpg',
+  'zone:Moon:Swings':      'MoonAthleticExStage.jpg',
+  'zone:Moon:Sphynx':      'MoonWorldSphinxRoom.jpg',
+
+  //Cloud zones
+  'zone:Cloud:2D Cube':        'Cube2DExStage.jpg',
+  'zone:Cloud:Picture Match':  'FukuwaraiKuriboStage.jpg',
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -1270,6 +1324,14 @@ let arrowColorMode = 'random'; // 'random' | 'one' | 'gradient'
 let displayPosition = 'top';
 let displaySize = 150;
 
+// Kingdom visibility (which kingdoms are shown on the map). Missing = visible.
+let kingdomVisible = { Moon: false, Cloud: false };
+
+/** Kingdom keys that should currently be rendered on the map. */
+function visibleKingdomKeys() {
+  return Object.keys(LOADING_ZONES_TEMPLATE).filter(k => kingdomVisible[k] !== false);
+}
+
 // Chain state
 let edgeChains = {};      // "src→tgt" → chainId (integer)
 let chainColors = {};     // chainId → hex color string
@@ -1312,7 +1374,7 @@ function defaultClusterWidth() {
 // ─────────────────────────────────────────────────────────────────
 function buildLayout() {
   nodes = {};
-  const kingdomKeys = Object.keys(LOADING_ZONES_TEMPLATE);
+  const kingdomKeys = visibleKingdomKeys();
   const numKingdoms = kingdomKeys.length;
 
   // Determine grid dimensions
@@ -1492,6 +1554,7 @@ function loadAll() {
       randomChainColors = arrowColorMode === 'random';
       displayPosition   = s.displayPosition || displayPosition;
       displaySize       = s.displaySize     || displaySize;
+      if (s.kingdomVisible) kingdomVisible = { ...kingdomVisible, ...s.kingdomVisible };
     }
   } catch (e) {}
 
@@ -1517,7 +1580,7 @@ function saveGrid()     { localStorage.setItem(STORAGE_GRID, JSON.stringify({ ro
 function saveSettings() {
   localStorage.setItem(STORAGE_SETTINGS, JSON.stringify({
     showImages, arrowColor, highlightColor, highlightEnabled,
-    randomChainColors, arrowColorMode, displayPosition, displaySize
+    randomChainColors, arrowColorMode, displayPosition, displaySize, kingdomVisible
   }));
 }
 function saveEdgeChains() {
@@ -1741,7 +1804,7 @@ function fullRender() {
 // Cluster backgrounds + resize handles
 // ─────────────────────────────────────────────────────────────────
 function renderClusters() {
-  const kingdomKeys = Object.keys(LOADING_ZONES_TEMPLATE);
+  const kingdomKeys = visibleKingdomKeys();
   kingdomKeys.forEach(key => {
     const kn = nodes[`kingdom:${key}`];
     if (!kn) return;
@@ -3227,7 +3290,7 @@ document.getElementById('btn-apply-grid').addEventListener('click', () => {
     alert('Columns must be between 1 and 15.');
     return;
   }
-  const numKingdoms = Object.keys(LOADING_ZONES_TEMPLATE).length;
+  const numKingdoms = visibleKingdomKeys().length;
   const r = Math.ceil(numKingdoms / c);
   applyGrid(r, c);
 });
@@ -3307,6 +3370,16 @@ arrowModeToggles.forEach(toggle => {
   });
 });
 
+// Settings: kingdom visibility toggles
+document.querySelectorAll('[id^="toggle-kingdom-"]').forEach(toggle => {
+  toggle.addEventListener('change', () => {
+    const key = toggle.dataset.kingdom;
+    kingdomVisible[key] = toggle.checked;
+    saveSettings();
+    fullRender();
+  });
+});
+
 // Display position select
 const displayPositionSelect = document.getElementById('display-position-select');
 if (displayPositionSelect) {
@@ -3339,6 +3412,9 @@ function init() {
   // Sync new settings UI
   arrowModeToggles.forEach(t => { t.checked = (t.dataset.mode === arrowColorMode); });
   if (displayPositionSelect) displayPositionSelect.value = displayPosition;
+  document.querySelectorAll('[id^="toggle-kingdom-"]').forEach(t => {
+    t.checked = kingdomVisible[t.dataset.kingdom] !== false;
+  });
 
   buildLayout();
   canvasEl.style.width = canvasW + 'px';
