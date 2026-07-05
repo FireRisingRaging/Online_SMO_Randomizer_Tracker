@@ -562,6 +562,18 @@ h1 {
 }
 .modal-icon-btn:hover { color: var(--text); background: var(--bg-hover); }
 
+.modal-icon-btn-red {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 1.05rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+.modal-icon-btn-red:hover { background: #3a2020; }
+
 .modal-close {
   background: none;
   border: none;

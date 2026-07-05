@@ -973,6 +973,21 @@ function buildLoadingZonesContent() {
   }
 }
 
+// Clears the note text and resets icons back to default in every zone,
+// leaving collapsed/expanded state untouched.
+function clearAllNotes() {
+  if (!confirm('Clear all loading zone notes? This cannot be undone.')) return;
+  for (const kingdom of Object.values(state.loading_zones)) {
+    for (const zone of Object.values(kingdom.zones)) {
+      zone.note = '';
+      zone.icon = 'Moon.png';
+      zone.icon2 = 'Moon.png';
+    }
+  }
+  saveState();
+  buildLoadingZonesContent();
+}
+
 function buildKingdomColumn(kingdom, data) {
   const col = document.createElement('div');
   col.className = 'kingdom-col';
@@ -1393,6 +1408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('lz-modal').classList.add('hidden');
   });
   document.getElementById('lz-popout').addEventListener('click', popOutNotes);
+  document.getElementById('lz-clear-notes').addEventListener('click', clearAllNotes);
 
   // Close any modal on backdrop click
   document.querySelectorAll('.modal-backdrop').forEach(backdrop => {

@@ -37,7 +37,10 @@
 <body class="notes-page">
   <div class="notes-page-header">
     <h2>Loading Zone Notes</h2>
-    <button class="modal-close" id="notes-page-close" aria-label="Close">✕</button>
+    <div class="modal-header-actions">
+      <button class="modal-icon-btn-red" id="notes-page-clear" title="Clear all notes">Clear</button>
+      <button class="modal-close" id="notes-page-close" aria-label="Close">X</button>
+    </div>
   </div>
   <div class="lz-scroll-wrap">
     <div id="lz-content"></div>
@@ -157,6 +160,21 @@
       } catch (e) {
         console.error('Failed to save state:', e);
       }
+    }
+
+    // Clears the note text and resets icons back to default in every zone,
+    // leaving collapsed/expanded state untouched.
+    function clearAllNotes() {
+      if (!confirm('Clear all loading zone notes? This cannot be undone.')) return;
+      for (const kingdom of Object.values(fullState.loading_zones)) {
+        for (const zone of Object.values(kingdom.zones)) {
+          zone.note = '';
+          zone.icon = 'Moon.png';
+          zone.icon2 = 'Moon.png';
+        }
+      }
+      saveFullState();
+      buildLoadingZonesContent();
     }
 
     // ── Build kingdom list ──────────────────────────────────────────
@@ -403,6 +421,7 @@
 
     // ── Init ────────────────────────────────────────────────────────
     document.getElementById('notes-page-close').addEventListener('click', () => window.close());
+    document.getElementById('notes-page-clear').addEventListener('click', clearAllNotes);
 
     document.addEventListener('DOMContentLoaded', () => {
       loadFullState();
