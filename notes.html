@@ -54,7 +54,7 @@
     const PICKER_ICONS = [
     'Cascade.png','Sand.png','Lake.png','Wooded.png','Lost.png','Metro.png',
     'Snow.png','Seaside.png','Luncheon.png','Ruin.png','Bowser.png',
-    'Cap.png','Dark.png','Star.png',"Moon.png","Moon_Dark.png","checkmark.png","xmark.png",
+    'Cap.png','Dark.png','Star.png','Cloud.png','MoonK.png',"Moon.png","Moon_Dark.png","checkmark.png","xmark.png",
     ];
 
 
@@ -66,6 +66,7 @@
       show_captures:     true,
       show_save_buttons: true,
       show_multi_moon:   true,
+      show_kingdom_moon: false,
       overlay_scale:     1,
       notes_scroll_px:   100,
       scroll_left_binding:  { type: 'mouse', code: 3 },
@@ -88,6 +89,15 @@
       'Mushroom':   { color:'#fff672', icon:'Star.png',     zones:{ "Shop":{num:1},"Castle Door":{num:2},"Outfit":{num:2},"Cloud Sea":{num:2},"Well":{num:2},"Knucklotec":{num:1},"Torkdrift":{num:1},"Mechawiggler":{num:1},"Octopus":{num:1},"Cookatiel":{num:1},"Dragon":{num:1},"Rocket":{num:2}}},
       'Darkside':   { color:'#fff2c6', icon:'Dark.png',     zones:{ 'Breakdown':{num:2},'Invisible':{num:2},'Vanishing':{num:2},'Yoshi Siege':{num:2},'Lava Rising':{num:2},'Magma Swamp':{num:2} }},
       'Darkerside': { color:'#fff2c6', icon:'Dark.png',     zones:{ 'End':{num:1} }},
+      'Moon':       { color:'#b5c1cb', icon:'MoonK.png',    zones:{ '2D Snowman': {num:2},'Shop': {num:1},'Swings': {num:2},'Sphynx': {num:1}} },
+      'Cloud':      { color:'#65ceff', icon:'Cloud.png',    zones:{ '2D Cube': {num:2},'Picture Match': {num:2} } },
+    };
+
+    // Mirrors the map in app.js keep them in sync when adding a new
+    // toggleable kingdom (see the comment next to KINGDOM_VISIBILITY_SETTINGS
+    // in app.js for the full list of places to update).
+    const KINGDOM_VISIBILITY_SETTINGS = {
+      Moon: 'show_kingdom_moon',
     };
 
     let fullState = null;
@@ -154,49 +164,11 @@
       const container = document.getElementById('lz-content');
       container.innerHTML = '';
       for (const [kingdom, data] of Object.entries(fullState.loading_zones)) {
+        const settingKey = KINGDOM_VISIBILITY_SETTINGS[kingdom];
+        if (settingKey && !fullState.settings[settingKey]) continue;
         container.appendChild(buildKingdomColumn(kingdom, data));
       }
     }
-
-    // function layoutMasonryColumns() {
-    //   if (window.innerWidth <= MOBILE_BREAKPOINT) return;
-
-    //   const wrap    = document.querySelector('.lz-scroll-wrap');
-    //   const content = document.getElementById('lz-content');
-    //   if (!wrap || !content) return;
-
-    //   const cards = Array.from(content.querySelectorAll('.kingdom-col'));
-    //   if (cards.length === 0) return;
-
-    //   const GAP = 20;
-    //   const availableHeight = wrap.clientHeight || 600;
-
-    //   const heights = cards.map(c => c.offsetHeight);
-    //   const totalHeight = heights.reduce((a, b) => a + b, 0) + GAP * Math.max(0, cards.length - 1);
-
-    //   let numCols = Math.max(1, Math.ceil(totalHeight / availableHeight));
-    //   numCols = Math.min(numCols, cards.length);
-
-    //   const colHeights = new Array(numCols).fill(0);
-    //   const colBuckets = Array.from({ length: numCols }, () => []);
-
-    //   cards.forEach((card, i) => {
-    //     let target = 0;
-    //     for (let c = 1; c < numCols; c++) {
-    //       if (colHeights[c] < colHeights[target]) target = c;
-    //     }
-    //     colBuckets[target].push(card);
-    //     colHeights[target] += heights[i] + GAP;
-    //   });
-
-    //   content.innerHTML = '';
-    //   colBuckets.forEach(bucket => {
-    //     const track = document.createElement('div');
-    //     track.className = 'lz-col-track';
-    //     bucket.forEach(card => track.appendChild(card));
-    //     content.appendChild(track);
-    //   });
-    // }
 
     function buildKingdomColumn(kingdom, data) {
       const col = document.createElement('div');
@@ -422,16 +394,12 @@
       if (e.key !== STATE_KEY || !e.newValue) return;
       try {
         const fresh = JSON.parse(e.newValue);
-        if (fresh.settings) fullState.settings = fresh.settings;
+        if (fresh.settings) {
+          fullState.settings = fresh.settings;
+          buildLoadingZonesContent();
+        }
       } catch (err) { /* ignore malformed updates */ }
     });
-
-    // ── Resize re-layout ────────────────────────────────────────────
-    // let resizeTimer = null;
-    // window.addEventListener('resize', () => {
-    //   clearTimeout(resizeTimer);
-    //   resizeTimer = setTimeout(layoutMasonryColumns, 150);
-    // });
 
     // ── Init ────────────────────────────────────────────────────────
     document.getElementById('notes-page-close').addEventListener('click', () => window.close());

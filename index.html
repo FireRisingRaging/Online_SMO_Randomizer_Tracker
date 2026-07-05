@@ -72,13 +72,13 @@
           <li>Copy the <strong>OBS URL</strong> that appears</li>
           <li>In OBS add a <strong>Browser Source</strong></li>
           <li>Paste the OBS URL. Default size is <strong>945</strong> × <strong>1350</strong></li>
-          <li>To make the overlay larger, change <strong>OBS Overlay Scale</strong> in Settings. The sync section shows
-            the calculated width and height to paste into OBS, and the scale is synced to any already-open overlays.
+          <li>To make the overlay larger, change <strong>Popup Scale</strong> in Settings. The <strong>Browser Source Scale</strong> is always 3x that value, and the sync section shows
+            the calculated width and height to paste into OBS.
           </li>
           <li>The overlay background is transparent so no chroma key needed</li>
         </ol>
         <p class="info-title">Popup Window</p>
-        <p>Click <strong>Open Popup</strong> to open a window with a dark background sized to your overlay scale, then capture it with Window Capture in OBS. You can add a <strong>color key</strong> in the format options to remove the dark gray background(<code>#181818</code>)
+        <p>Click <strong>Open Popup</strong> to open a window with a dark background sized to your <strong>Popup Scale</strong>, then capture it with Window Capture in OBS. You can add a <strong>color key</strong> in the format options to remove the dark gray background(<code>#181818</code>)
         </p>
       </div>
     </div>
@@ -157,6 +157,20 @@
           </label>
         </div>
 
+        <p class="info-title">Kingdoms</p>
+
+        <!-- Each row here shows/hides a kingdom on the main tracker and in
+             Notes. To add another one later: copy this row (swap the id and
+             label), then see the matching comment next to
+             KINGDOM_VISIBILITY_SETTINGS in app.js for the rest of the steps. -->
+        <div class="settings-row">
+          <span>Moon Kingdom</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-kingdom-moon">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+
         <div class="settings-row">
           <span>Total Moon Requirement</span>
           <div class="input-save-pair">
@@ -166,10 +180,17 @@
         </div>
 
         <div class="settings-row">
-          <span>OBS Overlay Scale</span>
+          <span>Popup Scale</span>
           <div class="input-save-pair">
-            <input type="number" id="input-overlay-scale" placeholder="3" min="0.1" max="10" step="0.1">
+            <input type="number" id="input-overlay-scale" placeholder="1" min="0.1" max="10" step="0.1">
             <button class="save-inline-btn" id="save-overlay-scale">Save</button>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <span>Browser Source Scale</span>
+          <div class="input-save-pair">
+            <input type="number" id="input-browser-source-scale" value="3" readonly disabled title="Always 3x the Popup Scale">
           </div>
         </div>
 

@@ -21,6 +21,11 @@ const KINGDOMS = [
   { name: 'Luncheon Kingdom', img: 'assets/Luncheon.png', multi: 'assets/Luncheon_Multi.png', min: 13, max: 23 },
   { name: 'Ruined Kingdom', img: 'assets/Ruin.png', multi: 'assets/Ruined_Multi.png', min: 1, max: 8 },
   { name: 'Bowser Kingdom', img: 'assets/Bowser.png', multi: 'assets/Bowser_Multi.png', min: 3, max: 13 },
+  // Optional kingdoms: hidden unless their settingKey is turned on in Settings → Kingdoms.
+  // To add another one later: give it a settingKey here, add a matching entry to
+  // DEFAULT_SETTINGS (default false) and TOGGLE_SETTINGS, then copy a settings-row
+  // in index.html's "Kingdoms" section using the same id.
+  { name: 'Moon Kingdom', img: 'assets/MoonK.png', multi: 'assets/MoonK_Multi.png', min: 1, max: 1, settingKey: 'show_kingdom_moon' },
 ];
 
 const CAPTURE_ICONS = [
@@ -39,7 +44,7 @@ const ABILITY_ICONS = [
 const PICKER_ICONS = [
   'Cascade.png', 'Sand.png', 'Lake.png', 'Wooded.png', 'Lost.png', 'Metro.png',
   'Snow.png', 'Seaside.png', 'Luncheon.png', 'Ruin.png', 'Bowser.png',
-  'Cap.png', 'Dark.png', 'Star.png', "Moon.png", "Moon_Dark.png", "checkmark.png", "xmark.png",
+  'Cap.png', 'Dark.png', 'Star.png','Cloud.png','MoonK.png', "Moon.png", "Moon_Dark.png", "checkmark.png", "xmark.png",
 ];
 
 const DEFAULT_SETTINGS = {
@@ -52,7 +57,8 @@ const DEFAULT_SETTINGS = {
   show_multi_moon: true,
   show_moon_range: true,
   show_complete_color: false,
-  overlay_scale: 3,
+  show_kingdom_moon: false,
+  overlay_scale: 1, // Popup Scale default; Browser Source Scale is always 3x this (see getBrowserSourceScale)
   notes_scroll_px: 500,
   scroll_left_binding: { type: 'mouse', code: 3 },  // MB4 (back)
   scroll_right_binding: { type: 'mouse', code: 4 },  // MB5 (forward)
@@ -79,6 +85,8 @@ const LOADING_ZONES_TEMPLATE = {
   'Mushroom': { color: '#fff672', icon: 'Star.png', zones: { "Shop": { num: 1 }, "Castle Door": { num: 2 }, "Outfit": { num: 2 }, "Cloud Sea": { num: 2 }, "Well": { num: 2 }, "Knucklotec": { num: 1 }, "Torkdrift": { num: 1 }, "Mechawiggler": { num: 1 }, "Octopus": { num: 1 }, "Cookatiel": { num: 1 }, "Dragon": { num: 1 }, "Rocket": { num: 2 } } },
   'Darkside': { color: '#fff2c6', icon: 'Dark.png', zones: { 'Breakdown': { num: 2 }, 'Invisible': { num: 2 }, 'Vanishing': { num: 2 }, 'Yoshi Siege': { num: 2 }, 'Lava Rising': { num: 2 }, 'Magma Swamp': { num: 2 } } },
   'Darkerside': { color: '#fff2c6', icon: 'Dark.png', zones: { 'End': { num: 1 } } },
+  'Moon':       { color:'#b5c1cb', icon:'MoonK.png',    zones:{ '2D Snowman': {num:2},'Shop': {num:1},'Swings': {num:2},'Sphynx': {num:1}} },
+  'Cloud':      { color:'#65ceff', icon:'Cloud.png',    zones:{ '2D Cube': {num:2},'Picture Match': {num:2} } },
 };
 
 // Number of zones above which a kingdom column auto-splits into two side-by-side columns
@@ -117,7 +125,18 @@ const TOGGLE_SETTINGS = [
   { id: 'toggle-multi-moon', key: 'show_multi_moon' },
   { id: 'toggle-moon-range', key: 'show_moon_range' },
   { id: 'toggle-complete-color', key: 'show_complete_color' },
+  { id: 'toggle-kingdom-moon', key: 'show_kingdom_moon' },
 ];
+
+// Maps a LOADING_ZONES_TEMPLATE kingdom name to the settings key that controls
+// whether it's shown (in the Notes columns and, if applicable, as a moon-count
+// row). A kingdom not listed here is always shown. To make another kingdom
+// toggleable later: add it here, add a DEFAULT_SETTINGS entry (default false),
+// add it to TOGGLE_SETTINGS, and add a settings-row toggle in index.html's
+// "Kingdoms" section (copy the Moon Kingdom row and swap the id/label).
+const KINGDOM_VISIBILITY_SETTINGS = {
+  Moon: 'show_kingdom_moon',
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State
@@ -211,7 +230,10 @@ function saveState() {
 function buildAllMoonRows() {
   const container = document.getElementById('moon-rows');
   container.innerHTML = '';
-  KINGDOMS.forEach((_, i) => container.appendChild(buildMoonRow(i)));
+  KINGDOMS.forEach((kingdom, i) => {
+    if (kingdom.settingKey && !state.settings[kingdom.settingKey]) return;
+    container.appendChild(buildMoonRow(i));
+  });
 }
 
 function buildMoonRow(i) {
@@ -285,6 +307,14 @@ function buildMoonRow(i) {
   incrBtn.textContent = '+';
   incrBtn.addEventListener('click', () => { increment(i); saveState(); });
 
+  // The Moon row has no fixed min/max range, but it still needs to reserve
+  // the exact same min/max column space as every other row so its −, count,
+  // and + land in the same spots. So we keep the identical structure here
+  // and just make the min/max boxes invisible instead of removing them.
+  if (kingdom.name === 'Moon Kingdom') {
+    minStack.style.visibility = 'hidden';
+    maxStack.style.visibility = 'hidden';
+  }
   counter.appendChild(decrBtn);
   counter.appendChild(makeCounterSpacer());
   counter.appendChild(minStack);
@@ -334,7 +364,6 @@ function buildMoonRow(i) {
   saveBtn.addEventListener('click', () => { saveMax(i); });
 
   entryGroup.appendChild(multiBtn);
-
   entryGroup.appendChild(maxEntry);
   entryGroup.appendChild(saveBtn);
 
@@ -405,7 +434,22 @@ function refreshMoonRow(i, rowEl) {
 
   // Multi moon button visibility
   const multiBtn = row.querySelector('.multi-moon-btn');
-  multiBtn.classList.toggle('hidden', !state.settings.show_multi_moon);
+  if (multiBtn) {
+    const isMoonKingdom = !isNaN(parseInt(row.dataset.idx)) && KINGDOMS[parseInt(row.dataset.idx)]?.name === 'Moon Kingdom';
+    // Collapse in sync with every other row when the setting is off, so all
+    // entry-groups shrink together and stay aligned. But when the setting is
+    // on, the Moon row still needs a multi-moon button-sized box (just
+    // invisible) so its entry-group width - and therefore the + button
+    // position - matches the other rows instead of expanding past them.
+    multiBtn.classList.toggle('hidden', !state.settings.show_multi_moon);
+    if (isMoonKingdom) {
+      multiBtn.style.visibility = state.settings.show_multi_moon ? 'hidden' : '';
+      multiBtn.style.pointerEvents = 'none';
+    } else {
+      multiBtn.style.visibility = '';
+      multiBtn.style.pointerEvents = '';
+    }
+  }
 
   // Min/max range stack visibility
   row.querySelectorAll('.range-stack').forEach(el => {
@@ -532,6 +576,7 @@ function openSettings() {
   });
   document.getElementById('input-moon-req').value = state.settings.moon_requirement;
   document.getElementById('input-overlay-scale').value = state.settings.overlay_scale;
+  refreshBrowserSourceScaleField();
   const wsUrlInput = document.getElementById('input-ws-url');
   if (wsUrlInput) wsUrlInput.value = loadWsUrl();
   document.getElementById('input-notes-scroll').value = state.settings.notes_scroll_px;
@@ -597,6 +642,19 @@ function resetAll() {
 // ─────────────────────────────────────────────────────────────────────────────
 let obsWindow = null;
 
+// Browser Source (OBS) is always shown 3x the Popup Scale setting, rather than
+// being independently adjustable, so they stay in sync automatically.
+const BROWSER_SOURCE_MULTIPLIER = 3;
+
+function getBrowserSourceScale() {
+  return (state.settings.overlay_scale || 1) * BROWSER_SOURCE_MULTIPLIER;
+}
+
+function refreshBrowserSourceScaleField() {
+  const el = document.getElementById('input-browser-source-scale');
+  if (el) el.value = getBrowserSourceScale();
+}
+
 function openOBS() {
   const room = window.SMOSync ? window.SMOSync.getRoom() : null;
   const wsUrl = room ? encodeURIComponent(window.SMOSync.getWsUrl()) : '';
@@ -635,7 +693,7 @@ function saveWsUrl(url) {
 function getObsPageUrl(room, wsUrl) {
   const base = 'https://firerisingraging.github.io/Online_SMO_Randomizer_Tracker/obs.html';
   if (!room) return base;
-  const scale = state.settings.overlay_scale || 1;
+  const scale = getBrowserSourceScale();
   return `${base}?room=${room}&ws=${encodeURIComponent(wsUrl || window.SMOSync.getWsUrl())}&scale=${scale}`;
 }
 
@@ -648,7 +706,7 @@ function updateSyncUI() {
   const urlRow = document.getElementById('sync-url-row');
   const urlInput = document.getElementById('input-obs-url');
   const sizeRow = document.getElementById('sync-size-row');
-  const scale = state.settings.overlay_scale || 1;
+  const scale = getBrowserSourceScale();
 
   if (roomInput) roomInput.value = room || '';
 
@@ -909,55 +967,11 @@ function buildLoadingZonesContent() {
   const container = document.getElementById('lz-content');
   container.innerHTML = '';
   for (const [kingdom, data] of Object.entries(state.loading_zones)) {
+    const settingKey = KINGDOM_VISIBILITY_SETTINGS[kingdom];
+    if (settingKey && !state.settings[settingKey]) continue;
     container.appendChild(buildKingdomColumn(kingdom, data));
   }
 }
-
-// True masonry packing: measure each kingdom card's real rendered height, then
-// greedily place each one (in kingdom order) into whichever column currently
-// has the least content. Collapsed (short) kingdoms naturally pack together;
-// expanded (tall) kingdoms naturally claim their own column. Re-run any time
-// a kingdom's collapsed state changes or the window resizes.
-// function layoutMasonryColumns() {
-//   if (window.innerWidth <= MOBILE_BREAKPOINT) return; // mobile keeps the simple single-column list untouched
-
-//   const wrap    = document.querySelector('.lz-scroll-wrap');
-//   const content = document.getElementById('lz-content');
-//   if (!wrap || !content) return;
-
-//   const cards = Array.from(content.querySelectorAll('.kingdom-col'));
-//   if (cards.length === 0) return;
-
-//   const GAP = 20;
-//   const availableHeight = wrap.clientHeight || 600;
-
-//   // Measure while still attached/visible
-//   const heights = cards.map(c => c.offsetHeight);
-//   const totalHeight = heights.reduce((a, b) => a + b, 0) + GAP * Math.max(0, cards.length - 1);
-
-//   let numCols = Math.max(1, Math.ceil(totalHeight / availableHeight));
-//   numCols = Math.min(numCols, cards.length);
-
-//   const colHeights = new Array(numCols).fill(0);
-//   const colBuckets = Array.from({ length: numCols }, () => []);
-
-//   cards.forEach((card, i) => {
-//     let target = 0;
-//     for (let c = 1; c < numCols; c++) {
-//       if (colHeights[c] < colHeights[target]) target = c;
-//     }
-//     colBuckets[target].push(card);
-//     colHeights[target] += heights[i] + GAP;
-//   });
-
-//   content.innerHTML = '';
-//   colBuckets.forEach(bucket => {
-//     const track = document.createElement('div');
-//     track.className = 'lz-col-track';
-//     bucket.forEach(card => track.appendChild(card));
-//     content.appendChild(track);
-//   });
-// }
 
 function buildKingdomColumn(kingdom, data) {
   const col = document.createElement('div');
@@ -1298,6 +1312,17 @@ document.addEventListener('DOMContentLoaded', () => {
       state.settings[key] = e.target.checked;
       applyAllSettings();
       saveState();
+
+      // Kingdom show/hide toggles add or remove entire rows/columns rather
+      // than just flipping a CSS class, so those need an explicit rebuild.
+      if (Object.values(KINGDOM_VISIBILITY_SETTINGS).includes(key)) {
+        buildAllMoonRows();
+        applyAllSettings();
+        const lzModal = document.getElementById('lz-modal');
+        if (lzModal && !lzModal.classList.contains('hidden')) {
+          buildLoadingZonesContent();
+        }
+      }
     });
   });
 
@@ -1310,14 +1335,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Overlay scale Save
+  // Popup scale Save (Browser Source Scale is always derived as 3x this)
   document.getElementById('save-overlay-scale').addEventListener('click', () => {
     const v = parseFloat(document.getElementById('input-overlay-scale').value);
     if (!isNaN(v) && v > 0) {
       state.settings.overlay_scale = v;
+      refreshBrowserSourceScaleField(); // update this first so it's never skipped
       saveState();
       updateSyncUI();
     }
+  });
+
+  // Live-preview the derived Browser Source Scale as the Popup Scale field
+  // is typed into, before it's actually saved.
+  document.getElementById('input-overlay-scale').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    document.getElementById('input-browser-source-scale').value =
+      (!isNaN(v) && v > 0) ? v * BROWSER_SOURCE_MULTIPLIER : getBrowserSourceScale();
   });
 
   // Sync server URL Save
@@ -1345,6 +1379,12 @@ document.addEventListener('DOMContentLoaded', () => {
     state.settings = cloneDefaultSettings();
     saveState();
     applyAllSettings();
+    buildAllMoonRows();
+    applyAllSettings();
+    const lzModal = document.getElementById('lz-modal');
+    if (lzModal && !lzModal.classList.contains('hidden')) {
+      buildLoadingZonesContent();
+    }
     openSettings(); // refresh the visible fields/labels to reflect the reset
   });
 
@@ -1360,11 +1400,4 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === backdrop) backdrop.classList.add('hidden');
     });
   });
-  // // Re-pack Notes columns if the window is resized while it's open
-  // let resizeTimer = null;
-  // window.addEventListener('resize', () => {
-  //   if (!isLzOpen()) return;
-  //   clearTimeout(resizeTimer);
-  //   resizeTimer = setTimeout(layoutMasonryColumns, 150);
-  // });
 });
