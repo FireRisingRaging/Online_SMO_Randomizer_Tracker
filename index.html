@@ -86,142 +86,252 @@
 
   <!-- ── Settings Modal ─────────────────────────────────────────── -->
   <div id="settings-modal" class="modal-backdrop hidden" role="dialog" aria-label="Settings">
-    <div class="modal-box">
+    <div class="modal-box settings-modal-box">
       <div class="modal-header">
         <h2>⚙ Settings</h2>
         <button class="modal-close" id="settings-close" aria-label="Close">✕</button>
       </div>
+
+      <!-- Tab bar. Each button's data-tab matches a panel's data-panel below.
+           Horizontally scrollable on narrow screens. -->
+      <div class="settings-tabs" role="tablist">
+        <button class="settings-tab active" data-tab="main" role="tab">Main</button>
+        <button class="settings-tab" data-tab="kingdom" role="tab">Kingdom Tracking</button>
+        <button class="settings-tab" data-tab="streamer" role="tab">Streamer</button>
+        <button class="settings-tab" data-tab="notes" role="tab">Notes</button>
+      </div>
+
       <div class="modal-body settings-body">
 
-        <div class="settings-row">
-          <span>Toggle Total Moon Count</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-moon-total">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
+        <!-- ══ MAIN TAB ═════════════════════════════════════════════ -->
+        <div class="settings-panel active" data-panel="main">
 
-        <div class="settings-row">
-          <span>Toggle Icon Colors</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-icon-colors">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <div class="settings-row">
-          <span>Toggle Ability Lock</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-ability-lock">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <div class="settings-row">
-          <span>Toggle Captures</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-captures">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <div class="settings-row">
-          <span>Toggle Save Buttons</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-save-buttons">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <div class="settings-row">
-          <span>Toggle Multi Moon</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-multi-moon">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <div class="settings-row">
-          <span>Toggle Moon Min/Max Range</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-moon-range">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <div class="settings-row">
-          <span>Highlight Complete Moons (Green)</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-complete-color">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <p class="info-title">Kingdoms</p>
-
-        <!-- Each row here shows/hides a kingdom on the main tracker and in
-             Notes. To add another one later: copy this row (swap the id and
-             label), then see the matching comment next to
-             KINGDOM_VISIBILITY_SETTINGS in app.js for the rest of the steps. -->
-        <div class="settings-row">
-          <span>Moon Kingdom</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-kingdom-moon">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <div class="settings-row">
-          <span>Total Moon Requirement</span>
-          <div class="input-save-pair">
-            <input type="number" id="input-moon-req" placeholder="124" min="1" max="9999">
-            <button class="save-inline-btn" id="save-moon-req">Save</button>
+          <div class="settings-row">
+            <span>Toggle Total Moon Count</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-moon-total">
+              <span class="toggle-track"></span>
+            </label>
           </div>
-        </div>
 
-        <div class="settings-row">
-          <span>Popup Scale</span>
-          <div class="input-save-pair">
-            <input type="number" id="input-overlay-scale" placeholder="1" min="0.1" max="10" step="0.1">
-            <button class="save-inline-btn" id="save-overlay-scale">Save</button>
+          <div class="settings-row">
+            <span>Toggle Icon Colors</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-icon-colors">
+              <span class="toggle-track"></span>
+            </label>
           </div>
-        </div>
 
-        <div class="settings-row">
-          <span>Browser Source Scale</span>
-          <div class="input-save-pair">
-            <input type="number" id="input-browser-source-scale" value="3" readonly disabled title="Always 3x the Popup Scale">
+          <div class="settings-row">
+            <span>Toggle Lock Sign</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-lock">
+              <span class="toggle-track"></span>
+            </label>
           </div>
-        </div>
 
-        <div class="settings-row">
-          <span>Sync Server URL</span>
-          <div class="input-save-pair">
-            <input type="text" id="input-ws-url" placeholder="wss://smo-rand.johnnycyan.com/ws" spellcheck="false">
-            <button class="save-inline-btn" id="save-ws-url">Save</button>
+          <div class="settings-row">
+            <span>Toggle Peace Sign</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-peace">
+              <span class="toggle-track"></span>
+            </label>
           </div>
-        </div>
 
-        <div class="settings-row">
-          <span>Notes Scroll Speed (px)</span>
-          <div class="input-save-pair">
-            <input type="number" id="input-notes-scroll" placeholder="100" min="10" max="2000">
-            <button class="save-inline-btn" id="save-notes-scroll">Save</button>
+          <!-- Ability Lock sub-section. The Jump / Cap Bounce toggles only do
+               anything while Ability Lock itself is on, so they're disabled
+               (dimmed) when it's off. -->
+          <div class="settings-subsection" id="subsection-ability">
+            <div class="subsection-title">Ability Lock</div>
+            <div class="settings-row">
+              <span>Toggle Ability Lock</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-ability-lock">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div class="settings-row settings-subrow">
+              <span>Show Jump</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-ability-jump">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div class="settings-row settings-subrow">
+              <span>Show Cap Bounce</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-ability-cap">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
           </div>
+
+          <div class="settings-row">
+            <span>Toggle Captures</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-captures">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <span>Toggle Save Buttons</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-save-buttons">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <span>Highlight Complete Moons (Green)</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-complete-color">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
+          <!-- Moon Updater sub-section. Location + Message Count only matter
+               while the updater is on, so they're disabled when it's off. -->
+          <div class="settings-subsection" id="subsection-updater">
+            <div class="subsection-title">Moon Updater</div>
+            <div class="settings-row">
+              <span>Toggle Moon Updater</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-moon-updater">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div class="settings-row settings-subrow">
+              <span>Location</span>
+              <div class="segmented" id="seg-updater-location">
+                <button type="button" class="seg-btn" data-value="top">Top</button>
+                <button type="button" class="seg-btn" data-value="bottom">Bottom</button>
+              </div>
+            </div>
+            <div class="settings-row settings-subrow">
+              <span>Message Count</span>
+              <div class="input-save-pair">
+                <select id="select-updater-count" class="settings-select">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        <div class="settings-row">
-          <span>Scroll Left Button</span>
-          <button class="rebind-btn" id="rebind-scroll-left">Mouse 4</button>
+        <!-- ══ KINGDOM TRACKING TAB ═════════════════════════════════ -->
+        <div class="settings-panel" data-panel="kingdom">
+
+          <div class="settings-row">
+            <span>Toggle Multi Moon</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-multi-moon">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <span>Toggle Moon Min/Max Range</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-moon-range">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <span>Total Moon Requirement</span>
+            <div class="input-save-pair">
+              <input type="number" id="input-moon-req" placeholder="124" min="1" max="9999">
+              <button class="save-inline-btn" id="save-moon-req">Save</button>
+            </div>
+          </div>
+
+          <!-- Each kingdom toggle shows/hides that kingdom on the main tracker
+               and in Notes. To add another one later: copy this row (swap the
+               id and label), then see the matching comment next to
+               KINGDOM_VISIBILITY_SETTINGS in app.js for the rest of the steps.
+
+               "Show on OBS Overlay" is a sub-toggle of Moon Kingdom: it only
+               appears while Moon Kingdom is on, and controls whether the extra
+               row is drawn on the OBS overlay (which also grows its height). -->
+          <div class="settings-row">
+            <span>Moon Kingdom</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-kingdom-moon">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row settings-subrow" id="row-moon-obs">
+            <span>Show Moon Kingdom on OBS</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-moon-obs">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
         </div>
 
-        <div class="settings-row">
-          <span>Scroll Right Button</span>
-          <button class="rebind-btn" id="rebind-scroll-right">Mouse 5</button>
+        <!-- ══ STREAMER TAB ═════════════════════════════════════════ -->
+        <div class="settings-panel" data-panel="streamer">
+
+          <div class="settings-row">
+            <span>Popup Scale</span>
+            <div class="input-save-pair">
+              <input type="number" id="input-overlay-scale" placeholder="1" min="0.1" max="10" step="0.1">
+              <button class="save-inline-btn" id="save-overlay-scale">Save</button>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span>Browser Source Scale</span>
+            <div class="input-save-pair">
+              <input type="number" id="input-browser-source-scale" value="3" readonly disabled title="Always 3x the Popup Scale">
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span>Sync Server URL</span>
+            <div class="input-save-pair">
+              <input type="text" id="input-ws-url" placeholder="wss://smo-rand.johnnycyan.com/ws" spellcheck="false">
+              <button class="save-inline-btn" id="save-ws-url">Save</button>
+            </div>
+          </div>
+
         </div>
 
+        <!-- ══ NOTES TAB ════════════════════════════════════════════ -->
+        <div class="settings-panel" data-panel="notes">
+
+          <div class="settings-row">
+            <span>Notes Scroll Speed (px)</span>
+            <div class="input-save-pair">
+              <input type="number" id="input-notes-scroll" placeholder="100" min="10" max="2000">
+              <button class="save-inline-btn" id="save-notes-scroll">Save</button>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span>Scroll Left Button</span>
+            <button class="rebind-btn" id="rebind-scroll-left">Mouse 4</button>
+          </div>
+
+          <div class="settings-row">
+            <span>Scroll Right Button</span>
+            <button class="rebind-btn" id="rebind-scroll-right">Mouse 5</button>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="settings-footer">
         <button class="ctrl-btn revert-btn" id="btn-revert-settings">Revert to Default Settings</button>
-
       </div>
     </div>
   </div>

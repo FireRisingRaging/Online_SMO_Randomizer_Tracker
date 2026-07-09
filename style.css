@@ -387,12 +387,36 @@ h1 {
 }
 
 /* ── Capture / Ability icon grids ───────────────────────────────── */
-#capture-row,
-#ability-row {
+#capture-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 5px;
 }
+
+/* Ability icons: a centered column. Row 1 (.ability-top) holds Jump/Cap
+   (either can be individually hidden); Wall sits centered below. A fixed
+   min-width keeps the same footprint so a lone Wall stays centered instead
+   of collapsing the column and shifting the rest of #controls. */
+#ability-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 101px; /* two 48px icons + 5px gap */
+}
+.ability-top {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+.ability-top.row-gone { display: none; }
+
+/* Individually hidden ability icon (Jump / Cap Bounce show toggles off) */
+.icon-toggle-btn.ability-icon.icon-off { display: none; }
+
+/* Lock / Peace sign column hidden from the whole tracker via settings */
+#moon-rows.hide-lock .lock-btn   { display: none; }
+#moon-rows.hide-peace .peace-btn { display: none; }
 
 .icon-toggle-btn {
   background: var(--btn-bg);
@@ -748,11 +772,134 @@ h1 {
 
 /* Revert Default Settings button */
 .revert-btn {
-  margin-top: 10px;
   color: var(--red);
   max-width: none;
+  width: 100%;
 }
 .revert-btn:hover { background: #3a2020; }
+
+/* ── Tabbed Settings layout ───────────────────────────────────────── */
+/* The modal-box is a vertical stack: header / tab-bar / scrolling body /
+   footer. Only the body scrolls; the tab bar and footer stay pinned. */
+.settings-modal-box { max-height: 88vh; }
+
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.settings-tabs::-webkit-scrollbar { height: 4px; }
+.settings-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.settings-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.settings-tab:hover { color: var(--text); background: var(--bg-hover); }
+.settings-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* Body remains the single scroll region (inherits .modal-body overflow-y). */
+.settings-body { display: block; }
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-panel:not(.active) { display: none; }
+
+/* Footer pinned below the scroll area */
+.settings-footer {
+  flex-shrink: 0;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Settings sub-sections (Ability Lock, Moon Updater, …) ────────── */
+.settings-subsection {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.12);
+}
+.subsection-title {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 2px 0 4px;
+}
+/* Indented child rows within a sub-section (or under a parent toggle) */
+.settings-subrow { padding-left: 12px; }
+.settings-subrow span { color: var(--text-dim); }
+
+/* Dimmed + non-interactive when a parent toggle disables the sub-controls */
+.settings-row.row-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+/* Fully hidden (e.g. Moon-OBS row when Moon Kingdom is off) */
+.settings-row.row-gone { display: none; }
+
+/* ── Segmented control (Top / Bottom) ─────────────────────────────── */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.seg-btn {
+  background: var(--bg-card2);
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 0.85rem;
+  height: 32px;
+  padding: 0 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+.seg-btn:hover { background: var(--bg-hover); color: var(--text); }
+.seg-btn.active { background: var(--accent); color: #fff; }
+
+/* Select styled to match input-save-pair inputs */
+.settings-select {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  height: 32px;
+  width: 100px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  padding: 0 6px;
+  cursor: pointer;
+}
+.settings-select:focus { outline: none; border-color: var(--accent); }
 
 /* ── Loading Zones Modal ──────────────────────────────────────────── */
 .lz-modal-box {

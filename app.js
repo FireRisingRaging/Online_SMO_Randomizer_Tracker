@@ -58,6 +58,15 @@ const DEFAULT_SETTINGS = {
   show_moon_range: true,
   show_complete_color: false,
   show_kingdom_moon: false,
+  show_lock: true,             // Lock sign column visible (tracker + overlay)
+  show_peace: true,            // Peace sign column visible (tracker + overlay)
+  show_ability_jump: false,    // false = Jump icon hidden (default). true = shown
+  show_ability_cap: false,     // false = Cap Bounce icon hidden (default). true = shown
+  show_moon_obs: true,         // Draw Moon Kingdom on the OBS overlay; only takes
+                               // effect while show_kingdom_moon is also on
+  show_moon_updater: false,    // Moon Updater message strip on the OBS overlay
+  updater_location: 'top',     // 'top' | 'bottom' relative to the overlay body
+  updater_count: 3,            // Visible messages (1-5); drives overlay height
   overlay_scale: 1, // Popup Scale default; Browser Source Scale is always 3x this (see getBrowserSourceScale)
   notes_scroll_px: 500,
   scroll_left_binding: { type: 'mouse', code: 3 },  // MB4 (back)
@@ -94,6 +103,45 @@ const ZONE_SPLIT_THRESHOLD = 10;
 
 const MOBILE_BREAKPOINT = 540;
 
+// ── Per-kingdom min/max scaling ───────────────────────────────────
+// Each of the 11 core kingdoms has a "normal" moon count C (out of the default
+// total of 124). When the Total Moon Requirement N changes, every normal scales
+// by N/124 and its displayed range becomes normal ± 5 (min clamped to >= 1).
+// The scaled normals are rounded with the largest-remainder method so they
+// always sum to exactly N. The optional Moon Kingdom is left untouched.
+const SCALE_KINGDOM_COUNT = 11;
+const SCALE_DEFAULT_TOTAL = 124;
+const SCALE_RANGE = 5;
+// C for each core kingdom, derived from its default max (max = C + range).
+const SCALE_BASE = KINGDOMS.slice(0, SCALE_KINGDOM_COUNT).map(k => k.max - SCALE_RANGE);
+
+function computeScaledRanges(N) {
+  N = N || SCALE_DEFAULT_TOTAL;
+  const raw = SCALE_BASE.map(c => c * N / SCALE_DEFAULT_TOTAL);
+  const normal = raw.map(Math.floor);
+  const rem = N - normal.reduce((a, b) => a + b, 0); // leftover to hand out (0..10)
+  raw.map((v, i) => ({ i, frac: v - Math.floor(v) }))
+     .sort((a, b) => b.frac - a.frac)
+     .forEach((o, k) => { if (k < rem) normal[o.i]++; });
+  return normal.map(n => ({
+    normal: n,
+    min: Math.max(1, n - SCALE_RANGE),
+    max: n + SCALE_RANGE,
+  }));
+}
+
+// Cached so the ranges are only recomputed when N actually changes.
+let _rangeCache = { N: null, ranges: null };
+function getScaledRanges() {
+  const N = (state.settings && state.settings.moon_requirement) || SCALE_DEFAULT_TOTAL;
+  if (_rangeCache.N !== N) _rangeCache = { N, ranges: computeScaledRanges(N) };
+  return _rangeCache.ranges;
+}
+function rangeFor(i) {
+  if (i < SCALE_KINGDOM_COUNT) return getScaledRanges()[i];
+  return { normal: KINGDOMS[i].max, min: KINGDOMS[i].min, max: KINGDOMS[i].max };
+}
+
 // ── Human-readable labels for mouse/keyboard scroll bindings ──────
 function bindingLabel(binding) {
   if (!binding) return 'Not Set';
@@ -119,13 +167,19 @@ function bindingLabel(binding) {
 const TOGGLE_SETTINGS = [
   { id: 'toggle-moon-total', key: 'show_moon_total' },
   { id: 'toggle-icon-colors', key: 'show_icon_colors' },
+  { id: 'toggle-lock', key: 'show_lock' },
+  { id: 'toggle-peace', key: 'show_peace' },
   { id: 'toggle-ability-lock', key: 'show_ability_lock' },
+  { id: 'toggle-ability-jump', key: 'show_ability_jump' },
+  { id: 'toggle-ability-cap', key: 'show_ability_cap' },
   { id: 'toggle-captures', key: 'show_captures' },
   { id: 'toggle-save-buttons', key: 'show_save_buttons' },
+  { id: 'toggle-complete-color', key: 'show_complete_color' },
   { id: 'toggle-multi-moon', key: 'show_multi_moon' },
   { id: 'toggle-moon-range', key: 'show_moon_range' },
-  { id: 'toggle-complete-color', key: 'show_complete_color' },
   { id: 'toggle-kingdom-moon', key: 'show_kingdom_moon' },
+  { id: 'toggle-moon-obs', key: 'show_moon_obs' },
+  { id: 'toggle-moon-updater', key: 'show_moon_updater' },
 ];
 
 // Maps a LOADING_ZONES_TEMPLATE kingdom name to the settings key that controls
@@ -285,16 +339,17 @@ function buildMoonRow(i) {
   decrBtn.textContent = '−';
   decrBtn.addEventListener('click', () => { decrement(i); saveState(); });
 
+  const r = rangeFor(i);
   const minStack = document.createElement('div');
   minStack.className = 'range-stack range-min';
-  minStack.innerHTML = `<span class="range-label">min</span><span class="range-value">${kingdom.min}</span>`;
+  minStack.innerHTML = `<span class="range-label">min</span><span class="range-value">${r.min}</span>`;
 
   const countLabel = document.createElement('span');
   countLabel.className = 'count-label';
 
   const maxStack = document.createElement('div');
   maxStack.className = 'range-stack range-max';
-  maxStack.innerHTML = `<span class="range-label">max</span><span class="range-value">${kingdom.max}</span>`;
+  maxStack.innerHTML = `<span class="range-label">max</span><span class="range-value">${r.max}</span>`;
 
   // Apply settings visibility
   if (!state.settings.show_moon_range) {
@@ -399,7 +454,7 @@ function updateCountColor(i) {
   const label = row.querySelector('.count-label');
   const isComplete = state.settings.show_complete_color && (
     (m.max !== null && m.count >= m.max) ||
-    (m.count >= kingdom.max)
+    (m.count >= rangeFor(i).max)
   );
   label.classList.toggle('count-complete', isComplete);
   row.classList.toggle('row-complete', isComplete);
@@ -528,10 +583,7 @@ function buildAbilityRow() {
   const container = document.getElementById('ability-row');
   container.innerHTML = '';
 
-  // Grid order: [jump][cap] / [wall] (notes moved to #notes-section)
-  const abilities = [ABILITY_ICONS[0], ABILITY_ICONS[1], ABILITY_ICONS[2]];
-
-  abilities.forEach(ic => {
+  function makeAbilityBtn(ic) {
     const btn = document.createElement('button');
     btn.className = 'icon-toggle-btn ability-icon';
     btn.dataset.key = ic.key;
@@ -547,8 +599,19 @@ function buildAbilityRow() {
       btn.classList.toggle('active', state.abilities[ic.key]);
       saveState();
     });
-    container.appendChild(btn);
-  });
+    return btn;
+  }
+
+  // Layout: [jump][cap] centered on top, [wall] centered below. Jump and Cap
+  // can each be hidden independently (Show Jump / Show Cap Bounce settings);
+  // applyAllSettings() handles their visibility and re-centering so Wall lines
+  // up under whatever remains. ABILITY_ICONS = [jump, cap, wall].
+  const top = document.createElement('div');
+  top.className = 'ability-top';
+  top.appendChild(makeAbilityBtn(ABILITY_ICONS[0])); // jump
+  top.appendChild(makeAbilityBtn(ABILITY_ICONS[1])); // cap
+  container.appendChild(top);
+  container.appendChild(makeAbilityBtn(ABILITY_ICONS[2])); // wall
 
   // Build the standalone Notes button in #notes-section
   const notesSection = document.getElementById('notes-section');
@@ -581,11 +644,41 @@ function openSettings() {
   if (wsUrlInput) wsUrlInput.value = loadWsUrl();
   document.getElementById('input-notes-scroll').value = state.settings.notes_scroll_px;
 
+  // Moon Updater location (segmented) + message count (select)
+  const loc = state.settings.updater_location || 'top';
+  document.querySelectorAll('#seg-updater-location .seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.value === loc);
+  });
+  const countSel = document.getElementById('select-updater-count');
+  if (countSel) countSel.value = String(Math.min(5, Math.max(1, state.settings.updater_count || 3)));
+
   // Populate rebind button labels
   document.getElementById('rebind-scroll-left').textContent = bindingLabel(state.settings.scroll_left_binding);
   document.getElementById('rebind-scroll-right').textContent = bindingLabel(state.settings.scroll_right_binding);
 
+  updateSettingsEnablement();
   modal.classList.remove('hidden');
+}
+
+// Enable/disable and show/hide sub-controls based on their parent toggle:
+//  • Jump / Cap Bounce rows are dimmed while Ability Lock is off.
+//  • Updater Location / Message Count rows are dimmed while the updater is off.
+//  • The "Show Moon Kingdom on OBS" row is hidden entirely while Moon Kingdom
+//    is off (it can only be turned on as a sub-option of Moon Kingdom).
+function updateSettingsEnablement() {
+  const s = state.settings;
+
+  const jumpRow = document.getElementById('toggle-ability-jump')?.closest('.settings-row');
+  const capRow  = document.getElementById('toggle-ability-cap')?.closest('.settings-row');
+  [jumpRow, capRow].forEach(r => r && r.classList.toggle('row-disabled', !s.show_ability_lock));
+
+  const updOn = !!s.show_moon_updater;
+  const locRow = document.getElementById('seg-updater-location')?.closest('.settings-row');
+  const cntRow = document.getElementById('select-updater-count')?.closest('.settings-row');
+  [locRow, cntRow].forEach(r => r && r.classList.toggle('row-disabled', !updOn));
+
+  const moonObsRow = document.getElementById('row-moon-obs');
+  if (moonObsRow) moonObsRow.classList.toggle('row-gone', !s.show_kingdom_moon);
 }
 
 function applyAllSettings() {
@@ -607,6 +700,22 @@ function applyAllSettings() {
   // Ability icons: toggle class on section so icons hide without shifting layout
   document.getElementById('ability-section').classList.toggle('abilities-hidden', !s.show_ability_lock);
 
+  // Individual Jump / Cap Bounce visibility (default off = hidden). When both
+  // are hidden the top row is removed so Wall centers on its own.
+  const jumpBtn = document.querySelector('#ability-row .ability-icon[data-key="jump"]');
+  const capBtn  = document.querySelector('#ability-row .ability-icon[data-key="cap"]');
+  const abilityTop = document.querySelector('#ability-row .ability-top');
+  if (jumpBtn) jumpBtn.classList.toggle('icon-off', !s.show_ability_jump);
+  if (capBtn)  capBtn.classList.toggle('icon-off', !s.show_ability_cap);
+  if (abilityTop) abilityTop.classList.toggle('row-gone', !s.show_ability_jump && !s.show_ability_cap);
+
+  // Lock / Peace sign columns on the main tracker
+  const moonRows = document.getElementById('moon-rows');
+  if (moonRows) {
+    moonRows.classList.toggle('hide-lock', !s.show_lock);
+    moonRows.classList.toggle('hide-peace', !s.show_peace);
+  }
+
   // Multi moon buttons
   document.querySelectorAll('.multi-moon-btn').forEach(btn => {
     btn.classList.toggle('hidden', !s.show_multi_moon);
@@ -617,9 +726,24 @@ function applyAllSettings() {
     el.classList.toggle('hidden', !s.show_moon_range);
   });
 
-  // Green-when-complete color recompute for every row since toggling this
-  // setting must take effect immediately, not just on the next count change.
+  // Refresh the min/max range hints (they scale with Total Moon Requirement)
+  // and recompute green-when-complete for every row, since toggling settings
+  // or changing N must take effect immediately.
+  refreshMoonRangeLabels();
   KINGDOMS.forEach((_, i) => updateCountColor(i));
+}
+
+// Rewrite each visible row's min/max hint from the current scaled ranges.
+function refreshMoonRangeLabels() {
+  KINGDOMS.forEach((k, i) => {
+    const row = getMoonRow(i);
+    if (!row) return;
+    const r = rangeFor(i);
+    const minV = row.querySelector('.range-min .range-value');
+    const maxV = row.querySelector('.range-max .range-value');
+    if (minV) minV.textContent = r.min;
+    if (maxV) maxV.textContent = r.max;
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -646,6 +770,34 @@ let obsWindow = null;
 // being independently adjustable, so they stay in sync automatically.
 const BROWSER_SOURCE_MULTIPLIER = 3;
 
+// ── OBS overlay unscaled base size ────────────────────────────────
+// The overlay's natural (scale = 1) size. Width is fixed; height grows to make
+// room for two optional pieces: the extra Moon Kingdom row and the Moon Updater
+// message strip. obs.html computes its height with the IDENTICAL formula
+// (keep OBS_* constants in sync across both files) so the OBS Browser Source
+// dimensions we display here always match what the overlay actually renders.
+const OBS_BASE_W = 315;
+const OBS_BASE_H = 450;          // 11 kingdoms, no updater
+const OBS_MOON_ROW_H = 40;       // added when Moon Kingdom shows on the overlay
+const OBS_UPDATER_MSG_H = 24;    // per visible updater message
+const OBS_UPDATER_PAD = 12;      // updater strip padding (top + bottom)
+const OBS_UPDATER_W = 480;       // updater strip width (extends right past the
+                                 // 315px tracker body so messages don't clip)
+
+function getObsBaseSize(settings) {
+  const s = settings || state.settings || {};
+  let h = OBS_BASE_H;
+  if (s.show_kingdom_moon && s.show_moon_obs !== false) h += OBS_MOON_ROW_H;
+  if (s.show_moon_updater) {
+    const n = Math.min(5, Math.max(1, s.updater_count || 3));
+    h += n * OBS_UPDATER_MSG_H + OBS_UPDATER_PAD;
+  }
+  // The updater strip is wider than the tracker body; the extra width only
+  // appears while the updater is on so the OBS source isn't needlessly wide.
+  const w = s.show_moon_updater ? OBS_UPDATER_W : OBS_BASE_W;
+  return { w, h };
+}
+
 function getBrowserSourceScale() {
   return (state.settings.overlay_scale || 1) * BROWSER_SOURCE_MULTIPLIER;
 }
@@ -659,8 +811,9 @@ function openOBS() {
   const room = window.SMOSync ? window.SMOSync.getRoom() : null;
   const wsUrl = room ? encodeURIComponent(window.SMOSync.getWsUrl()) : '';
   const scale = state.settings.overlay_scale || 1;
-  const width = Math.round(315 * scale);
-  const height = Math.round(450 * scale);
+  const base = getObsBaseSize();
+  const width = Math.round(base.w * scale);
+  const height = Math.round(base.h * scale);
   let url = 'obs.html?popup=1';
   if (room) {
     url += `&room=${room}&ws=${wsUrl}&scale=${scale}`;
@@ -716,7 +869,8 @@ function updateSyncUI() {
     if (sizeRow) sizeRow.classList.remove('hidden');
     if (urlInput) urlInput.value = getObsPageUrl(room);
     if (sizeRow) {
-      sizeRow.innerHTML = `OBS size: <strong>${Math.round(315 * scale)}</strong> × <strong>${Math.round(450 * scale)}</strong>`;
+      const base = getObsBaseSize();
+      sizeRow.innerHTML = `OBS size: <strong>${Math.round(base.w * scale)}</strong> × <strong>${Math.round(base.h * scale)}</strong>`;
     }
   } else {
     connectBtn.textContent = 'Connect';
@@ -1338,8 +1492,50 @@ document.addEventListener('DOMContentLoaded', () => {
           buildLoadingZonesContent();
         }
       }
+
+      // Some toggles change the OBS overlay's height (Moon-on-OBS, updater) or
+      // gate sub-controls, so refresh the size readout and the enable states.
+      updateSettingsEnablement();
+      updateSyncUI();
     });
   });
+
+  // ── Settings tabs ──────────────────────────────
+  document.querySelectorAll('.settings-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const name = tab.dataset.tab;
+      document.querySelectorAll('.settings-tab').forEach(t =>
+        t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.settings-panel').forEach(p =>
+        p.classList.toggle('active', p.dataset.panel === name));
+      // Reset scroll so each tab opens at the top
+      const body = document.querySelector('#settings-modal .settings-body');
+      if (body) body.scrollTop = 0;
+    });
+  });
+
+  // ── Moon Updater location (segmented) ──────────
+  document.querySelectorAll('#seg-updater-location .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#seg-updater-location .seg-btn').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      state.settings.updater_location = btn.dataset.value;
+      saveState();
+    });
+  });
+
+  // ── Moon Updater message count (select) ────────
+  const updaterCountSel = document.getElementById('select-updater-count');
+  if (updaterCountSel) {
+    updaterCountSel.addEventListener('change', () => {
+      const v = parseInt(updaterCountSel.value);
+      if (!isNaN(v)) {
+        state.settings.updater_count = Math.min(5, Math.max(1, v));
+        saveState();
+        updateSyncUI(); // count affects overlay height
+      }
+    });
+  }
 
   // Moon requirement Save
   document.getElementById('save-moon-req').addEventListener('click', () => {
@@ -1347,6 +1543,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isNaN(v) && v > 0) {
       state.settings.moon_requirement = v;
       saveState();
+      // Rescale every kingdom's min/max hint (and green-complete threshold).
+      refreshMoonRangeLabels();
+      KINGDOMS.forEach((_, i) => updateCountColor(i));
     }
   });
 
