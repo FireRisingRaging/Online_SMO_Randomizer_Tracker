@@ -781,8 +781,6 @@ const OBS_BASE_H = 450;          // 11 kingdoms, no updater
 const OBS_MOON_ROW_H = 40;       // added when Moon Kingdom shows on the overlay
 const OBS_UPDATER_MSG_H = 24;    // per visible updater message
 const OBS_UPDATER_PAD = 12;      // updater strip padding (top + bottom)
-const OBS_UPDATER_W = 480;       // updater strip width (extends right past the
-                                 // 315px tracker body so messages don't clip)
 
 function getObsBaseSize(settings) {
   const s = settings || state.settings || {};
@@ -792,10 +790,10 @@ function getObsBaseSize(settings) {
     const n = Math.min(5, Math.max(1, s.updater_count || 3));
     h += n * OBS_UPDATER_MSG_H + OBS_UPDATER_PAD;
   }
-  // The updater strip is wider than the tracker body; the extra width only
-  // appears while the updater is on so the OBS source isn't needlessly wide.
-  const w = s.show_moon_updater ? OBS_UPDATER_W : OBS_BASE_W;
-  return { w, h };
+  // Width is always the tracker-body width. The popup opens at OBS_BASE_W (the
+  // updater only widens when the window is dragged out) and the Browser Source
+  // estimate is OBS_BASE_W x the 3x browser scale.
+  return { w: OBS_BASE_W, h };
 }
 
 function getBrowserSourceScale() {

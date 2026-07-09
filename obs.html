@@ -248,7 +248,6 @@
     const OBS_MOON_ROW_H = 40;     // added when Moon Kingdom shows on the overlay
     const OBS_UPDATER_MSG_H = 24;  // per visible updater message
     const OBS_UPDATER_PAD = 12;    // updater strip padding (top + bottom)
-    const OBS_UPDATER_W = 480;     // updater strip width (extends past the body)
 
     const BASE_W = OBS_BASE_W;
 
@@ -337,9 +336,13 @@
       return _obsMaxCache.maxes[i];
     }
 
-    // Unscaled overlay width for the current settings (mirrors app.js)
-    function getObsBaseW(settings) {
-      return (settings && settings.show_moon_updater) ? OBS_UPDATER_W : OBS_BASE_W;
+    // Unscaled overlay width. Both the popup startup size and the Browser
+    // Source estimate use the tracker-body width (OBS_BASE_W). In the popup the
+    // updater can still widen past this when the window is dragged out (handled
+    // in applyScale); Browser Source stays fixed at this width and long updater
+    // messages wrap to a second line.
+    function getObsBaseW() {
+      return OBS_BASE_W;
     }
 
     // Unscaled overlay height for the current settings (mirrors app.js)
@@ -362,10 +365,10 @@
     // Popup mode: the fixed-width tracker body (OBS_BASE_W) plus the full
     // height are fitted to the window. When the updater is on, the overlay's
     // root width is allowed to grow past OBS_BASE_W so the updater fills any
-    // extra horizontal space the user drags out — but never shrinks below
+    // extra horizontal space the user drags out, but never shrinks below
     // OBS_BASE_W (dragging narrower just scales the whole overlay down).
     // Browser Source mode: fixed scale from the URL/setting; width is the
-    // fixed getObsBaseW() (wider when the updater is on).
+    // fixed tracker-body width (getObsBaseW), so long updater messages wrap.
     function applyScale() {
       const baseH = currentBaseH();
       const settings = (currentState && currentState.settings) ? currentState.settings : {};
@@ -440,7 +443,7 @@
         moonList.appendChild(row);
       });
 
-      // Capture icons (parabones, banzai, wire — bowser is separate)
+      // Capture icons (parabones, banzai, wire, bowser is separate)
       const captureRow = document.getElementById('obs-capture-icons');
       captureRow.innerHTML = '';
       CAPTURE_ICONS.forEach(ic => {
