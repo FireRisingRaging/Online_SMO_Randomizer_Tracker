@@ -3116,7 +3116,7 @@ let isPanning = false, panStart = {x:0,y:0}, panOrigin = {x:0,y:0};
 const zoomSlider  = document.getElementById('zoom-slider');
 const zoomReadout = document.getElementById('zoom-readout');
 const zoomInput   = document.getElementById('zoom-input');
-const ZOOM_MIN = 0.6, ZOOM_MAX = 1.2;
+const ZOOM_MIN = 0.4, ZOOM_MAX = 1.2;
 
 function applyTransform() {
   canvasEl.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;

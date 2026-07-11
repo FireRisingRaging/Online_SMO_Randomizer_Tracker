@@ -16,6 +16,7 @@
   --btn-bg:      #333333;
   --btn-hover:   #444444;
   --font:        'Arial Rounded MT Bold', 'Arial', sans-serif;
+  --panel-edge-gap: 24px; /* outer margin used once a side panel is showing */
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,10 +37,133 @@ body {
 }
 
 /* ── App wrapper ─────────────────────────────────────────────────── */
+/* #layout-row holds #app and, optionally, #side-panel. With no panel
+   active, #app centers itself exactly as before. With a panel active,
+   body.panel-edges widens the outer gap to --panel-edge-gap on the sides
+   that border the panel layout, and #layout-row arranges #app/#side-panel
+   according to the Location setting (location-horizontal / location-vertical),
+   added by applySidePanel() in app.js. Both directions are plain flex
+   percentages/flex-basis (no fixed pixel panel width), so the panel grows
+   and shrinks fluidly as the window is resized. */
+#layout-row {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  justify-content: center;
+  align-items: flex-start;
+  flex: 1;
+  width: 100%;
+}
+
+/* Widens the left/right body padding to a bigger, even gap while any panel
+   is visible, so the tracker+panel combo (or the full-width vertical panel)
+   sits with a consistent ~24px margin from the true viewport edge instead
+   of the tighter default 12px used everywhere else. */
+body.panel-edges {
+  padding-left: var(--panel-edge-gap);
+  padding-right: var(--panel-edge-gap);
+}
+
 #app {
-  max-width: 720px;/* max-width: 680px; */
+  max-width: 580px;/* max-width: 680px; */
   margin: 0 auto;
   flex: 1;
+  min-width: 0;
+}
+
+/* ── Horizontal: tracker pinned near the left edge at its normal size,
+   panel fills the rest of the row out to the right edge. The tracker only
+   gives up width (flex-shrink: 0.3, slower than the panel) once the panel
+   has already been squeezed down to its own min-width. ────────────────── */
+#layout-row.location-horizontal.panel-open {
+  flex-direction: row;
+  /* Pin the tracker+panel to the left so any residual overflow spills to the
+     right (reachable/scrollable) instead of being centered and clipped off the
+     left edge, which was hiding the tracker title in the ~541–870px range. */
+  justify-content: flex-start;
+}
+#layout-row.location-horizontal.panel-open #app {
+  margin: 0;
+  /* Shrink freely down from 580px as the row narrows. The panel is frozen at
+     its 300px min-width in this range, so the tracker absorbs all the width
+     loss and scales down smoothly instead of overflowing. */
+  flex: 0 1 580px;
+  min-width: 0;
+}
+#layout-row.location-horizontal.panel-open #side-panel {
+  flex: 1 1 300px;
+  min-width: 300px;
+}
+
+/* ── Vertical: tracker stays centered at its normal size, panel drops
+   below and stretches the full available width (edge gap to edge gap). ── */
+#layout-row.location-vertical.panel-open {
+  flex-direction: column;
+  align-items: center;
+}
+#layout-row.location-vertical.panel-open #app {
+  margin: 0 auto;
+  flex: 0 0 auto;
+  width: 100%;
+}
+#layout-row.location-vertical.panel-open #side-panel {
+  width: 100%;
+  flex: 0 0 auto;
+  position: static;
+  top: auto;
+}
+
+/* ── Side Panel (Notes / Map embed) ─────────────────────────────── */
+#side-panel {
+  align-self: flex-start;
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#side-panel.hidden { display: none; }
+
+.side-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.side-panel-header span { font-size: 1rem; font-weight: bold; }
+
+#side-panel-frame {
+  border: none;
+  width: 100%;
+  flex: 1;
+  min-height: 824px;
+  background: var(--bg);
+}
+
+/* Horizontal doesn't fit beside the tracker on narrow screens, so it falls
+   back to the default single-column tracker layout below the mobile
+   breakpoint - applySidePanel() in app.js already stops applying
+   .panel-open for Horizontal at this width, this is a CSS-only backstop.
+   Vertical is untouched here: it stays available on mobile since the panel
+   is already stacked below rather than beside the tracker. */
+@media (max-width: 624px) {
+  #layout-row.location-horizontal.panel-open {
+    flex-direction: column;
+  }
+  #layout-row.location-horizontal.panel-open #side-panel {
+    display: none;
+  }
+  #layout-row.location-horizontal.panel-open #app {
+    margin: 0 auto;
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 h1 {
@@ -62,7 +186,11 @@ h1 {
   /* position: absolute;
   bottom: 10px;
   left: 14px; */
-  width: 330px;
+  width: 100%;
+  max-width: 330px;
+  margin: 0 auto 0 0;
+  text-align: left;
+  overflow-wrap: break-word;
   background: rgba(36,36,36,0.90);
   padding: 5px 10px;
   border-radius: var(--radius-sm);
@@ -383,6 +511,36 @@ h1 {
   #capture-section.hidden {
     display: none !important;
     visibility: visible;
+  }
+}
+
+/* Mid-width squeeze: while the horizontal panel is open the tracker column is
+   narrowed, but the 4-column controls grid has a large min-content width and
+   won't shrink, forcing the whole row to overflow (and clip the title on the
+   left). Collapse controls here so #app can actually get smaller: two columns
+   from ~660–870px, a single column below that where space is tightest. */
+@media (min-width: 541px) and (max-width: 870px) {
+  #layout-row.location-horizontal.panel-open #controls {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "buttons  notes"
+      "captures abilities";
+  }
+  #layout-row.location-horizontal.panel-open #capture-section.hidden {
+    display: none !important;
+    visibility: visible;
+  }
+}
+@media (min-width: 541px) and (max-width: 660px) {
+  #layout-row.location-horizontal.panel-open #controls {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "buttons"
+      "notes"
+      "captures"
+      "abilities";
   }
 }
 

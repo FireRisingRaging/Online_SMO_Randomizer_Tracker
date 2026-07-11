@@ -11,6 +11,7 @@
 </head>
 
 <body>
+  <div id="layout-row">
   <div id="app">
     <h1 class="header">
       <span>SMO Randomizer Tracker</span>
@@ -56,6 +57,22 @@
         <div id="ability-row"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ── Side Panel ──────────────────────────────────────────────
+       Embeds notes.html or map.html (same origin, so they share
+       localStorage with this page) beside the main tracker. Notes and
+       Map are mutually exclusive and controlled from Settings → Main,
+       or by clicking the (repurposed) Loading Zone Notes / Connection
+       Map buttons. Hidden below the mobile breakpoint - see app.js
+       applySidePanel(). -->
+  <div id="side-panel" class="hidden">
+    <div class="side-panel-header">
+      <span id="side-panel-title">Panel</span>
+      <button class="modal-close" id="side-panel-close" aria-label="Close panel">✕</button>
+    </div>
+    <iframe id="side-panel-frame" title="Side panel content"></iframe>
+  </div>
   </div>
 
   <!-- ── OBS Info Modal ──────────────────────────────────────────── -->
@@ -222,7 +239,40 @@
             </div>
           </div>
 
+          <!-- Side Panel sub-section. Notes and Map are mutually exclusive -
+               turning one on turns the other off (enforced in app.js).
+               Horizontal needs room beside the tracker, so it's unavailable
+               below the mobile breakpoint (the setting is kept, just not
+               rendered, until the screen is wide enough again). Vertical
+               stacks below the tracker instead, so it stays available at
+               any width, including mobile. -->
+          <div class="settings-subsection" id="subsection-panel">
+            <div class="subsection-title">Side Panel</div>
+            <div class="settings-row">
+              <span>Show Notes Panel</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-notes-panel">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <span>Show Map Panel</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-map-panel">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div class="settings-row settings-subrow">
+              <span>Location</span>
+              <div class="segmented" id="seg-panel-location">
+                <button type="button" class="seg-btn" data-value="horizontal">Horizontal</button>
+                <button type="button" class="seg-btn" data-value="vertical">Vertical</button>
+              </div>
+            </div>
+          </div>
+
         </div>
+
 
         <!-- ══ KINGDOM TRACKING TAB ═════════════════════════════════ -->
         <div class="settings-panel" data-panel="kingdom">

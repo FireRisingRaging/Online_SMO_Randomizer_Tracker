@@ -71,6 +71,11 @@ const DEFAULT_SETTINGS = {
   notes_scroll_px: 500,
   scroll_left_binding: { type: 'mouse', code: 3 },  // MB4 (back)
   scroll_right_binding: { type: 'mouse', code: 4 },  // MB5 (forward)
+  show_notes_panel: false,     // Side panel embedding notes.html beside the tracker.
+                                // Mutually exclusive with show_map_panel (see applySidePanel).
+  show_map_panel: false,       // Side panel embedding map.html beside the tracker.
+                                // Mutually exclusive with show_notes_panel (see applySidePanel).
+  panel_location: 'horizontal', // 'horizontal' | 'vertical' - beside vs below the tracker
   
 };
 
@@ -102,6 +107,15 @@ const LOADING_ZONES_TEMPLATE = {
 const ZONE_SPLIT_THRESHOLD = 10;
 
 const MOBILE_BREAKPOINT = 540;
+
+// Horizontal needs room beside the tracker, so it's unavailable below the
+// mobile breakpoint. Vertical stacks below instead and stays available at
+// any width. Shared by applySidePanel() and the Notes/Map button fallbacks.
+function isPanelLocationAvailable() {
+  const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+  const location = state.settings.panel_location === 'vertical' ? 'vertical' : 'horizontal';
+  return location === 'vertical' || !isMobile;
+}
 
 // ── Per-kingdom min/max scaling ───────────────────────────────────
 // Each of the 11 core kingdoms has a "normal" moon count C (out of the default
@@ -180,6 +194,8 @@ const TOGGLE_SETTINGS = [
   { id: 'toggle-kingdom-moon', key: 'show_kingdom_moon' },
   { id: 'toggle-moon-obs', key: 'show_moon_obs' },
   { id: 'toggle-moon-updater', key: 'show_moon_updater' },
+  { id: 'toggle-notes-panel', key: 'show_notes_panel' },
+  { id: 'toggle-map-panel', key: 'show_map_panel' },
 ];
 
 // Maps a LOADING_ZONES_TEMPLATE kingdom name to the settings key that controls
@@ -619,12 +635,23 @@ function buildAbilityRow() {
   const notesBtn = document.createElement('button');
   notesBtn.className = 'notes-btn';
   notesBtn.textContent = 'Loading Zone Notes';
-  notesBtn.addEventListener('click', openLoadingZones);
+  // On wide screens (or in Vertical mode, at any width) this toggles the
+  // embedded side panel. When Horizontal mode has nowhere to go (mobile),
+  // fall back to the original in-page modal.
+  notesBtn.addEventListener('click', () => {
+    if (!isPanelLocationAvailable()) openLoadingZones();
+    else toggleSidePanel('notes');
+  });
   notesSection.appendChild(notesBtn);
   const mapBtn = document.createElement('button');
   mapBtn.className = 'map-btn';
   mapBtn.textContent = 'Connection Map';
-  mapBtn.addEventListener('click', openMap);
+  // Same idea as the Notes button: side panel when available, original
+  // popout window otherwise.
+  mapBtn.addEventListener('click', () => {
+    if (!isPanelLocationAvailable()) openMap();
+    else toggleSidePanel('map');
+  });
   notesSection.appendChild(mapBtn);
 }
 
@@ -651,6 +678,12 @@ function openSettings() {
   });
   const countSel = document.getElementById('select-updater-count');
   if (countSel) countSel.value = String(Math.min(5, Math.max(1, state.settings.updater_count || 3)));
+
+  // Side Panel location (segmented)
+  const panelLoc = state.settings.panel_location === 'vertical' ? 'vertical' : 'horizontal';
+  document.querySelectorAll('#seg-panel-location .seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.value === panelLoc);
+  });
 
   // Populate rebind button labels
   document.getElementById('rebind-scroll-left').textContent = bindingLabel(state.settings.scroll_left_binding);
@@ -679,6 +712,10 @@ function updateSettingsEnablement() {
 
   const moonObsRow = document.getElementById('row-moon-obs');
   if (moonObsRow) moonObsRow.classList.toggle('row-gone', !s.show_kingdom_moon);
+
+  const panelOn = !!(s.show_notes_panel || s.show_map_panel);
+  const panelLocRow = document.getElementById('seg-panel-location')?.closest('.settings-row');
+  if (panelLocRow) panelLocRow.classList.toggle('row-disabled', !panelOn);
 }
 
 function applyAllSettings() {
@@ -731,6 +768,89 @@ function applyAllSettings() {
   // or changing N must take effect immediately.
   refreshMoonRangeLabels();
   KINGDOMS.forEach((_, i) => updateCountColor(i));
+
+  applySidePanel();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Side Panel (Notes / Map embed)
+// ─────────────────────────────────────────────────────────────────────────────
+// Shows notes.html or map.html in an iframe beside (Horizontal) or below
+// (Vertical) the tracker, per the Location setting. Notes/Map are mutually
+// exclusive (enforced wherever the settings are changed, see the
+// TOGGLE_SETTINGS change listener and toggleSidePanel below). Horizontal
+// needs room beside the tracker, so it's unavailable below MOBILE_BREAKPOINT;
+// Vertical stacks below instead and stays available at any width. Either
+// way the underlying show_*_panel setting is left alone when unavailable, so
+// the panel reappears automatically once there's room for it again.
+function applySidePanel() {
+  const s = state.settings;
+  const panel = document.getElementById('side-panel');
+  const frame = document.getElementById('side-panel-frame');
+  const title = document.getElementById('side-panel-title');
+  const layoutRow = document.getElementById('layout-row');
+  if (!panel || !frame || !title || !layoutRow) return;
+
+  const location = s.panel_location === 'vertical' ? 'vertical' : 'horizontal';
+  const locationAvailable = isPanelLocationAvailable();
+
+  const wantNotes = !!s.show_notes_panel && locationAvailable;
+  const wantMap = !!s.show_map_panel && locationAvailable;
+
+  let src = null;
+  if (wantNotes) {
+    title.textContent = 'Loading Zone Notes';
+    src = 'notes.html';
+  } else if (wantMap) {
+    title.textContent = 'Connection Map';
+    src = 'map.html';
+  }
+
+  layoutRow.classList.toggle('location-horizontal', location === 'horizontal');
+  layoutRow.classList.toggle('location-vertical', location === 'vertical');
+
+  if (src) {
+    // Only reassign src when it actually changes, so the embedded page
+    // doesn't reload (and lose its own in-memory state) on every settings
+    // change or window resize.
+    if (frame.dataset.src !== src) {
+      frame.src = src;
+      frame.dataset.src = src;
+    }
+    panel.classList.remove('hidden');
+    layoutRow.classList.add('panel-open');
+    document.body.classList.add('panel-edges');
+  } else {
+    panel.classList.add('hidden');
+    layoutRow.classList.remove('panel-open');
+    document.body.classList.remove('panel-edges');
+    if (frame.dataset.src) {
+      frame.src = '';
+      delete frame.dataset.src;
+    }
+  }
+}
+
+// Turns the given panel ('notes' or 'map') on/off, enforcing mutual
+// exclusivity with the other, and keeps the Settings modal checkboxes (if
+// open) in sync. Used by the repurposed Loading Zone Notes / Connection Map
+// buttons.
+function toggleSidePanel(which) {
+  const s = state.settings;
+  if (which === 'notes') {
+    s.show_notes_panel = !s.show_notes_panel;
+    if (s.show_notes_panel) s.show_map_panel = false;
+  } else if (which === 'map') {
+    s.show_map_panel = !s.show_map_panel;
+    if (s.show_map_panel) s.show_notes_panel = false;
+  }
+  saveState();
+  applyAllSettings();
+
+  const notesCb = document.getElementById('toggle-notes-panel');
+  const mapCb = document.getElementById('toggle-map-panel');
+  if (notesCb) notesCb.checked = s.show_notes_panel;
+  if (mapCb) mapCb.checked = s.show_map_panel;
 }
 
 // Rewrite each visible row's min/max hint from the current scaled ranges.
@@ -1477,6 +1597,20 @@ document.addEventListener('DOMContentLoaded', () => {
   TOGGLE_SETTINGS.forEach(({ id, key }) => {
     document.getElementById(id).addEventListener('change', (e) => {
       state.settings[key] = e.target.checked;
+
+      // Notes/Map side panels are mutually exclusive: turning one on turns
+      // the other off, both in state and in the (currently open) checkbox.
+      if (key === 'show_notes_panel' && e.target.checked) {
+        state.settings.show_map_panel = false;
+        const mapCb = document.getElementById('toggle-map-panel');
+        if (mapCb) mapCb.checked = false;
+      }
+      if (key === 'show_map_panel' && e.target.checked) {
+        state.settings.show_notes_panel = false;
+        const notesCb = document.getElementById('toggle-notes-panel');
+        if (notesCb) notesCb.checked = false;
+      }
+
       applyAllSettings();
       saveState();
 
@@ -1519,6 +1653,17 @@ document.addEventListener('DOMContentLoaded', () => {
         b.classList.toggle('active', b === btn));
       state.settings.updater_location = btn.dataset.value;
       saveState();
+    });
+  });
+
+  // ── Side Panel location (segmented) ────────────
+  document.querySelectorAll('#seg-panel-location .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#seg-panel-location .seg-btn').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      state.settings.panel_location = btn.dataset.value;
+      saveState();
+      applySidePanel(); // Horizontal vs Vertical changes mobile availability too
     });
   });
 
@@ -1612,5 +1757,28 @@ document.addEventListener('DOMContentLoaded', () => {
     backdrop.addEventListener('click', (e) => {
       if (e.target === backdrop) backdrop.classList.add('hidden');
     });
+  });
+
+  // ── Side panel ──────────────────────────────────
+  const sidePanelClose = document.getElementById('side-panel-close');
+  if (sidePanelClose) {
+    sidePanelClose.addEventListener('click', () => {
+      state.settings.show_notes_panel = false;
+      state.settings.show_map_panel = false;
+      saveState();
+      applyAllSettings();
+      const notesCb = document.getElementById('toggle-notes-panel');
+      const mapCb = document.getElementById('toggle-map-panel');
+      if (notesCb) notesCb.checked = false;
+      if (mapCb) mapCb.checked = false;
+    });
+  }
+
+  // Re-evaluate the panel on resize (debounced) so crossing the mobile
+  // breakpoint shows/hides it without needing a settings change.
+  let panelResizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(panelResizeTimer);
+    panelResizeTimer = setTimeout(applySidePanel, 150);
   });
 });
