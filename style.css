@@ -1197,6 +1197,100 @@ h1 {
   border-color: var(--accent);
 }
 
+/* ── Notes toolbar (layout orientation / columns / compact) ─────────── */
+/* Injected by JS above .lz-scroll-wrap in both the modal and notes.html. */
+.lz-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+.lz-toolbar-group { display: flex; align-items: center; gap: 6px; }
+.lz-toolbar-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.lz-toolbar .seg-btn { height: 28px; padding: 0 11px; font-size: 0.8rem; }
+/* Columns picker only matters in vertical mode */
+.lz-toolbar:not(.orient-vertical) .lz-cols-group { display: none; }
+
+.lz-compact-btn {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.lz-compact-btn:hover { background: var(--bg-hover); color: var(--text); }
+.lz-compact-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ── Vertical orientation ───────────────────────────────────────────── */
+/* Pack kingdoms into N balanced columns that scroll vertically, instead of
+   the default flex column-wrap masonry that grows horizontally. Each kingdom
+   stays intact (break-inside: avoid) and reads top-to-bottom, wrapping into
+   the next column. */
+#lz-content.lz-layout-vertical {
+  display: block;
+  height: auto;
+  width: 100%;
+  min-width: 0;
+  column-gap: 20px;
+}
+#lz-content.lz-layout-vertical.lz-cols-1 { column-count: 1; }
+#lz-content.lz-layout-vertical.lz-cols-2 { column-count: 2; }
+#lz-content.lz-layout-vertical.lz-cols-3 { column-count: 3; }
+
+#lz-content.lz-layout-vertical .kingdom-col {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 20px;
+  /* a hair of top padding keeps a kingdom from kissing the column top edge
+     when the browser breaks a column between two kingdoms */
+  padding-top: 1px;
+}
+/* Big kingdoms: stack their two split halves into a single column here */
+#lz-content.lz-layout-vertical .zones-split-wrap {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* ── Compact density (works in either orientation) ──────────────────── */
+#lz-content.lz-compact { gap: 12px; }
+#lz-content.lz-compact.lz-layout-vertical { column-gap: 12px; }
+#lz-content.lz-compact .kingdom-col { margin-bottom: 12px; }
+#lz-content.lz-compact .kingdom-col-header { margin-bottom: 5px; }
+#lz-content.lz-compact .zones-container { gap: 4px; }
+#lz-content.lz-compact .zones-split-wrap { gap: 4px 12px; }
+#lz-content.lz-compact .zone-row { gap: 2px; }
+#lz-content.lz-compact .zone-row-top { gap: 4px; }
+#lz-content.lz-compact .zone-icon { height: 16px; }
+#lz-content.lz-compact .zone-name { font-size: 0.8rem; }
+#lz-content.lz-compact .zone-note {
+  min-height: 22px;
+  padding: 3px 6px;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
 /* ── Icon Picker Popup ───────────────────────────────────────────── */
 .icon-picker-popup {
   position: fixed;

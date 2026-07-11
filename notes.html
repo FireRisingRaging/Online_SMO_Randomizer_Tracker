@@ -74,6 +74,9 @@
       notes_scroll_px:   100,
       scroll_left_binding:  { type: 'mouse', code: 3 },
       scroll_right_binding: { type: 'mouse', code: 4 },
+      notes_layout:  'horizontal', // 'horizontal' | 'vertical'
+      notes_columns: 2,            // vertical-mode kingdoms side-by-side (1|2|3)
+      notes_compact: false,        // tighter spacing + shorter note boxes
     };
 
     const LOADING_ZONES_TEMPLATE = {
@@ -177,6 +180,100 @@
       buildLoadingZonesContent();
     }
 
+    // ── Notes layout: orientation / column count / compact ───────────
+    // Class-driven on #lz-content so switching is instant. Settings persist
+    // to localStorage and are shared with the in-page modal in app.js.
+    function normalizeNotesCols(v) {
+      return (v === 1 || v === 3) ? v : 2;
+    }
+
+    function applyNotesLayout() {
+      const content = document.getElementById('lz-content');
+      if (!content) return;
+      const s = fullState.settings;
+      const vertical = s.notes_layout === 'vertical';
+      const cols = normalizeNotesCols(s.notes_columns);
+      content.classList.toggle('lz-layout-vertical', vertical);
+      content.classList.toggle('lz-layout-horizontal', !vertical);
+      content.classList.remove('lz-cols-1', 'lz-cols-2', 'lz-cols-3');
+      content.classList.add('lz-cols-' + cols);
+      content.classList.toggle('lz-compact', !!s.notes_compact);
+      syncNotesToolbar();
+    }
+
+    function syncNotesToolbar() {
+      const bar = document.querySelector('.lz-toolbar');
+      if (!bar) return;
+      const s = fullState.settings;
+      const vertical = s.notes_layout === 'vertical';
+      const cols = normalizeNotesCols(s.notes_columns);
+      bar.classList.toggle('orient-vertical', vertical);
+      bar.querySelectorAll('[data-orient]').forEach(b =>
+        b.classList.toggle('active', (b.dataset.orient === 'vertical') === vertical));
+      bar.querySelectorAll('[data-cols]').forEach(b =>
+        b.classList.toggle('active', Number(b.dataset.cols) === cols));
+      const compactBtn = bar.querySelector('[data-compact]');
+      if (compactBtn) compactBtn.classList.toggle('active', !!s.notes_compact);
+    }
+
+    function autosizeNotes(root) {
+      (root || document).querySelectorAll('.zone-note').forEach(t => {
+        if (t.style.display === 'none') return;
+        t.style.height = 'auto';
+        t.style.height = t.scrollHeight + 'px';
+      });
+    }
+
+    function ensureNotesToolbar() {
+      const scrollWrap = document.querySelector('.lz-scroll-wrap');
+      if (!scrollWrap || !scrollWrap.parentElement) return;
+      if (document.querySelector('.lz-toolbar')) return;
+
+      const bar = document.createElement('div');
+      bar.className = 'lz-toolbar';
+      bar.innerHTML =
+        '<div class="lz-toolbar-group">' +
+          '<span class="lz-toolbar-label">Layout</span>' +
+          '<div class="segmented">' +
+            '<button class="seg-btn" data-orient="horizontal">Horizontal</button>' +
+            '<button class="seg-btn" data-orient="vertical">Vertical</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lz-toolbar-group lz-cols-group">' +
+          '<span class="lz-toolbar-label">Columns</span>' +
+          '<div class="segmented">' +
+            '<button class="seg-btn" data-cols="1">1</button>' +
+            '<button class="seg-btn" data-cols="2">2</button>' +
+            '<button class="seg-btn" data-cols="3">3</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lz-toolbar-group">' +
+          '<button class="lz-compact-btn" data-compact>Compact</button>' +
+        '</div>';
+
+      bar.querySelectorAll('[data-orient]').forEach(b =>
+        b.addEventListener('click', () => {
+          fullState.settings.notes_layout = b.dataset.orient;
+          saveFullState();
+          applyNotesLayout();
+        }));
+      bar.querySelectorAll('[data-cols]').forEach(b =>
+        b.addEventListener('click', () => {
+          fullState.settings.notes_columns = Number(b.dataset.cols);
+          fullState.settings.notes_layout = 'vertical';
+          saveFullState();
+          applyNotesLayout();
+        }));
+      const compactBtn = bar.querySelector('[data-compact]');
+      compactBtn.addEventListener('click', () => {
+        fullState.settings.notes_compact = !fullState.settings.notes_compact;
+        saveFullState();
+        applyNotesLayout();
+      });
+
+      scrollWrap.parentElement.insertBefore(bar, scrollWrap);
+    }
+
     // ── Build kingdom list ──────────────────────────────────────────
     function buildLoadingZonesContent() {
       const container = document.getElementById('lz-content');
@@ -186,6 +283,8 @@
         if (settingKey && !fullState.settings[settingKey]) continue;
         container.appendChild(buildKingdomColumn(kingdom, data));
       }
+      applyNotesLayout();
+      autosizeNotes(container);
     }
 
     function buildKingdomColumn(kingdom, data) {
@@ -415,6 +514,7 @@
         if (fresh.settings) {
           fullState.settings = fresh.settings;
           buildLoadingZonesContent();
+          applyNotesLayout();
         }
       } catch (err) { /* ignore malformed updates */ }
     });
@@ -425,6 +525,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       loadFullState();
+      ensureNotesToolbar();
       buildLoadingZonesContent();
       // layoutMasonryColumns();
       setupScroll();

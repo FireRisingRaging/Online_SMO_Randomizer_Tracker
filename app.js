@@ -76,7 +76,12 @@ const DEFAULT_SETTINGS = {
   show_map_panel: false,       // Side panel embedding map.html beside the tracker.
                                 // Mutually exclusive with show_notes_panel (see applySidePanel).
   panel_location: 'horizontal', // 'horizontal' | 'vertical' - beside vs below the tracker
-  
+
+  // Loading Zone Notes layout (shared by the modal and the popped-out notes.html)
+  notes_layout: 'horizontal',  // 'horizontal' = column-wrap masonry (horizontal scroll)
+                               // 'vertical'   = multi-column pack (vertical scroll)
+  notes_columns: 2,            // kingdoms side-by-side in vertical mode (1 | 2 | 3)
+  notes_compact: false,        // tighter spacing + shorter note boxes
 };
 
 function cloneDefaultSettings() {
@@ -639,18 +644,26 @@ function buildAbilityRow() {
   // embedded side panel. When Horizontal mode has nowhere to go (mobile),
   // fall back to the original in-page modal.
   notesBtn.addEventListener('click', () => {
-    if (!isPanelLocationAvailable()) openLoadingZones();
-    else toggleSidePanel('notes');
+    // Notes uses the embedded side panel only when its panel toggle is on and
+    // there's room for the panel; otherwise it opens the in-page modal.
+    if (state.settings.show_notes_panel && isPanelLocationAvailable()) {
+      toggleSidePanel('notes');
+    } else {
+      openLoadingZones();
+    }
   });
   notesSection.appendChild(notesBtn);
   const mapBtn = document.createElement('button');
   mapBtn.className = 'map-btn';
   mapBtn.textContent = 'Connection Map';
-  // Same idea as the Notes button: side panel when available, original
-  // popout window otherwise.
+  // Same idea as the Notes button: side panel when its toggle is on and there's
+  // room, otherwise open map.html in a new tab.
   mapBtn.addEventListener('click', () => {
-    if (!isPanelLocationAvailable()) openMap();
-    else toggleSidePanel('map');
+    if (state.settings.show_map_panel && isPanelLocationAvailable()) {
+      toggleSidePanel('map');
+    } else {
+      openMap();
+    }
   });
   notesSection.appendChild(mapBtn);
 }
@@ -1175,10 +1188,17 @@ function setupSyncUI() {
 // Loading Zones Modal
 // ─────────────────────────────────────────────────────────────────────────────
 let notesWindow = null;
+let mapWindow = null;
 
 function openMap() {
-  const features = 'resizable=yes,toolbar=no,menubar=no';
-  mapWindow = window.open('map.html', 'ConnectionMap', features);
+  // If the map tab is already open, refocus it instead of spawning another.
+  if (mapWindow && !mapWindow.closed) {
+    mapWindow.focus();
+    return;
+  }
+  // No feature string → browsers open a real new tab (not a popup window); the
+  // 'ConnectionMap' target name keeps repeat clicks to a single reused tab.
+  mapWindow = window.open('map.html', 'ConnectionMap');
 }
 
 function openLoadingZones() {
@@ -1194,6 +1214,7 @@ function openLoadingZones() {
   resyncLoadingZonesFromStorage();
   // Modal must be visible before we build/measure content, or heights read as 0
   document.getElementById('lz-modal').classList.remove('hidden');
+  ensureNotesToolbar();
   buildLoadingZonesContent();
   // layoutMasonryColumns();
 }
@@ -1243,6 +1264,108 @@ function buildLoadingZonesContent() {
     if (settingKey && !state.settings[settingKey]) continue;
     container.appendChild(buildKingdomColumn(kingdom, data));
   }
+  applyNotesLayout();
+  autosizeNotes(container);
+}
+
+// ── Notes layout: orientation (horizontal/vertical) + column count + compact ──
+// Everything is driven by classes on #lz-content, so switching is instant and
+// never needs a rebuild. Settings persist and are shared with notes.html.
+function normalizeNotesCols(v) {
+  return (v === 1 || v === 3) ? v : 2;
+}
+
+function applyNotesLayout() {
+  const content = document.getElementById('lz-content');
+  if (!content) return;
+  const s = state.settings;
+  const vertical = s.notes_layout === 'vertical';
+  const cols = normalizeNotesCols(s.notes_columns);
+  content.classList.toggle('lz-layout-vertical', vertical);
+  content.classList.toggle('lz-layout-horizontal', !vertical);
+  content.classList.remove('lz-cols-1', 'lz-cols-2', 'lz-cols-3');
+  content.classList.add('lz-cols-' + cols);
+  content.classList.toggle('lz-compact', !!s.notes_compact);
+  syncNotesToolbar();
+}
+
+function syncNotesToolbar() {
+  const bar = document.querySelector('#lz-modal .lz-toolbar');
+  if (!bar) return;
+  const s = state.settings;
+  const vertical = s.notes_layout === 'vertical';
+  const cols = normalizeNotesCols(s.notes_columns);
+  bar.classList.toggle('orient-vertical', vertical);
+  bar.querySelectorAll('[data-orient]').forEach(b =>
+    b.classList.toggle('active', (b.dataset.orient === 'vertical') === vertical));
+  bar.querySelectorAll('[data-cols]').forEach(b =>
+    b.classList.toggle('active', Number(b.dataset.cols) === cols));
+  const compactBtn = bar.querySelector('[data-compact]');
+  if (compactBtn) compactBtn.classList.toggle('active', !!s.notes_compact);
+}
+
+// Grow each visible note textarea to fit its saved text so column packing
+// measures real heights (and long notes aren't clipped to one line).
+function autosizeNotes(root) {
+  (root || document).querySelectorAll('.zone-note').forEach(t => {
+    if (t.style.display === 'none') return;
+    t.style.height = 'auto';
+    t.style.height = t.scrollHeight + 'px';
+  });
+}
+
+// Build the toolbar once and insert it above the scroll area in the modal.
+function ensureNotesToolbar() {
+  const modal = document.getElementById('lz-modal');
+  if (!modal) return;
+  const scrollWrap = modal.querySelector('.lz-scroll-wrap');
+  if (!scrollWrap || !scrollWrap.parentElement) return;
+  if (modal.querySelector('.lz-toolbar')) return; // already built
+
+  const bar = document.createElement('div');
+  bar.className = 'lz-toolbar';
+  bar.innerHTML =
+    '<div class="lz-toolbar-group">' +
+      '<span class="lz-toolbar-label">Layout</span>' +
+      '<div class="segmented">' +
+        '<button class="seg-btn" data-orient="horizontal">Horizontal</button>' +
+        '<button class="seg-btn" data-orient="vertical">Vertical</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="lz-toolbar-group lz-cols-group">' +
+      '<span class="lz-toolbar-label">Columns</span>' +
+      '<div class="segmented">' +
+        '<button class="seg-btn" data-cols="1">1</button>' +
+        '<button class="seg-btn" data-cols="2">2</button>' +
+        '<button class="seg-btn" data-cols="3">3</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="lz-toolbar-group">' +
+      '<button class="lz-compact-btn" data-compact>Compact</button>' +
+    '</div>';
+
+  bar.querySelectorAll('[data-orient]').forEach(b =>
+    b.addEventListener('click', () => {
+      state.settings.notes_layout = b.dataset.orient;
+      saveState();
+      applyNotesLayout();
+    }));
+  bar.querySelectorAll('[data-cols]').forEach(b =>
+    b.addEventListener('click', () => {
+      state.settings.notes_columns = Number(b.dataset.cols);
+      // Column count only has an effect in vertical mode, so flip into it.
+      state.settings.notes_layout = 'vertical';
+      saveState();
+      applyNotesLayout();
+    }));
+  const compactBtn = bar.querySelector('[data-compact]');
+  compactBtn.addEventListener('click', () => {
+    state.settings.notes_compact = !state.settings.notes_compact;
+    saveState();
+    applyNotesLayout();
+  });
+
+  scrollWrap.parentElement.insertBefore(bar, scrollWrap);
 }
 
 // Clears the note text and resets icons back to default in every zone,
