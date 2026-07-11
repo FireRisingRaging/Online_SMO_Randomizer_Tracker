@@ -49,6 +49,8 @@ const PICKER_ICONS = [
 
 const DEFAULT_SETTINGS = {
   show_moon_total: true,
+  show_tracker_moon_total: false, // On-tracker "counted / requirement : left" box (default off)
+  zone_names: {},                 // { [kingdom]: { [defaultZoneKey]: 'Custom Name' } } overrides
   moon_requirement: 124,
   show_icon_colors: true,
   show_ability_lock: true,
@@ -185,6 +187,7 @@ function bindingLabel(binding) {
 // Settings toggle definitions for data-driven wiring
 const TOGGLE_SETTINGS = [
   { id: 'toggle-moon-total', key: 'show_moon_total' },
+  { id: 'toggle-tracker-moon-count', key: 'show_tracker_moon_total' },
   { id: 'toggle-icon-colors', key: 'show_icon_colors' },
   { id: 'toggle-lock', key: 'show_lock' },
   { id: 'toggle-peace', key: 'show_peace' },
@@ -463,6 +466,7 @@ function refreshCountLabel(i) {
   row.querySelector('.count-label').textContent =
     `${m.count} / ${m.max !== null ? m.max : '?'}`;
   updateCountColor(i);
+  updateMoonTotal();
 }
 
 // Green-when-complete: count label turns green once count >= max (only while
@@ -537,6 +541,8 @@ function refreshMoonRow(i, rowEl) {
 
   // Save button visibility
   row.querySelector('.save-btn').classList.toggle('hidden', !state.settings.show_save_buttons);
+
+  updateMoonTotal();
 }
 
 // ── Moon actions ──────────────────────────────────────────────────
@@ -782,7 +788,50 @@ function applyAllSettings() {
   refreshMoonRangeLabels();
   KINGDOMS.forEach((_, i) => updateCountColor(i));
 
+  updateMoonTotal();
   applySidePanel();
+}
+
+// ── Zone name overrides ───────────────────────────────────────────
+// Custom loading-zone names live in settings.zone_names, keyed by kingdom then
+// by the default zone key. Empty/missing → fall back to the default name. Shared
+// with notes.html and map.html (they read the same tracker_state).
+function zoneDisplayName(kingdom, zone) {
+  const byKingdom = state.settings.zone_names && state.settings.zone_names[kingdom];
+  const custom = byKingdom && byKingdom[zone];
+  return (custom && String(custom).trim()) ? custom : zone;
+}
+
+// ── Tracker Moon Count box ────────────────────────────────────────
+// counted = raw sum of every visible kingdom's moon count (may exceed the
+// requirement, which is fine). left = requirement − Σ min(count, MAX); a kingdom
+// with no MAX set contributes its raw count. left is clamped at 0 for display.
+function computeMoonTotals() {
+  let counted = 0, capped = 0;
+  KINGDOMS.forEach((k, i) => {
+    if (k.settingKey && !state.settings[k.settingKey]) return; // skip hidden kingdoms
+    const m = state.moons[i];
+    if (!m) return;
+    const c = m.count || 0;
+    counted += c;
+    const userMax = (m.max !== null && m.max !== undefined) ? m.max : Infinity;
+    const kMax = (k.max !== null && k.max !== undefined) ? k.max : Infinity;
+    capped += Math.min(c, userMax, kMax);
+  });
+  const req = state.settings.moon_requirement || 0;
+  return { counted, req, left: Math.max(0, req - capped) };
+}
+
+function updateMoonTotal() {
+  const box = document.getElementById('moon-total-box');
+  if (!box) return;
+  const on = !!state.settings.show_tracker_moon_total;
+  box.classList.toggle('hidden', !on);
+  if (!on) return;
+  const { counted, req, left } = computeMoonTotals();
+  box.querySelector('.mt-counted').textContent = counted;
+  box.querySelector('.mt-req').textContent = req;
+  box.querySelector('.mt-left').textContent = left;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1383,6 +1432,152 @@ function clearAllNotes() {
   buildLoadingZonesContent();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Zone Names editor
+// ─────────────────────────────────────────────────────────────────────────────
+// TODO: fill in the real in-game zone names here, keyed by kingdom then default
+// zone key, e.g. IN_GAME_ZONE_NAMES['Cap'] = { 'Orange': 'Fossil Falls ...' }.
+// The small gray line above each box is wired to read from this map already.
+const IN_GAME_ZONE_NAMES = {};
+
+function inGameZoneName(kingdom, zone) {
+  const byKingdom = IN_GAME_ZONE_NAMES[kingdom];
+  return (byKingdom && byKingdom[zone]) ? byKingdom[zone] : '';
+}
+
+function buildZoneNamesBody() {
+  const body = document.getElementById('zone-names-body');
+  if (!body) return;
+  body.innerHTML = '';
+  for (const [kingdom, data] of Object.entries(LOADING_ZONES_TEMPLATE)) {
+    const block = document.createElement('div');
+    block.className = 'zn-kingdom';
+
+    const header = document.createElement('div');
+    header.className = 'zn-kingdom-header';
+    header.style.color = data.color;
+    const icon = document.createElement('img');
+    icon.src = `assets/${data.icon}`;
+    icon.alt = '';
+    const name = document.createElement('span');
+    name.textContent = kingdom;
+    header.appendChild(icon);
+    header.appendChild(name);
+    block.appendChild(header);
+
+    for (const zone of Object.keys(data.zones)) {
+      const wrap = document.createElement('div');
+      wrap.className = 'zn-zone';
+
+      // Small gray in-game-name line above the box.
+      const ig = document.createElement('span');
+      ig.className = 'zn-ingame';
+      ig.textContent = inGameZoneName(kingdom, zone); // TODO: real in-game names (see IN_GAME_ZONE_NAMES)
+      if (ig.textContent) wrap.appendChild(ig);
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'zn-input';
+      input.dataset.kingdom = kingdom;
+      input.dataset.zone = zone;
+      // Placeholder shows the default zone name; value holds any existing custom
+      // override so it can be edited (clearing it reverts that zone to default).
+      input.placeholder = zone;
+      const existing = state.settings.zone_names?.[kingdom]?.[zone];
+      input.value = (existing && String(existing).trim()) ? existing : '';
+      wrap.appendChild(input);
+
+      block.appendChild(wrap);
+    }
+    body.appendChild(block);
+  }
+}
+
+function openZoneNames() {
+  buildZoneNamesBody();
+  document.getElementById('zone-names-modal').classList.remove('hidden');
+  const body = document.getElementById('zone-names-body');
+  if (body) body.scrollTop = 0;
+}
+
+function saveZoneNames() {
+  const overrides = {};
+  document.querySelectorAll('#zone-names-body .zn-input').forEach(input => {
+    const val = input.value.trim();
+    if (!val) return; // empty → default (no override stored)
+    const k = input.dataset.kingdom, z = input.dataset.zone;
+    (overrides[k] || (overrides[k] = {}))[z] = val;
+  });
+  state.settings.zone_names = overrides;
+  saveState();
+  // Reflect the new names anywhere already rendered in this tab (notes modal /
+  // side panel is a separate document that updates via the storage event).
+  const lzModal = document.getElementById('lz-modal');
+  if (lzModal && !lzModal.classList.contains('hidden')) buildLoadingZonesContent();
+  document.getElementById('zone-names-modal').classList.add('hidden');
+}
+
+function revertZoneNames() {
+  if (!confirm('Revert every loading zone name back to its default?')) return;
+  state.settings.zone_names = {};
+  saveState();
+  buildZoneNamesBody(); // repopulate the (now empty) boxes
+  const lzModal = document.getElementById('lz-modal');
+  if (lzModal && !lzModal.classList.contains('hidden')) buildLoadingZonesContent();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Save State download / load
+// ─────────────────────────────────────────────────────────────────────────────
+// Every localStorage key that makes up a full save, EXCLUDING connection info
+// (room code + WS URL), which is intentionally left out of exports/imports.
+const SAVE_STATE_KEYS = [
+  STATE_KEY,              // tracker + notes
+  'smo_map_state', 'smo_map_positions', 'smo_map_sizes', 'smo_map_grid',
+  'smo_map_settings', 'smo_edge_chains', 'smo_chain_meta',   // map
+];
+
+function downloadSaveState() {
+  const payload = { _type: 'smo-tracker-save', _version: 1, saved_at: new Date().toISOString(), keys: {} };
+  SAVE_STATE_KEYS.forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v !== null) payload.keys[k] = v; // keep raw JSON strings
+  });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `smo-tracker-save-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function loadSaveStateFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try { parsed = JSON.parse(reader.result); }
+    catch (e) { alert("That file isn't valid JSON, so it can't be loaded as a save state."); return; }
+    const keys = parsed && parsed.keys;
+    if (!keys || typeof keys !== 'object') {
+      alert("That file doesn't look like a tracker save state.");
+      return;
+    }
+    if (!confirm('Load this save state? It overwrites the tracker, notes, and map data on this device (your room/connection settings are left as-is).')) return;
+    SAVE_STATE_KEYS.forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(keys, k)) {
+        try { localStorage.setItem(k, keys[k]); } catch (e) { /* quota / ignore */ }
+      }
+    });
+    // Reload so the tracker, the notes iframe, and the map all re-read fresh data.
+    location.reload();
+  };
+  reader.readAsText(file);
+}
+
 function buildKingdomColumn(kingdom, data) {
   const col = document.createElement('div');
   col.className = 'kingdom-col';
@@ -1494,7 +1689,7 @@ function buildZoneRow(kingdom, zone, zoneData, color) {
 
   const nameLabel = document.createElement('span');
   nameLabel.className = 'zone-name';
-  nameLabel.textContent = zone;
+  nameLabel.textContent = zoneDisplayName(kingdom, zone);
   nameLabel.style.color = zs.collapsed ? '#888' : color;
 
   top.appendChild(nameLabel);
@@ -1714,6 +1909,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Settings modal ─────────────────────────────
   document.getElementById('settings-close').addEventListener('click', () => {
     document.getElementById('settings-modal').classList.add('hidden');
+  });
+
+  // ── System tab: Zone Names + Save State ────────
+  document.getElementById('btn-zone-names').addEventListener('click', openZoneNames);
+  document.getElementById('zn-save').addEventListener('click', saveZoneNames);
+  document.getElementById('zn-revert').addEventListener('click', revertZoneNames);
+  document.getElementById('btn-download-save').addEventListener('click', downloadSaveState);
+  const loadInput = document.getElementById('input-load-save');
+  document.getElementById('btn-load-save').addEventListener('click', () => loadInput.click());
+  loadInput.addEventListener('change', (e) => {
+    loadSaveStateFromFile(e.target.files && e.target.files[0]);
+    e.target.value = ''; // allow re-selecting the same file later
   });
 
   // Toggle switches (data-driven)

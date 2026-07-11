@@ -1288,6 +1288,44 @@ const STORAGE_EDGE_CHAINS = 'smo_edge_chains';
 const STORAGE_CHAIN_META  = 'smo_chain_meta';
 
 // ─────────────────────────────────────────────────────────────────
+// Zone name overrides (from the main tracker's tracker_state)
+// ─────────────────────────────────────────────────────────────────
+// The tracker/notes let users rename loading zones; those custom names live in
+// tracker_state.settings.zone_names ({ kingdom: { defaultZoneKey: name } }). The
+// map reads them so renamed zones show here too. Cached per render for speed and
+// refreshed whenever tracker_state changes (see the storage listener in init).
+const TRACKER_STATE_KEY = 'tracker_state';
+let _zoneNameCache = {};
+
+function refreshZoneNameCache() {
+  try {
+    const raw = localStorage.getItem(TRACKER_STATE_KEY);
+    _zoneNameCache = raw ? (JSON.parse(raw)?.settings?.zone_names || {}) : {};
+  } catch (e) { _zoneNameCache = {}; }
+}
+
+// Display label for a node: zones use their custom name when one is set; kingdom
+// nodes (and unset zones) keep their default label.
+function zoneDisplayLabel(n) {
+  if (!n) return '';
+  if (n.type === 'zone') {
+    const byK = _zoneNameCache[n.kingdomKey];
+    const custom = byK && byK[n.label];
+    if (custom && String(custom).trim()) return custom;
+  }
+  return n.label;
+}
+
+function zoneNamesSignature() {
+  try {
+    const raw = localStorage.getItem(TRACKER_STATE_KEY);
+    const zn = raw ? (JSON.parse(raw)?.settings?.zone_names || {}) : {};
+    return JSON.stringify(zn);
+  } catch (e) { return '{}'; }
+}
+let _zoneNamesSig = '{}';
+
+// ─────────────────────────────────────────────────────────────────
 // Layout constants
 // ─────────────────────────────────────────────────────────────────
 const ZONE_COLS_DEFAULT = 3;
@@ -1789,6 +1827,7 @@ const imgBody    = document.getElementById('image-viewer-body');
 // Full re-render
 // ─────────────────────────────────────────────────────────────────
 function fullRender() {
+  refreshZoneNameCache();
   // Remove all existing cluster-bgs and nodes (keep SVG)
   canvasEl.querySelectorAll('.cluster-bg, .map-node').forEach(el => el.remove());
   buildLayout();
@@ -2136,7 +2175,7 @@ function renderNodes() {
 
     const label = document.createElement('span');
     label.className = 'node-label';
-    label.textContent = n.label;
+    label.textContent = zoneDisplayLabel(n);
     label.style.color = n.type === 'zone' ? n.color : 'var(--text)';
     el.appendChild(label);
 
@@ -2508,7 +2547,7 @@ function openImageViewer(nodeId) {
   // Reset image zoom/pan every time a new image is opened
   resetMobileImgZoom();
 
-  imgTitle.textContent = isKingdom ? `${n.label} Kingdom` : `${n.kingdomKey}: ${n.label}`;
+  imgTitle.textContent = isKingdom ? `${n.label} Kingdom` : `${n.kingdomKey}: ${zoneDisplayLabel(n)}`;
   imgTitle.style.color = n.color || 'var(--text)';
 
   imgBody.innerHTML = '';
@@ -3073,7 +3112,7 @@ function renderDisplayPanel() {
       const n = nodes[id];
       if (!n) return;
       const span = document.createElement('span');
-      span.textContent = n.label;
+      span.textContent = zoneDisplayLabel(n);
       span.style.color = n.type === 'zone' ? n.color : 'var(--text)';
       span.style.fontWeight = n.type === 'kingdom' ? 'bold' : 'normal';
       row.appendChild(span);
@@ -3396,6 +3435,17 @@ if (displayPositionSelect) {
 // ─────────────────────────────────────────────────────────────────
 function init() {
   loadAll();
+  refreshZoneNameCache();
+  _zoneNamesSig = zoneNamesSignature();
+  // Re-render when the tracker/notes change custom zone names (only then, so we
+  // don't rebuild on every unrelated tracker_state save like moon counts).
+  window.addEventListener('storage', (e) => {
+    if (e.key !== TRACKER_STATE_KEY) return;
+    const sig = zoneNamesSignature();
+    if (sig === _zoneNamesSig) return;
+    _zoneNamesSig = sig;
+    fullRender();
+  });
   migrateOldEdgeChains();
   recomputeChainLabels();
 

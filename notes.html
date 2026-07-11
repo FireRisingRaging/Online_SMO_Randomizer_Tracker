@@ -77,7 +77,16 @@
       notes_layout:  'horizontal', // 'horizontal' | 'vertical'
       notes_columns: 2,            // vertical-mode kingdoms side-by-side (1|2|3)
       notes_compact: false,        // tighter spacing + shorter note boxes
+      zone_names:    {},           // custom loading-zone name overrides
     };
+
+    // Custom zone names live in settings.zone_names ({ kingdom: { zoneKey: name } }).
+    // Empty/missing → default name. Shared with the tracker + map via tracker_state.
+    function zoneDisplayName(kingdom, zone) {
+      const byKingdom = fullState.settings.zone_names && fullState.settings.zone_names[kingdom];
+      const custom = byKingdom && byKingdom[zone];
+      return (custom && String(custom).trim()) ? custom : zone;
+    }
 
     const LOADING_ZONES_TEMPLATE = {
       'Cap':        { color:'#fff500', icon:'Cap.png',      zones:{ 'Orange':{num:2},'Paragoomba':{num:2},'Frog':{num:2},'Rolling On':{num:2} }},
@@ -388,7 +397,7 @@
 
       const nameLabel = document.createElement('span');
       nameLabel.className = 'zone-name';
-      nameLabel.textContent = zone;
+      nameLabel.textContent = zoneDisplayName(kingdom, zone);
       nameLabel.style.color = zs.collapsed ? '#888' : color;
 
       top.appendChild(nameLabel);

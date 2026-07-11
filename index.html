@@ -37,6 +37,13 @@
       <div id="sync-size-row" class="hidden">OBS size: <strong>945</strong> × <strong>1350</strong></div>
     </div>
 
+    <!-- Tracker Moon Count (toggled via Settings → Main). Same look as #controls. -->
+    <div id="moon-total-box" class="hidden">
+      <span class="mt-frac"><span class="mt-counted">0</span> / <span class="mt-req">124</span></span>
+      <span class="mt-sep">:</span>
+      <span class="mt-left-wrap"><span class="mt-left">0</span> Left</span>
+    </div>
+
     <!-- Controls -->
     <div id="controls">
       <div id="capture-section">
@@ -116,6 +123,7 @@
         <button class="settings-tab" data-tab="kingdom" role="tab">Kingdom Tracking</button>
         <button class="settings-tab" data-tab="streamer" role="tab">Streamer</button>
         <button class="settings-tab" data-tab="notes" role="tab">Notes</button>
+        <button class="settings-tab" data-tab="system" role="tab">System</button>
       </div>
 
       <div class="modal-body settings-body">
@@ -127,6 +135,14 @@
             <span>Toggle Total Moon Count</span>
             <label class="toggle-switch">
               <input type="checkbox" id="toggle-moon-total">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <span>Tracker Moon Count</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-tracker-moon-count">
               <span class="toggle-track"></span>
             </label>
           </div>
@@ -378,6 +394,18 @@
 
         </div>
 
+        <!-- ══ SYSTEM TAB ═══════════════════════════════════════════ -->
+        <div class="settings-panel" data-panel="system">
+
+          <button class="sys-btn sys-btn-outline-orange" id="btn-zone-names">Zone Names</button>
+
+          <button class="sys-btn sys-btn-blue" id="btn-download-save">Download Save State</button>
+
+          <button class="sys-btn sys-btn-outline-blue" id="btn-load-save">Load Save State</button>
+          <input type="file" id="input-load-save" accept="application/json,.json" hidden>
+
+        </div>
+
       </div>
 
       <div class="settings-footer">
@@ -402,6 +430,18 @@
       </div>
     </div>
   </div>
+  <!-- ── Zone Names Modal ──────────────────────────────────────── -->
+  <div id="zone-names-modal" class="modal-backdrop hidden" role="dialog" aria-label="Zone Names">
+    <div class="modal-box zone-names-modal-box">
+      <div class="zone-names-topbar">
+        <button class="zn-save-btn" id="zn-save">Save</button>
+        <span class="zone-names-title">Zone Names</span>
+        <button class="zn-revert-btn" id="zn-revert">Revert to Default</button>
+      </div>
+      <div class="zone-names-body" id="zone-names-body"></div>
+    </div>
+  </div>
+
   <div id="author-credit">Made by FireRisingRaging, Just Bag, gmo7, and JohnnyCyan</div>
 
   <!-- ── Icon Picker (appended to body by JS) ──────────────────── -->
