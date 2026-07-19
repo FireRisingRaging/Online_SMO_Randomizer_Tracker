@@ -77,6 +77,7 @@
       notes_layout:  'horizontal', // 'horizontal' | 'vertical'
       notes_columns: 2,            // vertical-mode kingdoms side-by-side (1|2|3)
       notes_compact: false,        // tighter spacing + shorter note boxes
+      show_painting_notes: false,  // Paintings notes column (before Cascade); default off
       zone_names:    {},           // custom loading-zone name overrides
     };
 
@@ -114,6 +115,10 @@
     const KINGDOM_VISIBILITY_SETTINGS = {
       Moon: 'show_kingdom_moon',
     };
+
+    // Paintings notes column (mirrors app.js): one note box per kingdom, no moons.
+    const PAINTINGS_NOTES_KEY = 'Paintings';
+    const PAINTING_NOTE_KINGDOMS = ['Cascade','Sand','Lake','Wooded','Metro','Snow','Seaside','Luncheon',"Bowser's",'Mushroom'];
 
     let fullState = null;
 
@@ -164,6 +169,13 @@
       if (!fullState.kingdom_collapsed) {
         fullState.kingdom_collapsed = Object.fromEntries(Object.keys(LOADING_ZONES_TEMPLATE).map(k => [k, false]));
       }
+      if (!(PAINTINGS_NOTES_KEY in fullState.kingdom_collapsed)) {
+        fullState.kingdom_collapsed[PAINTINGS_NOTES_KEY] = false;
+      }
+      if (!fullState.painting_notes) fullState.painting_notes = {};
+      PAINTING_NOTE_KINGDOMS.forEach(k => {
+        if (!(k in fullState.painting_notes)) fullState.painting_notes[k] = '';
+      });
     }
 
     function saveFullState() {
@@ -184,6 +196,9 @@
           zone.icon = 'Moon.png';
           zone.icon2 = 'Moon.png';
         }
+      }
+      if (fullState.painting_notes) {
+        for (const k of Object.keys(fullState.painting_notes)) fullState.painting_notes[k] = '';
       }
       saveFullState();
       buildLoadingZonesContent();
@@ -287,6 +302,9 @@
     function buildLoadingZonesContent() {
       const container = document.getElementById('lz-content');
       container.innerHTML = '';
+      if (fullState.settings.show_painting_notes) {
+        container.appendChild(buildPaintingNotesColumn());
+      }
       for (const [kingdom, data] of Object.entries(fullState.loading_zones)) {
         const settingKey = KINGDOM_VISIBILITY_SETTINGS[kingdom];
         if (settingKey && !fullState.settings[settingKey]) continue;
@@ -294,6 +312,83 @@
       }
       applyNotesLayout();
       autosizeNotes(container);
+    }
+
+    // Paintings notes column: one note box per kingdom, no moon icons.
+    function buildPaintingNotesColumn() {
+      if (!fullState.painting_notes) fullState.painting_notes = {};
+      const col = document.createElement('div');
+      col.className = 'kingdom-col';
+
+      const header = document.createElement('div');
+      header.className = 'kingdom-col-header';
+
+      const icon = document.createElement('img');
+      icon.src = 'assets/Painting.png';
+      icon.height = 20;
+      icon.alt = 'Paintings';
+
+      const title = document.createElement('span');
+      title.className = 'col-title';
+      title.textContent = 'Paintings';
+      title.style.color = '#e6e6ee';
+
+      const chevron = document.createElement('span');
+      chevron.className = 'col-chevron';
+      chevron.textContent = '▾';
+
+      header.appendChild(icon);
+      header.appendChild(title);
+      header.appendChild(chevron);
+
+      const zonesRoot = document.createElement('div');
+      zonesRoot.className = 'zones-container';
+
+      PAINTING_NOTE_KINGDOMS.forEach(kingdom => {
+        if (!(kingdom in fullState.painting_notes)) fullState.painting_notes[kingdom] = '';
+        const kd = LOADING_ZONES_TEMPLATE[kingdom] || { color: '#e6e6ee' };
+        const row = document.createElement('div');
+        row.className = 'zone-row';
+
+        const top = document.createElement('div');
+        top.className = 'zone-row-top';
+        const nameLabel = document.createElement('span');
+        nameLabel.className = 'zone-name';
+        nameLabel.textContent = kingdom;
+        nameLabel.style.color = kd.color;
+        top.appendChild(nameLabel);
+        row.appendChild(top);
+
+        const noteArea = document.createElement('textarea');
+        noteArea.className = 'zone-note';
+        noteArea.value = fullState.painting_notes[kingdom] || '';
+        noteArea.placeholder = 'Note…';
+        noteArea.rows = 1;
+        noteArea.addEventListener('input', () => {
+          noteArea.style.height = 'auto';
+          noteArea.style.height = noteArea.scrollHeight + 'px';
+          fullState.painting_notes[kingdom] = noteArea.value;
+          saveFullState();
+        });
+        row.appendChild(noteArea);
+        zonesRoot.appendChild(row);
+      });
+
+      if (fullState.kingdom_collapsed[PAINTINGS_NOTES_KEY]) {
+        zonesRoot.style.display = 'none';
+        header.classList.add('collapsed');
+      }
+      header.addEventListener('click', () => {
+        const willCollapse = zonesRoot.style.display !== 'none';
+        zonesRoot.style.display = willCollapse ? 'none' : '';
+        header.classList.toggle('collapsed', willCollapse);
+        fullState.kingdom_collapsed[PAINTINGS_NOTES_KEY] = willCollapse;
+        saveFullState();
+      });
+
+      col.appendChild(header);
+      col.appendChild(zonesRoot);
+      return col;
     }
 
     function buildKingdomColumn(kingdom, data) {

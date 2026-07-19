@@ -312,6 +312,16 @@
       return !!(settings && settings.show_kingdom_moon && settings.show_moon_obs !== false);
     }
 
+    // Custom moon-row order set by drag-to-reorder in the main tracker. Returns
+    // the display order as a list of KINGDOMS indices (unlisted ones appended).
+    function kingdomOrderList(settings) {
+      const saved = Array.isArray(settings && settings.kingdom_order) ? settings.kingdom_order : [];
+      const seen = new Set(), order = [];
+      saved.forEach(i => { if (Number.isInteger(i) && i >= 0 && i < KINGDOMS.length && !seen.has(i)) { seen.add(i); order.push(i); } });
+      KINGDOMS.forEach((_, i) => { if (!seen.has(i)) order.push(i); });
+      return order;
+    }
+
     // ── Per-kingdom max scaling (mirrors app.js) ──────────────────
     // Green-complete uses each kingdom's scaled max, which tracks the Total
     // Moon Requirement N. The 11 core kingdoms scale by N/124; Moon Kingdom
@@ -564,11 +574,16 @@
       renderUpdater(settings);
 
       const showMoonRow = moonOnObs(settings);
+      const orderList = kingdomOrderList(settings);
 
       // Moon rows
       KINGDOMS.forEach((k, i) => {
         const row = document.querySelector(`.obs-moon-row[data-i="${i}"]`);
         if (!row) return;
+
+        // Reflect the tracker's drag-to-reorder ordering
+        const pos = orderList.indexOf(i);
+        row.style.order = pos === -1 ? i : pos;
 
         // Optional Moon Kingdom row visibility
         if (k.settingKey) row.classList.toggle('row-gone', !showMoonRow);

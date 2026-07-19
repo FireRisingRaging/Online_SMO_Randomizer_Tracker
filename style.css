@@ -226,6 +226,19 @@ h1 {
   border-left-color: var(--green);
 }
 
+/* Drag-to-reorder: a subtle gray outline hints the row can be picked up from
+   its empty space / edges, and the row lifts slightly while being dragged. */
+.moon-row.drag-ready {
+  box-shadow: inset 0 0 0 1px rgba(150, 150, 150, 0.55);
+  cursor: grab;
+}
+.moon-row.dragging {
+  cursor: grabbing;
+  opacity: 0.85;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  border-left-color: rgba(150, 150, 150, 0.8);
+}
+
 .moon-row-left {
   display: flex;
   align-items: center;

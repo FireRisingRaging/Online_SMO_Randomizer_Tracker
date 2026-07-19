@@ -318,6 +318,15 @@
   }
   .chain-row .arrow { color: var(--text-dim); margin: 0 4px; }
   .chain-row .loop-tag { color: var(--text-dim); font-size: 0.78rem; margin-left: 6px; }
+  /* Painting chains: white arrows, no letter, and a subtle indent so they read
+     as a distinct group at the top of the panel. */
+  .chain-row.painting-chain-row { padding-left: 8px; }
+  .chain-row.painting-chain-row .arrow { color: #ffffff; }
+  .chain-row.painting-chain-row + .chain-row:not(.painting-chain-row) {
+    border-top: 1px solid var(--border);
+    margin-top: 3px;
+    padding-top: 5px;
+  }
 
   /* Chain label badge (in display panel rows) */
   .chain-label-badge {
@@ -792,12 +801,14 @@
     <strong>Controls</strong>
     <ul>
       <li><strong>Left Mouse Button</strong> hold and drag a zone/kingdom to draw a connection arrow. A node can have any number of outgoing and incoming arrows.</li>
+      <li><strong>Single-click a node</strong> to highlight every chain going in and out of it, each chain in its own color. Click it again (or empty canvas) to clear.</li>
       <li><strong>Double Left Mouse Button</strong> on a node to remove ALL of its outgoing arrows at once.</li>
+      <li><strong>Double-click an arrow</strong> to remove just that connection and split its chain (the part after the break becomes a new chain).</li>
       <li><strong>Click an arrow</strong> on the map (or a path in the Display panel) to highlight that path on both; click again to unhighlight.</li>
       <li><strong>Middle Mouse Button</strong> to mark/unmark a stage green. <strong>Right Mouse Button</strong> to mark/unmark a stage red.</li>
       <li><strong>Drag the panel background or kingdom header</strong> to move a kingdom panel.</li>
       <li><strong>Triangle handle</strong> (bottom-right of each panel) to resize it. Zones reflow automatically in that space.</li>
-      <li><strong>Single-click</strong> a node (with Stage Previews on) to view its loading zone screenshot.</li>
+      <li><strong>Hold for 1 second</strong> on a node (with Stage Previews on) to view its loading zone screenshot.</li>
       <li><strong>Hover</strong> over an arrow to see what letter chain it is part of.</li>
       <li><strong>Single-click</strong> an arrow to view its chain and what chain it can be linked to or add it to a new chain.</li>
       <li>Scroll to zoom, drag empty space to pan.</li>
@@ -879,6 +890,22 @@
               <span class="toggle-track"></span>
             </span>
             <span class="toggle-label" id="toggle-images-label">Off</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">Painting Tracker</div>
+        <div class="settings-row-desc">Adds a Paintings section before Cascade. Paintings only connect to other paintings and may link to several. Painting chains show at the top of the Display with white arrows and no letters.</div>
+        <div class="settings-row-control">
+          <label class="toggle-wrap" for="toggle-painting">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-painting">
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label" id="toggle-painting-label">Off</span>
           </label>
         </div>
       </div>
@@ -1048,6 +1075,45 @@ const LOADING_ZONES_TEMPLATE = {
   'Moon':      { color: '#b5c1cb', icon: 'MoonK.png',   zones: { '2D Snowman': {}, 'Shop': {}, 'Swings': {}, 'Sphynx': {}} },
   'Cloud':     { color: '#65ceff', icon: 'Cloud.png',   zones: { '2D Cube': {}, 'Picture Match': {} } },
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Painting tracker (optional section, toggled in Settings, default off)
+// A single "Paintings" section placed before Cascade in the grid. Each entry
+// is one kingdom's painting. Paintings only connect to other paintings, may
+// fan out to several, and their chains are drawn with white arrows, listed at
+// the top of the Display panel with no letters.
+// ─────────────────────────────────────────────────────────────────
+const PAINTINGS_KEY = 'Paintings';
+const PAINTING_KINGDOMS = ['Cascade','Sand','Lake','Wooded','Metro','Snow','Seaside','Luncheon',"Bowser's",'Mushroom'];
+
+/** Synthetic section template for the Paintings cluster. */
+function paintingsSectionTemplate() {
+  const zones = {};
+  PAINTING_KINGDOMS.forEach(k => { zones[k] = {}; });
+  return { color: '#e6e6ee', icon: 'Painting.png', zones };
+}
+
+/** Returns {color, icon, zones} for any section key (real kingdom or Paintings). */
+function sectionTemplate(key) {
+  return key === PAINTINGS_KEY ? paintingsSectionTemplate() : LOADING_ZONES_TEMPLATE[key];
+}
+
+/** True if a node id belongs to the Paintings section. */
+function isPaintingNode(id) {
+  return typeof id === 'string' && (id === `kingdom:${PAINTINGS_KEY}` || id.startsWith(`zone:${PAINTINGS_KEY}:`));
+}
+
+/** True if a chain id is a painting chain (any of its edges is a painting edge). */
+function isPaintingChain(cid) {
+  if (cid === undefined || cid === null) return false;
+  for (const [key, c] of Object.entries(edgeChains)) {
+    if (c === cid) {
+      const arrowPos = key.indexOf('→');
+      if (arrowPos !== -1) return isPaintingNode(key.substring(0, arrowPos));
+    }
+  }
+  return false;
+}
 
 const DEAD_END_IDS = new Set([
   ['Cascade','Dino'],['Sand','Shop'],['Sand','Employees'],['Sand','Slots'],['Sand','Rumble'],
@@ -1361,13 +1427,17 @@ let randomChainColors = true; // legacy, kept for old-save migration only
 let arrowColorMode = 'random'; // 'random' | 'one' | 'gradient'
 let displayPosition = 'top';
 let displaySize = 150;
+let paintingTracker = false; // Painting section shown on the map (default off)
 
 // Kingdom visibility (which kingdoms are shown on the map). Missing = visible.
 let kingdomVisible = { Moon: false, Cloud: false };
 
-/** Kingdom keys that should currently be rendered on the map. */
+/** Section keys that should currently be rendered on the map, in order.
+ *  When the painting tracker is on, the Paintings section is placed first
+ *  (before Cascade) so it leads the grid when clearing / arranging. */
 function visibleKingdomKeys() {
-  return Object.keys(LOADING_ZONES_TEMPLATE).filter(k => kingdomVisible[k] !== false);
+  const keys = Object.keys(LOADING_ZONES_TEMPLATE).filter(k => kingdomVisible[k] !== false);
+  return paintingTracker ? [PAINTINGS_KEY, ...keys] : keys;
 }
 
 // Chain state
@@ -1379,6 +1449,9 @@ let chainLabelMap = {};   // chainId → "A","B",... (recomputed)
 // Chain-highlight interaction state (chain-ID based)
 let hoverHighlightChainId  = null;
 let pinnedHighlightChainId = null;
+// Node-click highlight: highlights every chain passing through a node, each in
+// its own chain color (multi-color). Independent of the single-chain highlight.
+let pinnedHighlightNodeId  = null;
 
 // Chain picker state
 let activePickerEdge = null;
@@ -1429,7 +1502,7 @@ function buildLayout() {
   kingdomKeys.forEach((key, idx) => {
     const r = Math.floor(idx / cols);
     const w = clusterSizes[key]?.w ?? defaultClusterWidth();
-    const autoH = clusterHeight(w, Object.keys(LOADING_ZONES_TEMPLATE[key].zones).length);
+    const autoH = clusterHeight(w, Object.keys(sectionTemplate(key).zones).length);
     const h = Math.max(autoH, clusterSizes[key]?.h ?? autoH);
     rowHeights[r] = Math.max(rowHeights[r] || 0, h);
   });
@@ -1459,7 +1532,8 @@ function buildLayout() {
   let maxRight = 0, maxBottom = 0;
 
   kingdomKeys.forEach((key, idx) => {
-    const data = LOADING_ZONES_TEMPLATE[key];
+    const data = sectionTemplate(key);
+    const isPaintings = key === PAINTINGS_KEY;
     const zoneNames = Object.keys(data.zones);
     const cw = clusterSizes[key]?.w ?? defaultClusterWidth();
     const autoH = clusterHeight(cw, zoneNames.length);
@@ -1500,11 +1574,17 @@ function buildLayout() {
       const r = Math.floor(i / zc);
       const c = i % zc;
       const zoneId = `zone:${key}:${zone}`;
+      // Painting entries are named after kingdoms, so tint them with that
+      // kingdom's own color for quick identification.
+      const zoneColor = isPaintings
+        ? (LOADING_ZONES_TEMPLATE[zone]?.color || data.color)
+        : data.color;
       nodes[zoneId] = {
         id: zoneId, label: zone, kingdomKey: key, type: 'zone',
+        painting: isPaintings,
         x: cx + CLUSTER_PAD + c * (NODE_W + ZONE_GAP_X),
         y: cy + CLUSTER_PAD + KINGDOM_NODE_H + 10 + r * (NODE_H + ZONE_GAP_Y),
-        w: NODE_W, h: NODE_H, color: data.color,
+        w: NODE_W, h: NODE_H, color: zoneColor,
         clusterX: cx, clusterY: cy,
       };
     });
@@ -1592,6 +1672,7 @@ function loadAll() {
       randomChainColors = arrowColorMode === 'random';
       displayPosition   = s.displayPosition || displayPosition;
       displaySize       = s.displaySize     || displaySize;
+      paintingTracker   = !!s.paintingTracker;
       if (s.kingdomVisible) kingdomVisible = { ...kingdomVisible, ...s.kingdomVisible };
     }
   } catch (e) {}
@@ -1618,7 +1699,8 @@ function saveGrid()     { localStorage.setItem(STORAGE_GRID, JSON.stringify({ ro
 function saveSettings() {
   localStorage.setItem(STORAGE_SETTINGS, JSON.stringify({
     showImages, arrowColor, highlightColor, highlightEnabled,
-    randomChainColors, arrowColorMode, displayPosition, displaySize, kingdomVisible
+    randomChainColors, arrowColorMode, displayPosition, displaySize, kingdomVisible,
+    paintingTracker
   }));
 }
 function saveEdgeChains() {
@@ -1643,6 +1725,9 @@ function removeEdge(map, key, val) {
 function canConnect(src, tgt) {
   if (src === tgt || !nodes[src] || !nodes[tgt]) return false;
   if ((outgoing[src] || []).includes(tgt)) return false; // already connected
+  // Paintings only connect to paintings (and vice-versa). Painting nodes are
+  // never dead-ends, so a painting may fan out to / in from multiple paintings.
+  if (isPaintingNode(src) !== isPaintingNode(tgt)) return false;
   // A dead-end node cannot RECEIVE new incoming arrows once it already has one.
   // It can always send outgoing arrows regardless of whether it has incoming ones.
   if (DEAD_END_IDS.has(tgt) && (incoming[tgt] || []).length > 0) return false;
@@ -1674,6 +1759,7 @@ function disconnectOutgoing(id) {
   // Clear stale highlights
   hoverHighlightChainId  = null;
   pinnedHighlightChainId = null;
+  pinnedHighlightNodeId  = null;
   recomputeChainLabels();
 }
 /** Removes ALL incoming arrows into a node. */
@@ -1686,6 +1772,7 @@ function disconnectIncoming(id) {
   delete incoming[id];
   hoverHighlightChainId  = null;
   pinnedHighlightChainId = null;
+  pinnedHighlightNodeId  = null;
   recomputeChainLabels();
 }
 
@@ -1693,7 +1780,15 @@ function disconnectIncoming(id) {
 // Chain management
 // ─────────────────────────────────────────────────────────────────
 function recomputeChainLabels() {
-  const sortedIds = [...new Set(Object.values(edgeChains))].sort((a, b) => a - b);
+  // Which chains are painting chains (drawn white, never lettered)?
+  const paintingChainIds = new Set();
+  for (const [key, cid] of Object.entries(edgeChains)) {
+    const arrowPos = key.indexOf('→');
+    if (arrowPos !== -1 && isPaintingNode(key.substring(0, arrowPos))) paintingChainIds.add(cid);
+  }
+  const sortedIds = [...new Set(Object.values(edgeChains))]
+    .filter(id => !paintingChainIds.has(id))
+    .sort((a, b) => a - b);
   chainLabelMap = {};
   sortedIds.forEach((id, idx) => { chainLabelMap[id] = getChainLabel(idx); });
 }
@@ -1796,6 +1891,68 @@ function migrateOldEdgeChains() {
   }
   recomputeChainLabels();
   saveEdgeChains();
+}
+
+/**
+ * Double-click an arrow to remove just that one connection. The chain is split
+ * at that point: the upstream side keeps the original chain, and the downstream
+ * side (after the break) becomes a brand-new chain. The rest stays intact.
+ */
+function breakChainAtEdge(src, tgt) {
+  const key = `${src}→${tgt}`;
+  const cid = edgeChains[key];
+
+  // Remove only this edge
+  removeEdge(outgoing, src, tgt);
+  removeEdge(incoming, tgt, src);
+  delete edgeChains[key];
+
+  if (cid !== undefined) {
+    // Remaining edges that still belong to this chain
+    const edges = [];
+    for (const [k, c] of Object.entries(edgeChains)) {
+      if (c !== cid) continue;
+      const p = k.indexOf('→');
+      if (p === -1) continue;
+      edges.push({ key: k, a: k.slice(0, p), b: k.slice(p + 1) });
+    }
+
+    // Union-find the weakly-connected pieces of what's left of the chain.
+    const parent = {};
+    const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    const union = (x, y) => { parent[find(x)] = find(y); };
+    edges.forEach(({ a, b }) => { if (!(a in parent)) parent[a] = a; if (!(b in parent)) parent[b] = b; });
+    edges.forEach(({ a, b }) => union(a, b));
+
+    const comps = new Map(); // component root -> [edgeKeys]
+    edges.forEach(({ key: k, a }) => {
+      const r = find(a);
+      if (!comps.has(r)) comps.set(r, []);
+      comps.get(r).push(k);
+    });
+
+    // If the break actually separated the chain into 2+ pieces, keep the
+    // original chain on the upstream piece (the one containing src) and give
+    // every other piece (downstream) a fresh chain id.
+    if (comps.size > 1) {
+      const srcRoot = (src in parent) ? find(src) : null;
+      const keepRoot = (srcRoot && comps.has(srcRoot)) ? srcRoot : comps.keys().next().value;
+      for (const [root, keys] of comps) {
+        if (root === keepRoot) continue;
+        const newId = createNewChain();
+        keys.forEach(k => { edgeChains[k] = newId; });
+      }
+    }
+  }
+
+  hoverHighlightChainId  = null;
+  pinnedHighlightChainId = null;
+  pinnedHighlightNodeId  = null;
+  recomputeChainLabels();
+  saveState();
+  saveEdgeChains();
+  renderConnections();
+  renderDisplayPanel();
 }
 
 /** Brief red flash on a node to signal a rejected connection attempt. */
@@ -1986,7 +2143,7 @@ function wireClusterDrag(div, key) {
 }
 
 function moveCluster(key, nx, ny, div) {
-  const data = LOADING_ZONES_TEMPLATE[key];
+  const data = sectionTemplate(key);
   const zoneNames = Object.keys(data.zones);
   const cw = clusterSizes[key]?.w ?? defaultClusterWidth();
   const autoH = clusterHeight(cw, zoneNames.length);
@@ -2101,7 +2258,7 @@ function wireClusterResize(handle, key) {
 }
 
 function resizeCluster(key, newW) {
-  const data = LOADING_ZONES_TEMPLATE[key];
+  const data = sectionTemplate(key);
   const zoneNames = Object.keys(data.zones);
   const zc = zoneCols(newW);
   const autoH = clusterHeight(newW, zoneNames.length);
@@ -2262,6 +2419,19 @@ function ensureKingdomMarker(defs, kingdom, color) {
   return id;
 }
 
+// White arrowhead for painting chains (always white regardless of arrow mode).
+function ensurePaintingMarker(defs) {
+  if (!defs.querySelector('#arrow-white')) defs.appendChild(makeMarker('arrow-white', '#ffffff'));
+  return 'arrow-white';
+}
+
+// Highlight arrowhead for a specific color (used by multi-color node highlight).
+function ensureHighlightColorMarker(defs, color) {
+  const id = 'arrow-hl-' + String(color).replace(/[^a-zA-Z0-9]/g, '_');
+  if (!defs.querySelector(`#${id}`)) defs.appendChild(makeMarker(id, color));
+  return id;
+}
+
 function ensureGradient(defs, srcColor, tgtColor, p1, p2, src, tgt) {
   const gradId = 'grad_' + `${src}→${tgt}`.replace(/[^a-zA-Z0-9]/g, '_');
   let grad = defs.querySelector(`#${gradId}`);
@@ -2390,7 +2560,11 @@ function renderConnections() {
       const p2 = edgePoint(nodes[tgt], p1.x, p1.y);
 
       let strokeVal, markerId;
-      if (arrowColorMode === 'gradient') {
+      if (isPaintingNode(src)) {
+        // Painting chains are always drawn with white arrows.
+        strokeVal = '#ffffff';
+        markerId  = ensurePaintingMarker(defs);
+      } else if (arrowColorMode === 'gradient') {
         const srcKingdom = nodes[src].kingdomKey;
         const tgtKingdom = nodes[tgt].kingdomKey;
         const srcColor = LOADING_ZONES_TEMPLATE[srcKingdom]?.color || '#888';
@@ -2446,16 +2620,30 @@ function renderConnections() {
       hit.addEventListener('click', (e) => {
         e.stopPropagation();
         hideArrowTooltip();
-        // Pin / toggle highlight
-        const cid = chainId ?? null;
-        pinnedHighlightChainId = (pinnedHighlightChainId === cid) ? null : cid;
-        applyHighlightClasses();
-        // Chain picker
-        if (canOpenChainPicker(src)) {
-          const key = `${src}→${tgt}`;
-          if (activePickerEdge === key) closeActiveChainPicker();
-          else openChainPicker(e, src, tgt);
-        }
+        // Defer the pin/picker action briefly so a double-click (which breaks
+        // the chain) doesn't first pin the highlight or pop the picker.
+        const ex = e.clientX, ey = e.clientY;
+        clearTimeout(hit._clickTimer);
+        hit._clickTimer = setTimeout(() => {
+          hit._clickTimer = null;
+          const cid = chainId ?? null;
+          pinnedHighlightNodeId  = null;
+          pinnedHighlightChainId = (pinnedHighlightChainId === cid) ? null : cid;
+          applyHighlightClasses();
+          if (canOpenChainPicker(src)) {
+            const key = `${src}→${tgt}`;
+            if (activePickerEdge === key) closeActiveChainPicker();
+            else openChainPicker({ clientX: ex, clientY: ey }, src, tgt);
+          }
+        }, 220);
+      });
+
+      hit.addEventListener('dblclick', (e) => {
+        e.stopPropagation(); e.preventDefault();
+        clearTimeout(hit._clickTimer); hit._clickTimer = null;
+        hideArrowTooltip();
+        closeActiveChainPicker();
+        breakChainAtEdge(src, tgt);
       });
     });
   });
@@ -2480,48 +2668,87 @@ function drawLine(p1, p2, stroke, markerBoolOrId) {
 // ─────────────────────────────────────────────────────────────────
 // Chain highlighting (hover / click, synced between map and display)
 // ─────────────────────────────────────────────────────────────────
-function applyHighlightClasses() {
-  const activeChainId = highlightEnabled ? (hoverHighlightChainId ?? pinnedHighlightChainId) : null;
+// Single-chain highlight (used for arrow hover and pinned-arrow), one color.
+function singleChainHighlightState(cid) {
+  const edgeColors = new Map(), nodeIds = new Set(), chainIds = new Set([cid]);
+  for (const [key, c] of Object.entries(edgeChains)) {
+    if (c !== cid) continue;
+    edgeColors.set(key, highlightColor);
+    const p = key.indexOf('→');
+    if (p !== -1) { nodeIds.add(key.slice(0, p)); nodeIds.add(key.slice(p + 1)); }
+  }
+  return { edgeColors, nodeIds, chainIds };
+}
 
-  // Build sets of highlighted edges and nodes
-  const activeEdgeKeys = new Set();
-  const activeNodeIds  = new Set();
-  if (activeChainId !== null) {
+// Resolve which highlight is active. Priority: hovered arrow > pinned node >
+// pinned arrow. A pinned node highlights every chain passing through it, each
+// drawn in its own chain color so overlapping chains stay distinguishable.
+function computeHighlightState() {
+  if (!highlightEnabled) return null;
+
+  if (hoverHighlightChainId != null) return singleChainHighlightState(hoverHighlightChainId);
+
+  if (pinnedHighlightNodeId != null && nodes[pinnedHighlightNodeId]) {
+    const nid = pinnedHighlightNodeId;
+    const cids = new Set();
+    (outgoing[nid] || []).forEach(t => { const c = edgeChains[`${nid}→${t}`]; if (c !== undefined) cids.add(c); });
+    (incoming[nid] || []).forEach(s => { const c = edgeChains[`${s}→${nid}`]; if (c !== undefined) cids.add(c); });
+
+    const edgeColors = new Map(), nodeIds = new Set([nid]), chainIds = new Set();
     for (const [key, cid] of Object.entries(edgeChains)) {
-      if (cid === activeChainId) {
-        activeEdgeKeys.add(key);
-        const arrowPos = key.indexOf('→');
-        if (arrowPos !== -1) {
-          activeNodeIds.add(key.substring(0, arrowPos));
-          activeNodeIds.add(key.substring(arrowPos + 1));
-        }
-      }
+      if (!cids.has(cid)) continue;
+      edgeColors.set(key, chainColors[cid] || highlightColor);
+      const p = key.indexOf('→');
+      if (p !== -1) { nodeIds.add(key.slice(0, p)); nodeIds.add(key.slice(p + 1)); }
+      chainIds.add(cid);
     }
+    return { edgeColors, nodeIds, chainIds };
   }
 
-  // Keep the highlight arrowhead marker in sync with the current highlight color
+  if (pinnedHighlightChainId != null) return singleChainHighlightState(pinnedHighlightChainId);
+  return null;
+}
+
+function applyHighlightClasses() {
+  const hl = computeHighlightState();
+  const defs = linesLayer.querySelector('defs');
+  const nodeIds    = hl ? hl.nodeIds    : new Set();
+  const edgeColors = hl ? hl.edgeColors : new Map();
+  const chainIds   = hl ? hl.chainIds   : new Set();
+
+  // Keep the single highlight arrowhead marker in sync with the highlight color
   const hlPath = linesLayer.querySelector('#arrowhead-highlight path');
   if (hlPath) hlPath.setAttribute('fill', highlightColor);
 
   // Nodes
   canvasEl.querySelectorAll('.map-node').forEach(el => {
-    el.classList.toggle('chain-highlight', activeNodeIds.has(el.dataset.id));
+    el.classList.toggle('chain-highlight', nodeIds.has(el.dataset.id));
   });
 
   // Lines
   linesLayer.querySelectorAll('.conn-line').forEach(el => {
     const edgeKey = el.dataset.src + '→' + el.dataset.tgt;
-    const isActive = activeEdgeKeys.has(edgeKey);
+    const color = edgeColors.get(edgeKey);
+    const isActive = color !== undefined;
     el.classList.toggle('chain-highlight-line', isActive);
-    el.setAttribute('stroke', isActive ? highlightColor : (el.dataset.normalStroke || arrowColor));
-    el.setAttribute('stroke-width', isActive ? 4 : 2.5);
-    el.setAttribute('marker-end', isActive ? 'url(#arrowhead-highlight)' : (el.dataset.normalMarker || 'url(#arrowhead)'));
+    if (isActive) {
+      el.setAttribute('stroke', color);
+      el.setAttribute('stroke-width', 4);
+      const mId = (color === highlightColor || !defs)
+        ? 'arrowhead-highlight'
+        : ensureHighlightColorMarker(defs, color);
+      el.setAttribute('marker-end', `url(#${mId})`);
+    } else {
+      el.setAttribute('stroke', el.dataset.normalStroke || arrowColor);
+      el.setAttribute('stroke-width', 2.5);
+      el.setAttribute('marker-end', el.dataset.normalMarker || 'url(#arrowhead)');
+    }
   });
 
   // Display panel rows
   document.querySelectorAll('#display-panel .chain-row').forEach(row => {
     const rowCid = parseInt(row.dataset.chainId);
-    row.classList.toggle('chain-highlight', !isNaN(rowCid) && rowCid === activeChainId);
+    row.classList.toggle('chain-highlight', !isNaN(rowCid) && chainIds.has(rowCid));
   });
 }
 
@@ -2531,6 +2758,7 @@ function applyHighlightClasses() {
 function openImageViewer(nodeId) {
   const n = nodes[nodeId];
   if (!n) return;
+  if (isPaintingNode(nodeId)) return; // paintings have no stage screenshots
   const imgFile = ZONE_IMAGES[nodeId];
   const isKingdom = n.type === 'kingdom';
   const isTodo = imgFile === null;
@@ -2707,6 +2935,18 @@ let mouseDownPos = null;
 const CLICK_THRESHOLD = 5;   // px movement threshold
 const DRAG_DELAY = 0;        // immediate (single-click opens image on mouseup without drag)
 
+// Desktop stage-preview is now a 1-second click-and-hold (matching mobile), so a
+// plain single click is free to toggle the node's chain highlight.
+let nodePressTimer = null;
+let nodePressFired = false;
+
+/** Single-click a node: highlight every chain passing through it (multi-color). */
+function toggleNodeHighlight(id) {
+  pinnedHighlightNodeId  = (pinnedHighlightNodeId === id) ? null : id;
+  pinnedHighlightChainId = null; // don't fight the single-chain pin
+  applyHighlightClasses();
+}
+
 function wireNodeEvents(el, id) {
   el.addEventListener('mousedown', (e) => {
     if (e.button === 0) {
@@ -2714,8 +2954,22 @@ function wireNodeEvents(el, id) {
       mouseDownTime = Date.now();
       mouseDownPos = { x: e.clientX, y: e.clientY };
       connecting = id;
+      nodePressFired = false;
       previewLine = drawLine(nodeCenter(id), nodeCenter(id), arrowColor, false);
       previewLine.setAttribute('stroke-dasharray','5,4');
+      // Hold for 1s (without moving) opens the stage preview, as on mobile.
+      if (showImages && !isPaintingNode(id)) {
+        clearTimeout(nodePressTimer);
+        nodePressTimer = setTimeout(() => {
+          nodePressTimer = null;
+          nodePressFired = true;
+          // Cancel the pending connection drag and show the screenshot instead
+          connecting = null;
+          if (previewLine) { previewLine.remove(); previewLine = null; }
+          canvasEl.querySelectorAll('.map-node.drag-target').forEach(n => n.classList.remove('drag-target'));
+          openImageViewer(id);
+        }, 1000);
+      }
     } else if (e.button === 1) {
       e.preventDefault(); e.stopPropagation();
       toggleMark(id, 'green');
@@ -2738,6 +2992,10 @@ function wireNodeEvents(el, id) {
 
   el.addEventListener('mouseup', (e) => {
     if (e.button !== 0) return;
+    clearTimeout(nodePressTimer); nodePressTimer = null;
+    // The 1s hold already opened the preview and consumed this gesture.
+    if (nodePressFired) { nodePressFired = false; return; }
+
     const moved = mouseDownPos && (
       Math.abs(e.clientX - mouseDownPos.x) > CLICK_THRESHOLD ||
       Math.abs(e.clientY - mouseDownPos.y) > CLICK_THRESHOLD
@@ -2746,9 +3004,9 @@ function wireNodeEvents(el, id) {
     if (connecting && connecting !== id && moved) {
       // Completed a drag to make connections
       connect(connecting, id);
-    } else if (!moved && showImages) {
-      // It was a click (no drag movement) then open image
-      openImageViewer(id);
+    } else if (!moved) {
+      // Plain click → toggle this node's chain highlight
+      toggleNodeHighlight(id);
     }
   });
 
@@ -2772,6 +3030,13 @@ function canvasPointFromEvent(e) {
 }
 
 document.addEventListener('mousemove', (e) => {
+  // Moving past the click threshold means this is a connection drag, not a hold,
+  // so cancel the pending stage-preview timer.
+  if (nodePressTimer && mouseDownPos && (
+      Math.abs(e.clientX - mouseDownPos.x) > CLICK_THRESHOLD ||
+      Math.abs(e.clientY - mouseDownPos.y) > CLICK_THRESHOLD)) {
+    clearTimeout(nodePressTimer); nodePressTimer = null;
+  }
   if (connecting && previewLine) {
     const p = canvasPointFromEvent(e);
     previewLine.setAttribute('x2', p.x);
@@ -2780,6 +3045,7 @@ document.addEventListener('mousemove', (e) => {
 });
 
 document.addEventListener('mouseup', () => {
+  if (nodePressTimer) { clearTimeout(nodePressTimer); nodePressTimer = null; }
   if (connecting) {
     connecting = null;
     if (previewLine) { previewLine.remove(); previewLine = null; }
@@ -3081,9 +3347,9 @@ function renderDisplayPanel() {
   const panel = document.getElementById('display-panel-content');
   panel.innerHTML = '';
 
-  const chains = computeChainsFromEdgeAssignments();
+  const allChains = computeChainsFromEdgeAssignments();
 
-  if (chains.length === 0) {
+  if (allChains.length === 0) {
     const p = document.createElement('div');
     p.className = 'empty-note';
     p.textContent = 'No connections yet. Drag between stages to build a path.';
@@ -3091,21 +3357,29 @@ function renderDisplayPanel() {
     return;
   }
 
+  // Painting chains go to the top of the panel, with no letter badges.
+  const paintingChains = allChains.filter(c => isPaintingNode(c.ids[0]));
+  const normalChains   = allChains.filter(c => !isPaintingNode(c.ids[0]));
+  const chains = [...paintingChains, ...normalChains];
+
   chains.forEach(chain => {
+    const isPainting = isPaintingNode(chain.ids[0]);
     const row = document.createElement('div');
-    row.className = 'chain-row';
+    row.className = 'chain-row' + (isPainting ? ' painting-chain-row' : '');
     row.dataset.chainId = chain.chainId;
     row.dataset.path = JSON.stringify(chain.ids);
 
-    // Chain label badge (bold, chain's color)
-    const badge = document.createElement('span');
-    badge.className = 'chain-label-badge';
-    const lbl = chainLabelMap[chain.chainId] || '?';
-    const col = chainLetterColor(chain.chainId);
-    badge.textContent = lbl;
-    badge.style.color = col;
-    badge.title = `Chain ${lbl}`;
-    row.appendChild(badge);
+    // Chain label badge (bold, chain's color) painting chains aren't lettered
+    if (!isPainting) {
+      const badge = document.createElement('span');
+      badge.className = 'chain-label-badge';
+      const lbl = chainLabelMap[chain.chainId] || '?';
+      const col = chainLetterColor(chain.chainId);
+      badge.textContent = lbl;
+      badge.style.color = col;
+      badge.title = `Chain ${lbl}`;
+      row.appendChild(badge);
+    }
 
     // Node labels
     chain.ids.forEach((id, idx) => {
@@ -3138,6 +3412,7 @@ function renderDisplayPanel() {
       applyHighlightClasses();
     });
     row.addEventListener('click', () => {
+      pinnedHighlightNodeId  = null;
       pinnedHighlightChainId = (pinnedHighlightChainId === chain.chainId) ? null : chain.chainId;
       applyHighlightClasses();
     });
@@ -3201,7 +3476,9 @@ zoomInput.addEventListener('keydown', (e) => {
 viewport.addEventListener('mousedown', (e) => {
   if (activeClusDrag) return;
   if (e.target!==viewport && e.target!==canvasEl) return;
-  if (pinnedHighlightChainId !== null) { pinnedHighlightChainId = null; applyHighlightClasses(); }
+  if (pinnedHighlightChainId !== null || pinnedHighlightNodeId !== null) {
+    pinnedHighlightChainId = null; pinnedHighlightNodeId = null; applyHighlightClasses();
+  }
   isPanning=true; viewport.classList.add('panning');
   panStart={x:e.clientX, y:e.clientY}; panOrigin={x:panX, y:panY};
 });
@@ -3312,7 +3589,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   if (!confirm('Clear all connections and marks on the map?')) return;
   outgoing={}; incoming={}; marks={};
   edgeChains={}; chainColors={}; nextChainId=0;
-  hoverHighlightChainId = null; pinnedHighlightChainId = null;
+  hoverHighlightChainId = null; pinnedHighlightChainId = null; pinnedHighlightNodeId = null;
   closeActiveChainPicker();
   recomputeChainLabels();
   saveState();
@@ -3369,6 +3646,16 @@ toggleHighlight.addEventListener('change', () => {
   toggleHighlightLabel.textContent = highlightEnabled ? 'On' : 'Off';
   saveSettings();
   applyHighlightClasses();
+});
+
+// Settings: painting tracker toggle
+const togglePainting = document.getElementById('toggle-painting');
+const togglePaintingLabel = document.getElementById('toggle-painting-label');
+togglePainting.addEventListener('change', () => {
+  paintingTracker = togglePainting.checked;
+  togglePaintingLabel.textContent = paintingTracker ? 'On' : 'Off';
+  saveSettings();
+  fullRender();
 });
 
 // Settings: highlight color
@@ -3458,6 +3745,8 @@ function init() {
   document.documentElement.style.setProperty('--highlight-color', highlightColor);
   toggleHighlight.checked = highlightEnabled;
   toggleHighlightLabel.textContent = highlightEnabled ? 'On' : 'Off';
+  togglePainting.checked = paintingTracker;
+  togglePaintingLabel.textContent = paintingTracker ? 'On' : 'Off';
 
   // Sync new settings UI
   arrowModeToggles.forEach(t => { t.checked = (t.dataset.mode === arrowColorMode); });

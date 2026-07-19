@@ -84,6 +84,8 @@ const DEFAULT_SETTINGS = {
                                // 'vertical'   = multi-column pack (vertical scroll)
   notes_columns: 2,            // kingdoms side-by-side in vertical mode (1 | 2 | 3)
   notes_compact: false,        // tighter spacing + shorter note boxes
+  show_painting_notes: false,  // Paintings notes column (before Cascade); default off
+  kingdom_order: null,         // custom moon-row display order (array of KINGDOMS indices) or null
 };
 
 function cloneDefaultSettings() {
@@ -204,6 +206,7 @@ const TOGGLE_SETTINGS = [
   { id: 'toggle-moon-updater', key: 'show_moon_updater' },
   { id: 'toggle-notes-panel', key: 'show_notes_panel' },
   { id: 'toggle-map-panel', key: 'show_map_panel' },
+  { id: 'toggle-painting-notes', key: 'show_painting_notes' },
 ];
 
 // Maps a LOADING_ZONES_TEMPLATE kingdom name to the settings key that controls
@@ -215,6 +218,12 @@ const TOGGLE_SETTINGS = [
 const KINGDOM_VISIBILITY_SETTINGS = {
   Moon: 'show_kingdom_moon',
 };
+
+// ── Painting tracker (Notes) ────────────────────────────────────────────────
+// A single "Paintings" notes column placed before Cascade. Each kingdom below
+// gets its own note box and no moon icons. Toggled from Settings → Notes.
+const PAINTINGS_NOTES_KEY = 'Paintings';
+const PAINTING_NOTE_KINGDOMS = ['Cascade','Sand','Lake','Wooded','Metro','Snow','Seaside','Luncheon',"Bowser's",'Mushroom'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State
@@ -239,7 +248,10 @@ function getDefaultState() {
     captures: { parabones: false, banzai: false, wire: false, bowser: false },
     abilities: { jump: false, cap: false, wall: false },
     loading_zones: buildDefaultLoadingZones(),
-    kingdom_collapsed: Object.fromEntries(Object.keys(LOADING_ZONES_TEMPLATE).map(k => [k, false])),
+    // Painting tracker notes (one free-text box per kingdom, no moons)
+    painting_notes: Object.fromEntries(PAINTING_NOTE_KINGDOMS.map(k => [k, ''])),
+    kingdom_collapsed: Object.fromEntries(
+      [...Object.keys(LOADING_ZONES_TEMPLATE), PAINTINGS_NOTES_KEY].map(k => [k, false])),
   };
 }
 
@@ -285,6 +297,12 @@ function loadState() {
         if (k in saved.kingdom_collapsed) state.kingdom_collapsed[k] = saved.kingdom_collapsed[k];
       }
     }
+    // Painting tracker notes
+    if (saved.painting_notes) {
+      for (const k of Object.keys(state.painting_notes)) {
+        if (k in saved.painting_notes) state.painting_notes[k] = saved.painting_notes[k];
+      }
+    }
   } catch (e) {
     console.error('Failed to load state:', e);
     state = getDefaultState();
@@ -308,10 +326,126 @@ function saveState() {
 function buildAllMoonRows() {
   const container = document.getElementById('moon-rows');
   container.innerHTML = '';
-  KINGDOMS.forEach((kingdom, i) => {
+  orderedKingdomIndices().forEach(i => {
+    const kingdom = KINGDOMS[i];
     if (kingdom.settingKey && !state.settings[kingdom.settingKey]) return;
-    container.appendChild(buildMoonRow(i));
+    const row = buildMoonRow(i);
+    wireMoonRowDrag(row, i);
+    container.appendChild(row);
   });
+}
+
+// Resolve the moon-row display order: start from the saved custom order (valid,
+// de-duped indices), then append any kingdoms not listed in their natural order.
+function orderedKingdomIndices() {
+  const saved = Array.isArray(state.settings.kingdom_order) ? state.settings.kingdom_order : [];
+  const seen = new Set();
+  const order = [];
+  saved.forEach(i => {
+    if (Number.isInteger(i) && i >= 0 && i < KINGDOMS.length && !seen.has(i)) { seen.add(i); order.push(i); }
+  });
+  KINGDOMS.forEach((_, i) => { if (!seen.has(i)) order.push(i); });
+  return order;
+}
+
+// ── Moon-row drag-to-reorder ─────────────────────────────────────────────────
+// Rows are picked up from empty space / the edges of the box (not the buttons,
+// counters, or input). A gray border hints where the row is draggable. The new
+// order is saved into settings.kingdom_order, which also syncs to the OBS popup
+// and browser source.
+let draggingMoonRow = null;
+
+function isMoonRowInteractive(target) {
+  return !!(target && target.closest && target.closest('button, input, textarea, select, img'));
+}
+
+function wireMoonRowDrag(row, idx) {
+  // Show the "grab" affordance only over non-interactive parts of the row.
+  row.addEventListener('mousemove', (e) => {
+    if (draggingMoonRow) return;
+    row.classList.toggle('drag-ready', !isMoonRowInteractive(e.target));
+  });
+  row.addEventListener('mouseleave', () => row.classList.remove('drag-ready'));
+
+  row.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || isMoonRowInteractive(e.target)) return;
+    e.preventDefault();
+    startMoonRowDrag(row, e.clientY);
+    const onMove = (ev) => moveMoonRowDrag(row, ev.clientY);
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      endMoonRowDrag(row);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Touch: long-press (~350ms) to pick up, so normal scrolling still works.
+  let touchHold = null, touchActive = false;
+  row.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || isMoonRowInteractive(e.target)) return;
+    const y0 = e.touches[0].clientY;
+    touchHold = setTimeout(() => {
+      touchHold = null; touchActive = true;
+      startMoonRowDrag(row, y0);
+    }, 350);
+  }, { passive: true });
+  row.addEventListener('touchmove', (e) => {
+    if (touchHold && Math.abs(e.touches[0].clientY - (row.getBoundingClientRect().top)) > 8) {
+      // finger moved before hold fired → treat as scroll, cancel pickup
+      clearTimeout(touchHold); touchHold = null;
+    }
+    if (touchActive) { e.preventDefault(); moveMoonRowDrag(row, e.touches[0].clientY); }
+  }, { passive: false });
+  const touchEnd = () => {
+    if (touchHold) { clearTimeout(touchHold); touchHold = null; }
+    if (touchActive) { touchActive = false; endMoonRowDrag(row); }
+  };
+  row.addEventListener('touchend', touchEnd);
+  row.addEventListener('touchcancel', touchEnd);
+}
+
+function startMoonRowDrag(row, y) {
+  draggingMoonRow = row;
+  row.classList.add('dragging');
+  row.classList.remove('drag-ready');
+}
+
+function moveMoonRowDrag(row, y) {
+  if (draggingMoonRow !== row) return;
+  const container = document.getElementById('moon-rows');
+  const others = [...container.querySelectorAll('.moon-row')].filter(r => r !== row);
+  let placed = false;
+  for (const r of others) {
+    const rect = r.getBoundingClientRect();
+    if (y < rect.top + rect.height / 2) { container.insertBefore(row, r); placed = true; break; }
+  }
+  if (!placed) container.appendChild(row);
+}
+
+function endMoonRowDrag(row) {
+  row.classList.remove('dragging');
+  draggingMoonRow = null;
+  commitMoonRowOrder();
+}
+
+function commitMoonRowOrder() {
+  const container = document.getElementById('moon-rows');
+  const visible = [...container.querySelectorAll('.moon-row')]
+    .map(r => parseInt(r.dataset.idx, 10)).filter(n => !isNaN(n));
+  const visibleSet = new Set(visible);
+  // Keep any currently-hidden kingdoms (e.g. Moon when off) in the order too,
+  // preserving their previous relative position, appended after the visible set.
+  const prev = Array.isArray(state.settings.kingdom_order) ? state.settings.kingdom_order : [];
+  const hidden = [];
+  KINGDOMS.forEach((_, i) => { if (!visibleSet.has(i)) hidden.push(i); });
+  hidden.sort((a, b) => {
+    const ia = prev.indexOf(a), ib = prev.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
+  state.settings.kingdom_order = [...visible, ...hidden];
+  saveState();
 }
 
 function buildMoonRow(i) {
@@ -1308,6 +1442,9 @@ function popOutNotes() {
 function buildLoadingZonesContent() {
   const container = document.getElementById('lz-content');
   container.innerHTML = '';
+  if (state.settings.show_painting_notes) {
+    container.appendChild(buildPaintingNotesColumn());
+  }
   for (const [kingdom, data] of Object.entries(state.loading_zones)) {
     const settingKey = KINGDOM_VISIBILITY_SETTINGS[kingdom];
     if (settingKey && !state.settings[settingKey]) continue;
@@ -1315,6 +1452,83 @@ function buildLoadingZonesContent() {
   }
   applyNotesLayout();
   autosizeNotes(container);
+}
+
+// Paintings notes column: one note box per kingdom, no moon icons.
+function buildPaintingNotesColumn() {
+  if (!state.painting_notes) state.painting_notes = {};
+  const col = document.createElement('div');
+  col.className = 'kingdom-col';
+
+  const header = document.createElement('div');
+  header.className = 'kingdom-col-header';
+
+  const icon = document.createElement('img');
+  icon.src = 'assets/Painting.png';
+  icon.height = 20;
+  icon.alt = 'Paintings';
+
+  const title = document.createElement('span');
+  title.className = 'col-title';
+  title.textContent = 'Paintings';
+  title.style.color = '#e6e6ee';
+
+  const chevron = document.createElement('span');
+  chevron.className = 'col-chevron';
+  chevron.textContent = '▾';
+
+  header.appendChild(icon);
+  header.appendChild(title);
+  header.appendChild(chevron);
+
+  const zonesRoot = document.createElement('div');
+  zonesRoot.className = 'zones-container';
+
+  PAINTING_NOTE_KINGDOMS.forEach(kingdom => {
+    if (!(kingdom in state.painting_notes)) state.painting_notes[kingdom] = '';
+    const kd = LOADING_ZONES_TEMPLATE[kingdom] || { color: '#e6e6ee' };
+    const row = document.createElement('div');
+    row.className = 'zone-row';
+
+    const top = document.createElement('div');
+    top.className = 'zone-row-top';
+    const nameLabel = document.createElement('span');
+    nameLabel.className = 'zone-name';
+    nameLabel.textContent = kingdom;
+    nameLabel.style.color = kd.color;
+    top.appendChild(nameLabel);
+    row.appendChild(top);
+
+    const noteArea = document.createElement('textarea');
+    noteArea.className = 'zone-note';
+    noteArea.value = state.painting_notes[kingdom] || '';
+    noteArea.placeholder = 'Note…';
+    noteArea.rows = 1;
+    noteArea.addEventListener('input', () => {
+      noteArea.style.height = 'auto';
+      noteArea.style.height = noteArea.scrollHeight + 'px';
+      state.painting_notes[kingdom] = noteArea.value;
+      saveState();
+    });
+    row.appendChild(noteArea);
+    zonesRoot.appendChild(row);
+  });
+
+  if (state.kingdom_collapsed[PAINTINGS_NOTES_KEY]) {
+    zonesRoot.style.display = 'none';
+    header.classList.add('collapsed');
+  }
+  header.addEventListener('click', () => {
+    const willCollapse = zonesRoot.style.display !== 'none';
+    zonesRoot.style.display = willCollapse ? 'none' : '';
+    header.classList.toggle('collapsed', willCollapse);
+    state.kingdom_collapsed[PAINTINGS_NOTES_KEY] = willCollapse;
+    saveState();
+  });
+
+  col.appendChild(header);
+  col.appendChild(zonesRoot);
+  return col;
 }
 
 // ── Notes layout: orientation (horizontal/vertical) + column count + compact ──
@@ -1427,6 +1641,9 @@ function clearAllNotes() {
       zone.icon = 'Moon.png';
       zone.icon2 = 'Moon.png';
     }
+  }
+  if (state.painting_notes) {
+    for (const k of Object.keys(state.painting_notes)) state.painting_notes[k] = '';
   }
   saveState();
   buildLoadingZonesContent();
@@ -1953,6 +2170,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lzModal && !lzModal.classList.contains('hidden')) {
           buildLoadingZonesContent();
         }
+      }
+
+      // Painting notes column is added/removed, so rebuild the notes if open.
+      if (key === 'show_painting_notes') {
+        const lzModal = document.getElementById('lz-modal');
+        if (lzModal && !lzModal.classList.contains('hidden')) buildLoadingZonesContent();
       }
 
       // Some toggles change the OBS overlay's height (Moon-on-OBS, updater) or
