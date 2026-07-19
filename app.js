@@ -1068,6 +1068,7 @@ function refreshMoonRangeLabels() {
 function resetAll() {
   if (!confirm('Clear all progress? Settings will be kept.')) return;
   const savedSettings = JSON.parse(JSON.stringify(state.settings)); // deep clone and avoid sharing nested binding objects
+  savedSettings.kingdom_order = null; // restore the original kingdom order
   state = getDefaultState();
   state.settings = savedSettings;
   saveState();
