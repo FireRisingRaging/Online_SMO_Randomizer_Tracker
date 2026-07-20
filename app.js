@@ -51,6 +51,7 @@ const DEFAULT_SETTINGS = {
   show_moon_total: true,
   show_tracker_moon_total: false, // On-tracker "counted / requirement : left" box (default off)
   zone_names: {},                 // { [kingdom]: { [defaultZoneKey]: 'Custom Name' } } overrides
+  limit_moon_total: true,
   moon_requirement: 124,
   show_icon_colors: true,
   show_ability_lock: true,
@@ -190,6 +191,7 @@ function bindingLabel(binding) {
 const TOGGLE_SETTINGS = [
   { id: 'toggle-moon-total', key: 'show_moon_total' },
   { id: 'toggle-tracker-moon-count', key: 'show_tracker_moon_total' },
+  { id: 'toggle-moon-total-clamp', key: 'limit_moon_total' },
   { id: 'toggle-icon-colors', key: 'show_icon_colors' },
   { id: 'toggle-lock', key: 'show_lock' },
   { id: 'toggle-peace', key: 'show_peace' },

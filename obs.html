@@ -476,6 +476,18 @@
       });
     }
 
+    function SafeParseInt(value, defaultValue) {
+      if (typeof value === 'number' && !isNaN(value)) return value;
+      defaultValue = defaultValue || 0;
+      const parsed = parseInt(value, 10);
+      return isNaN(parsed) ? defaultValue : parsed;
+    }
+
+    function Clamp(value, min, max) {
+      value = SafeParseInt(value);
+      return Math.max(min, Math.min(value, max));
+    }
+
     // ── Moon Updater ──────────────────────────────────────────────
     function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -600,12 +612,13 @@
         const kImg = row.querySelector('.obs-kingdom');
         kImg.classList.toggle('icon-white', settings.show_icon_colors === false);
 
-        const maxDisplay = (m.max !== null && m.max !== undefined) ? m.max : '?';
-        row.querySelector('.obs-count').textContent = `${m.count || 0} / ${maxDisplay}`;
+        const maxDisplay = (m.max !== null && m.max !== undefined) ? SafeParseInt(m.max) : '?';
+        row.querySelector('.obs-count').textContent =
+          `${SafeParseInt(m.count)} / ${maxDisplay}`;
 
         const isComplete = settings.show_complete_color && (
-          (m.max !== null && m.max !== undefined && (m.count || 0) >= m.max) ||
-          ((m.count || 0) >= scaledMaxFor(i, settings))
+          (m.max !== null && m.max !== undefined && SafeParseInt(m.count) >= SafeParseInt(m.max)) ||
+          (SafeParseInt(m.count) >= scaledMaxFor(i, settings))
         );
         row.querySelector('.obs-count').classList.toggle('count-complete', isComplete);
       });
@@ -640,7 +653,7 @@
       // Total label
       const totalEl = document.getElementById('obs-total');
       const totalWrap = document.getElementById('obs-total-wrap');
-      const total = (incoming.moons || []).reduce((sum, m) => sum + (m.count || 0), 0);
+      const total = (incoming.moons || []).reduce((sum, m) => sum + Clamp(SafeParseInt(m.count), 0, settings.limit_moon_total ? SafeParseInt(m.max, 999) : 999), 0);
       const req   = settings.moon_requirement || 124;
       totalEl.textContent = `${total} / ${req}`;
       totalWrap.classList.toggle('hidden', settings.show_moon_total === false);
