@@ -62,6 +62,7 @@ const DEFAULT_SETTINGS = {
   show_kingdom_moon: false,
   show_lock: true,             // Lock sign column visible (tracker + overlay)
   show_peace: true,            // Peace sign column visible (tracker + overlay)
+  show_rock: false,            // Moon Rock sign column visible (tracker + overlay)
   show_ability_jump: false,    // false = Jump icon hidden (default). true = shown
   show_ability_cap: false,     // false = Cap Bounce icon hidden (default). true = shown
   show_moon_obs: true,         // Draw Moon Kingdom on the OBS overlay; only takes
@@ -193,6 +194,7 @@ const TOGGLE_SETTINGS = [
   { id: 'toggle-icon-colors', key: 'show_icon_colors' },
   { id: 'toggle-lock', key: 'show_lock' },
   { id: 'toggle-peace', key: 'show_peace' },
+  { id: 'toggle-rock', key: 'show_rock' },
   { id: 'toggle-ability-lock', key: 'show_ability_lock' },
   { id: 'toggle-ability-jump', key: 'show_ability_jump' },
   { id: 'toggle-ability-cap', key: 'show_ability_cap' },
@@ -244,7 +246,7 @@ function buildDefaultLoadingZones() {
 function getDefaultState() {
   return {
     settings: cloneDefaultSettings(),
-    moons: KINGDOMS.map(() => ({ count: 0, max: null, lock: false, peace: false, multi: false })),
+    moons: KINGDOMS.map(() => ({ count: 0, max: null, lock: false, peace: false, rock:false, multi: false })),
     captures: { parabones: false, banzai: false, wire: false, bowser: false },
     abilities: { jump: false, cap: false, wall: false },
     loading_zones: buildDefaultLoadingZones(),
@@ -478,6 +480,12 @@ function buildMoonRow(i) {
   peaceBtn.innerHTML = `<img src="assets/peace.png" alt="peace">`;
   peaceBtn.addEventListener('click', () => { togglePeace(i); saveState(); });
 
+  const rockBtn = document.createElement('button');
+  rockBtn.className = 'icon-btn rock-btn';
+  rockBtn.title = 'Toggle Moon Rock';
+  rockBtn.innerHTML = `<img src="assets/rock_locked.png" alt="rock">`;
+  rockBtn.addEventListener('click', () => { toggleRock(i); saveState(); });
+
   const kingdomImg = document.createElement('img');
   kingdomImg.src = kingdom.img;
   kingdomImg.alt = kingdom.name;
@@ -486,6 +494,7 @@ function buildMoonRow(i) {
 
   left.appendChild(lockBtn);
   left.appendChild(peaceBtn);
+  left.appendChild(rockBtn);
   left.appendChild(kingdomImg);
 
   // ── Counter group: − [min] count [max] + ──
@@ -603,18 +612,25 @@ function refreshCountLabel(i) {
   updateMoonTotal();
 }
 
-// Green-when-complete: count label turns green once count >= max (only while
-// a max is actually set), reverts to white if it drops back below.
+// Green-when-complete: the count label turns green once count >= the required
+// amount for that kingdom, reverting to white if it drops back below.
+//
+// Required amount:
+//  • If the user has entered a per-kingdom max (m.max, the "?" field), that value
+//    is the requirement EXACTLY - even if it's 0 (instantly green) or higher than
+//    the game's normal max (e.g. a randomizer kingdom that needs 62 moons).
+//  • If no max has been entered, fall back to the suggested max from KINGDOMS
+//    (rangeFor(i).max), which scales with the Total Moon Requirement.
+// This is deliberately NOT max(userMax, kingdomMax): a user max below the kingdom
+// max must still win, so the two are never mixed.
 function updateCountColor(i) {
   const row = getMoonRow(i);
   if (!row) return;
   const m = state.moons[i];
   const kingdom = KINGDOMS[i];
   const label = row.querySelector('.count-label');
-  const isComplete = state.settings.show_complete_color && (
-    (m.max !== null && m.count >= m.max) ||
-    (m.count >= rangeFor(i).max)
-  );
+  const required = (m.max !== null && m.max !== undefined) ? m.max : rangeFor(i).max;
+  const isComplete = state.settings.show_complete_color && m.count >= required;
   label.classList.toggle('count-complete', isComplete);
   row.classList.toggle('row-complete', isComplete);
 }
@@ -635,6 +651,10 @@ function refreshMoonRow(i, rowEl) {
   // Peace image
   row.querySelector('.peace-btn img').src =
     m.peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
+
+  // Moon Rock image
+  row.querySelector('.rock-btn img').src =
+    m.rock ? 'assets/rock_unlocked.png' : 'assets/rock_locked.png';
 
   // Max entry only update if field not focused (avoid cursor jump)
   const entry = row.querySelector('.max-entry');
@@ -700,6 +720,13 @@ function togglePeace(i) {
   const row = getMoonRow(i);
   if (row) row.querySelector('.peace-btn img').src =
     state.moons[i].peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
+}
+
+function toggleRock(i) {
+  state.moons[i].rock = !state.moons[i].rock;
+  const row = getMoonRow(i);
+  if (row) row.querySelector('.rock-btn img').src =
+    state.moons[i].rock ? 'assets/rock_unlocked.png' : 'assets/rock_locked.png';
 }
 
 function saveMax(i) {
@@ -904,6 +931,7 @@ function applyAllSettings() {
   if (moonRows) {
     moonRows.classList.toggle('hide-lock', !s.show_lock);
     moonRows.classList.toggle('hide-peace', !s.show_peace);
+    moonRows.classList.toggle('hide-rock', !s.show_rock);
   }
 
   // Multi moon buttons
@@ -1095,6 +1123,7 @@ const BROWSER_SOURCE_MULTIPLIER = 3;
 // dimensions we display here always match what the overlay actually renders.
 const OBS_BASE_W = 315;
 const OBS_BASE_H = 450;          // 11 kingdoms, no updater
+const OBS_ROCK_COL_W = 23;       // extra body width when the Moon Rock column shows
 const OBS_MOON_ROW_H = 40;       // added when Moon Kingdom shows on the overlay
 const OBS_UPDATER_MSG_H = 24;    // per visible updater message
 const OBS_UPDATER_PAD = 12;      // updater strip padding (top + bottom)
@@ -1107,10 +1136,12 @@ function getObsBaseSize(settings) {
     const n = Math.min(5, Math.max(1, s.updater_count || 3));
     h += n * OBS_UPDATER_MSG_H + OBS_UPDATER_PAD;
   }
-  // Width is always the tracker-body width. The popup opens at OBS_BASE_W (the
-  // updater only widens when the window is dragged out) and the Browser Source
-  // estimate is OBS_BASE_W x the 3x browser scale.
-  return { w: OBS_BASE_W, h };
+  // Width is the tracker-body width, which grows when the Moon Rock column is
+  // shown so the extra sign icon doesn't get clipped on the overlay. The updater
+  // only widens the popup further when its window is dragged out. The Browser
+  // Source estimate is this width x the 3x browser scale.
+  const w = OBS_BASE_W + (s.show_rock ? OBS_ROCK_COL_W : 0);
+  return { w, h };
 }
 
 function getBrowserSourceScale() {
@@ -1653,10 +1684,177 @@ function clearAllNotes() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Zone Names editor
 // ─────────────────────────────────────────────────────────────────────────────
-// TODO: fill in the real in-game zone names here, keyed by kingdom then default
-// zone key, e.g. IN_GAME_ZONE_NAMES['Cap'] = { 'Orange': 'Fossil Falls ...' }.
-// The small gray line above each box is wired to read from this map already.
-const IN_GAME_ZONE_NAMES = {};
+// In-game (destination) names for each loading zone, keyed by kingdom then by
+// the default zone key. The small gray line above each Zone Names box reads from
+// this map, and the "Use In-Game Names" button copies these into the inputs.
+//
+// Cap, Cascade, and Sand are the verified-correct set. The remaining kingdoms are
+// a best-effort starting point pulled from the randomizer's stage names - they're
+// close but not guaranteed one-to-one, so expect to hand-fix a few (edit the
+// strings below or just tweak the boxes before saving).
+const IN_GAME_ZONE_NAMES = {
+  // ── Verified ──────────────────────────────────────────────
+  'Cap': {
+    'Orange': 'Push Block Challenge',
+    'Paragoomba': 'Poison Wave Run',
+    'Frog': 'Frog in the Fog',
+    'Rolling On': 'Roll On Through',
+  },
+  'Cascade': {
+    'Dino': 'Dinosaur Nest',
+    '2D': '2D Waterfall Rift',
+    'Chain Chomp': 'Chain Chomp Charge!',
+    'Swings': 'Swinging Cap Stage',
+    'Windy': 'Windy Tower',
+  },
+  'Sand': {
+    'Icy Cave': 'Scorching Desert Caves',
+    'Moe-eye': 'Moe-Eye Habitat',
+    'Shop': 'Crazy Cap',
+    'Employees': 'Employees Only!',
+    'Slots': 'Rolling Rock Stage',
+    'Rumble': 'Rumble in the Desert',
+    'Outfit': 'Sand Kingdom Costume',
+    'Jaxi Ruins': 'Jaxi Ruins Challenge',
+    'Bullet Bill': 'Lost in the Desert',
+    'Gushen': 'Water Fountain Stage',
+    'Sphynx': 'The Hole in the Desert',
+    'Moving Platform': 'Moe-Eye on the Move',
+    'Rocket': 'Rotating Platform Stage',
+    'Colossal Ruins': 'Rocket Flower Run',
+  },
+  // ── Best-effort (hand-check before relying on) ────────────
+  'Lake': {
+    'Poison Waves': 'Frog in Poison Waves',
+    'Zipper': 'Zipper-Ship Stage',
+    'Grab Climb': 'Grab & Climb Challenge',
+    'Shop': 'Crazy Cap',
+    'Puzzle': 'Stone Block Puzzle Stage',
+  },
+  'Wooded': {
+    'DW Odyssey': 'Deep Woods: Odyssey Area',
+    'DW Red Maze': 'Deep Woods: Red Leaf Maze',
+    'DW Pond': 'Deep Woods: Pond Area',
+    'DW Treasure': 'Deep Woods: Treasure Chest',
+    'DW Outfit': 'Deep Woods: Costume',
+    'Rocket': 'Fog Mountain Stage',
+    'Sheep': 'Animal Chase Stage',
+    'Tank': 'Shooting Elevator Stage',
+    'Vine Clouds': 'Vine Cloud Bonus Stage',
+    'Breakdown': 'Breakdown Road Stage',
+    'Invisible': 'Invisible Road Stage',
+    'Flooded Pipes': 'Flooded Pipes Stage',
+    'Flower Road': 'Flower Road Run',
+    'Treasure Room': 'Forest Kingdom Bonus Stage',
+  },
+  'Lost': {
+    'Wiggler': 'Wiggler Chase Stage',
+    'Shop': 'Crazy Cap',
+    'Klepto': "Klepto's Nest Stage",
+  },
+  'Metro': {
+    'Yellow Shop': 'Crazy Cap (Yellow)',
+    'Purple Shop': 'Crazy Cap (Purple)',
+    'Dino': 'T-Rex Ride Stage',
+    'Bullet Billding': 'Bullet Billding Stage',
+    'Taxi': 'Taxi Trouble Stage',
+    'Notes': '2D & 3D Note Room',
+    '2D': '2D City Area',
+    'Slots': 'Sand Slot Machine Stage',
+    'People': 'City People Road Stage',
+    'Outfit': 'Metro Kingdom Costume',
+    'Rocket': 'Pole-Grab Ceiling Stage',
+    'Dark': 'Dark Donut Stage',
+    'Scaffolding': 'Swing Steel Stage',
+    'Scooter': 'Scooter Ride Stage',
+    'Rotating Maze': 'Rotating Cap Maze Stage',
+    'RC Car': 'RC Car Stage',
+  },
+  'Snow': {
+    'Puzzle': 'Bubblo Puzzle Stage',
+    'Capless': 'Capless Ice Stage',
+    'Rocket Flower': 'Rocket Flower Ice Stage',
+    'Iceburn Circuit': 'Iceburn Circuit',
+    'Flower Road': 'Flower Road Run',
+    'Tracewalking': 'Ice Walker Stage',
+    'Clouds': 'Cloud Bonus Stage',
+    'Outfit': 'Snow Kingdom Costume',
+    'Shop': 'Crazy Cap',
+  },
+  'Seaside': {
+    'Well Enter': 'Sea Cave (Enter)',
+    'Well Exit': 'Sea Cave (Exit)',
+    'Rumble': 'Rumble in the Seaside',
+    'Rocket': 'Cloud Rocket Stage',
+    'Outfit': 'Seaside Kingdom Costume',
+    'Gushen': 'Water Geyser Stage',
+    'Sphynx': 'Under the Seaside Stage',
+    'Pokio': "Pokio's Climb Stage",
+    'Lava Rising': 'Stretchy Stack Stage',
+    'Sandy Bottom': 'Seaside Sneaking Stage',
+    'Spinning Maze': 'Spinning Spiny Maze',
+  },
+  'Luncheon': {
+    'Magma Swamp': 'Magma Up-Down Stage',
+    'Forks': 'Fork Climb Stage',
+    'Cheese Rocks': 'Cheese Rocks Stage',
+    'Veggie Room': 'Luncheon Kingdom Bonus',
+    'Slots': 'Lava Slot Machine',
+    'Shop': 'Crazy Cap',
+    'Outfit': 'Luncheon Kingdom Costume',
+    'Spinning Athletics': 'Spinning Athletics Stage',
+    'Lava Islands': 'Lava Island Stage',
+    'Volcano Cave': 'Lava Lift Cave Stage',
+    'Gears': 'Gear Stage',
+    'Magma Path': 'Lava Bubble Lane',
+  },
+  'Ruined': {
+    "Chargin' Chuck": "Chargin' Chuck Stage",
+    'Rocket': 'Dot Tower Stage',
+  },
+  "Bowser's": {
+    'Jizo': 'Jizo Switch Stage',
+    'Shop': 'Crazy Cap',
+    'Outfit': "Bowser's Kingdom Costume",
+    'Treasure Room': 'Sky Kingdom Bonus Stage',
+    'Spinning Tower': 'Spinning Bowser Stage',
+    'Vine Clouds': 'Vine Cloud Bonus Stage',
+    'Hexagon Tower': 'Hexagon Tower Stage',
+    'Wooden Tower': 'Wooden Tower Stage',
+  },
+  'Mushroom': {
+    'Shop': 'Crazy Cap',
+    'Castle Door': "Peach's Castle Interior",
+    'Outfit': 'Mushroom Kingdom Costume',
+    'Cloud Sea': 'Yoshi Cloud Stage',
+    'Well': 'Hard Dot Stage',
+    'Knucklotec': 'Knucklotec Rematch',
+    'Torkdrift': 'Torkdrift Rematch',
+    'Mechawiggler': 'Mechawiggler Rematch',
+    'Octopus': 'Mollusque-Lanceur Rematch',
+    'Cookatiel': 'Cookatiel Rematch',
+    'Dragon': 'Lord of Lightning Rematch',
+    'Rocket': 'Fukuwarai Mario Stage',
+  },
+  'Darkside': {
+    'Breakdown': 'Capless Breakdown Road',
+    'Invisible': 'Capless Invisible Road',
+    'Vanishing': 'Capless Scooter Stage',
+    'Yoshi Siege': 'Yoshi Siege Stage',
+    'Lava Rising': 'Yoshi Stretchy Stage',
+    'Magma Swamp': 'Yoshi Magma Stage',
+  },
+  'Moon': {
+    '2D Snowman': '2D Galaxy Snowman Stage',
+    'Shop': 'Crazy Cap',
+    'Swings': 'Moon Athletic Stage',
+    'Sphynx': 'Moon Sphinx Chamber',
+  },
+  'Cloud': {
+    '2D Cube': '2D Cube Stage',
+    'Picture Match': 'Fukuwarai Goomba Stage',
+  },
+};
 
 function inGameZoneName(kingdom, zone) {
   const byKingdom = IN_GAME_ZONE_NAMES[kingdom];
@@ -1735,6 +1933,18 @@ function saveZoneNames() {
   document.getElementById('zone-names-modal').classList.add('hidden');
 }
 
+// "Use In-Game Names": fill every editable box with its in-game name (where one
+// is known). Doesn't save on its own - the user reviews/tweaks, then hits Save -
+// so it's non-destructive until then. Boxes with no known in-game name are left
+// as-is.
+function useInGameNames() {
+  if (!confirm('Fill every box with its in-game name? This replaces what\'s currently typed. Nothing is saved until you press Save.')) return;
+  document.querySelectorAll('#zone-names-body .zn-input').forEach(input => {
+    const nm = inGameZoneName(input.dataset.kingdom, input.dataset.zone);
+    if (nm) input.value = nm;
+  });
+}
+
 function revertZoneNames() {
   if (!confirm('Revert every loading zone name back to its default?')) return;
   state.settings.zone_names = {};
@@ -1752,7 +1962,7 @@ function revertZoneNames() {
 const SAVE_STATE_KEYS = [
   STATE_KEY,              // tracker + notes
   'smo_map_state', 'smo_map_positions', 'smo_map_sizes', 'smo_map_grid',
-  'smo_map_settings', 'smo_edge_chains', 'smo_chain_meta',   // map
+  'smo_map_settings', 'smo_edge_chains', 'smo_chain_meta', 'smo_map_notes',   // map
 ];
 
 function downloadSaveState() {
@@ -2132,6 +2342,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── System tab: Zone Names + Save State ────────
   document.getElementById('btn-zone-names').addEventListener('click', openZoneNames);
   document.getElementById('zn-save').addEventListener('click', saveZoneNames);
+  document.getElementById('zn-use-ingame').addEventListener('click', useInGameNames);
   document.getElementById('zn-revert').addEventListener('click', revertZoneNames);
   document.getElementById('btn-download-save').addEventListener('click', downloadSaveState);
   const loadInput = document.getElementById('input-load-save');

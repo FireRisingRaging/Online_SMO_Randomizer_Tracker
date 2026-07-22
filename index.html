@@ -102,8 +102,9 @@
           <li>The overlay background is transparent so no chroma key needed</li>
         </ol>
         <p class="info-title">Popup Window</p>
-        <p>Click <strong>Open Popup</strong> to open a window with a dark background sized to your <strong>Popup Scale</strong>, then capture it with Window Capture in OBS. You can add a <strong>color key</strong> in the format options to remove the dark gray background(<code>#181818</code>)
+        <p>Click <strong>Open Popup</strong> to open a window with a dark background sized to your <strong>Popup Scale</strong>, then capture it with Window Capture in OBS. You can add a <strong>color key</strong> in the format options to remove the dark gray background(<code>#181818</code>).
         </p>
+        <p>Do not minimize the Popup when using with OBS as that will cause the popup not to function correctly, hide it behind another tab if needed.</p>
       </div>
     </div>
   </div>
@@ -171,6 +172,14 @@
             </label>
           </div>
 
+          <div class="settings-row">
+            <span>Toggle Moon Rock Sign</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-rock">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+
           <!-- Ability Lock sub-section. The Jump / Cap Bounce toggles only do
                anything while Ability Lock itself is on, so they're disabled
                (dimmed) when it's off. -->
@@ -221,38 +230,6 @@
               <input type="checkbox" id="toggle-complete-color">
               <span class="toggle-track"></span>
             </label>
-          </div>
-
-          <!-- Moon Updater sub-section. Location + Message Count only matter
-               while the updater is on, so they're disabled when it's off. -->
-          <div class="settings-subsection" id="subsection-updater">
-            <div class="subsection-title">Moon Updater</div>
-            <div class="settings-row">
-              <span>Toggle Moon Updater</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="toggle-moon-updater">
-                <span class="toggle-track"></span>
-              </label>
-            </div>
-            <div class="settings-row settings-subrow">
-              <span>Location</span>
-              <div class="segmented" id="seg-updater-location">
-                <button type="button" class="seg-btn" data-value="top">Top</button>
-                <button type="button" class="seg-btn" data-value="bottom">Bottom</button>
-              </div>
-            </div>
-            <div class="settings-row settings-subrow">
-              <span>Message Count</span>
-              <div class="input-save-pair">
-                <select id="select-updater-count" class="settings-select">
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                </select>
-              </div>
-            </div>
           </div>
 
           <!-- Side Panel sub-section. Notes and Map are mutually exclusive -
@@ -369,6 +346,38 @@
             </div>
           </div>
 
+          <!-- Moon Updater sub-section. Location + Message Count only matter
+               while the updater is on, so they're disabled when it's off. -->
+          <div class="settings-subsection" id="subsection-updater">
+            <div class="subsection-title">Moon Updater</div>
+            <div class="settings-row">
+              <span>Toggle Moon Updater</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-moon-updater">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div class="settings-row settings-subrow">
+              <span>Location</span>
+              <div class="segmented" id="seg-updater-location">
+                <button type="button" class="seg-btn" data-value="top">Top</button>
+                <button type="button" class="seg-btn" data-value="bottom">Bottom</button>
+              </div>
+            </div>
+            <div class="settings-row settings-subrow">
+              <span>Message Count</span>
+              <div class="input-save-pair">
+                <select id="select-updater-count" class="settings-select">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- ══ NOTES TAB ════════════════════════════════════════════ -->
@@ -443,6 +452,7 @@
     <div class="modal-box zone-names-modal-box">
       <div class="zone-names-topbar">
         <button class="zn-save-btn" id="zn-save">Save</button>
+        <button class="zn-ingame-btn" id="zn-use-ingame">Use In-Game Names</button>
         <span class="zone-names-title">Zone Names</span>
         <button class="zn-revert-btn" id="zn-revert">Revert to Default</button>
       </div>

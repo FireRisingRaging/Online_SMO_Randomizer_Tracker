@@ -585,9 +585,11 @@ h1 {
 /* Individually hidden ability icon (Jump / Cap Bounce show toggles off) */
 .icon-toggle-btn.ability-icon.icon-off { display: none; }
 
-/* Lock / Peace sign column hidden from the whole tracker via settings */
+/* Lock / Peace / Moon Rock sign columns hidden from the whole tracker via
+   settings. Moon Rock defaults to off, so hide-rock is present on first load. */
 #moon-rows.hide-lock .lock-btn   { display: none; }
 #moon-rows.hide-peace .peace-btn { display: none; }
+#moon-rows.hide-rock .rock-btn   { display: none; }
 
 .icon-toggle-btn {
   background: var(--btn-bg);
@@ -1420,6 +1422,19 @@ h1 {
   flex-shrink: 0;
 }
 .zn-save-btn:hover { background: var(--accent-h); border-color: var(--accent-h); }
+.zn-ingame-btn {
+  background: var(--btn-bg);
+  border: 1px solid #ff9800;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.zn-ingame-btn:hover { background: #be740423; }
 .zn-revert-btn {
   background: var(--btn-bg);
   border: 1px solid var(--red);

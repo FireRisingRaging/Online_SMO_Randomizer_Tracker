@@ -111,14 +111,17 @@
     }
 
     .obs-moon-row img.obs-lock,
-    .obs-moon-row img.obs-peace {
+    .obs-moon-row img.obs-peace,
+    .obs-moon-row img.obs-rock {
       width: 18px;
       height: 18px;
       object-fit: contain;
     }
-    /* Individually hidden lock/peace sign columns */
+    /* Individually hidden lock/peace/rock sign columns. Moon Rock is off by
+       default, so its icon-off class is present unless the setting is on. */
     .obs-moon-row img.obs-lock.icon-off,
-    .obs-moon-row img.obs-peace.icon-off { display: none; }
+    .obs-moon-row img.obs-peace.icon-off,
+    .obs-moon-row img.obs-rock.icon-off { display: none; }
 
     .obs-moon-row img.obs-kingdom {
       height: 35px;
@@ -245,6 +248,7 @@
     // this page renders always matches the "OBS size" the tracker advertises.
     const OBS_BASE_W = 315;
     const OBS_BASE_H = 450;        // 11 kingdoms, no updater
+    const OBS_ROCK_COL_W = 23;     // extra body width when the Moon Rock column shows (18px icon + 5px gap)
     const OBS_MOON_ROW_H = 40;     // added when Moon Kingdom shows on the overlay
     const OBS_UPDATER_MSG_H = 24;  // per visible updater message
     const OBS_UPDATER_PAD = 12;    // updater strip padding (top + bottom)
@@ -346,13 +350,14 @@
       return _obsMaxCache.maxes[i];
     }
 
-    // Unscaled overlay width. Both the popup startup size and the Browser
-    // Source estimate use the tracker-body width (OBS_BASE_W). In the popup the
-    // updater can still widen past this when the window is dragged out (handled
-    // in applyScale); Browser Source stays fixed at this width and long updater
-    // messages wrap to a second line.
-    function getObsBaseW() {
-      return OBS_BASE_W;
+    // Unscaled overlay (tracker-body) width. Grows when the Moon Rock column is
+    // shown so the extra sign icon doesn't squeeze the right column off the fixed
+    // width and get clipped. Both the popup startup size and the Browser Source
+    // estimate use this. The updater can still widen the popup root past this when
+    // the window is dragged out (handled in applyScale).
+    function getObsBaseW(settings) {
+      const s = settings || {};
+      return OBS_BASE_W + (s.show_rock ? OBS_ROCK_COL_W : 0);
     }
 
     // Unscaled overlay height for the current settings (mirrors app.js)
@@ -384,25 +389,37 @@
       const settings = (currentState && currentState.settings) ? currentState.settings : {};
       const updaterOn = !!settings.show_moon_updater;
       const root = document.getElementById('obs-root');
+      const main = document.getElementById('obs-main');
       const html = document.documentElement;
       const body = document.body;
 
+      // Effective tracker-body width (grows for the Moon Rock column).
+      const bodyW = getObsBaseW(settings);
+
+      // While the popup is minimized the browser reports innerWidth/innerHeight
+      // as 0, which would compute scale(0) and blank the overlay (it "disappears"
+      // in OBS). Skip re-scaling in that case so the last good frame is kept.
+      if (isPopup && (window.innerWidth <= 0 || window.innerHeight <= 0)) return;
+
       let scale, rootW;
       if (isPopup) {
-        scale = Math.min(window.innerWidth / OBS_BASE_W, window.innerHeight / baseH);
+        scale = Math.min(window.innerWidth / bodyW, window.innerHeight / baseH);
         rootW = updaterOn
-          ? Math.max(OBS_BASE_W, window.innerWidth / scale)
-          : OBS_BASE_W;
+          ? Math.max(bodyW, window.innerWidth / scale)
+          : bodyW;
       } else {
         const urlScale = parseFloat(params.get('scale'));
         const settingsScale = settings.overlay_scale;
         scale = urlScale || settingsScale || 1;
-        rootW = getObsBaseW(settings);
+        rootW = bodyW;
       }
 
       root.style.width = `${rootW}px`;
       root.style.height = `${baseH}px`;
       root.style.transform = `scale(${scale})`;
+      // The main body stays at bodyW even when the updater widens the root, so the
+      // moon list + right column always get their full width and never clip.
+      if (main) main.style.width = `${bodyW}px`;
 
       if (isPopup) {
         html.style.width = '100vw';
@@ -437,6 +454,11 @@
         peaceImg.src = 'assets/peace.png';
         peaceImg.alt = 'peace';
 
+        const rockImg   = document.createElement('img');
+        rockImg.className = 'obs-rock icon-off'; // hidden until show_rock is on
+        rockImg.src = 'assets/rock_locked.png';
+        rockImg.alt = 'rock';
+
         const kingImg   = document.createElement('img');
         kingImg.className = 'obs-kingdom';
         kingImg.src = k.img;
@@ -448,6 +470,7 @@
 
         row.appendChild(lockImg);
         row.appendChild(peaceImg);
+        row.appendChild(rockImg);
         row.appendChild(kingImg);
         row.appendChild(countSpan);
         moonList.appendChild(row);
@@ -592,10 +615,14 @@
 
         const lockEl = row.querySelector('.obs-lock');
         const peaceEl = row.querySelector('.obs-peace');
+        const rockEl = row.querySelector('.obs-rock');
         lockEl.src  = m.lock  ? 'assets/unlock.png'       : 'assets/lock.png';
         peaceEl.src = m.peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
+        rockEl.src  = m.rock  ? 'assets/rock_unlocked.png' : 'assets/rock_locked.png';
         lockEl.classList.toggle('icon-off', settings.show_lock === false);
         peaceEl.classList.toggle('icon-off', settings.show_peace === false);
+        // Moon Rock is off by default, so it stays hidden unless explicitly enabled.
+        rockEl.classList.toggle('icon-off', settings.show_rock !== true);
 
         const kImg = row.querySelector('.obs-kingdom');
         kImg.classList.toggle('icon-white', settings.show_icon_colors === false);
@@ -603,10 +630,11 @@
         const maxDisplay = (m.max !== null && m.max !== undefined) ? m.max : '?';
         row.querySelector('.obs-count').textContent = `${m.count || 0} / ${maxDisplay}`;
 
-        const isComplete = settings.show_complete_color && (
-          (m.max !== null && m.max !== undefined && (m.count || 0) >= m.max) ||
-          ((m.count || 0) >= scaledMaxFor(i, settings))
-        );
+        // Mirror the main tracker: a user-entered max is the requirement exactly
+        // (even 0, or higher than the game's normal max); otherwise fall back to
+        // the scaled kingdom max. Never mix the two.
+        const required = (m.max !== null && m.max !== undefined) ? m.max : scaledMaxFor(i, settings);
+        const isComplete = settings.show_complete_color && (m.count || 0) >= required;
         row.querySelector('.obs-count').classList.toggle('count-complete', isComplete);
       });
 
@@ -668,6 +696,23 @@
           if (e.key !== STATE_KEY || serverMode) return;
           updateOBS(loadTrackerState());
         });
+
+        // Storage events aren't reliably delivered to a minimized/background
+        // window, so also poll localStorage on an interval. Timers are throttled
+        // (~1s) while hidden but still fire, which lets the popup keep updating
+        // for OBS capture even when it isn't the focused window. We only re-render
+        // when the stored state actually changed, and never in server mode (the
+        // WebSocket already delivers updates in the background).
+        let lastPolledRaw = null;
+        try { lastPolledRaw = localStorage.getItem(STATE_KEY); } catch (e) {}
+        setInterval(() => {
+          if (serverMode) return;
+          let raw = null;
+          try { raw = localStorage.getItem(STATE_KEY); } catch (e) { return; }
+          if (raw === lastPolledRaw) return;
+          lastPolledRaw = raw;
+          updateOBS(raw ? JSON.parse(raw) : null);
+        }, 500);
 
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) return;

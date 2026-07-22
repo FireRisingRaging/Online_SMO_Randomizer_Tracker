@@ -521,6 +521,97 @@
   }
   .cluster-resize-height-handle:hover::after { background: var(--accent); }
 
+  /* ── Freeform sticky notes ───────────────────────────────────── */
+  /* Sit above the arrows (lines-layer) and nodes so they read as annotations.
+     Gray outline matches the kingdom panels. */
+  .map-note-sticky {
+    position: absolute;
+    z-index: 60;
+    background: rgba(36,36,36,0.94);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.8rem;
+    line-height: 1.35;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    user-select: none;
+  }
+  .map-note-sticky.note-dragging { z-index: 80; border-color: var(--accent); }
+  .map-note-sticky.note-editing  { border-color: var(--accent); cursor: text; }
+
+  .note-content {
+    padding: 7px 9px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    cursor: move;
+    min-height: 20px;
+  }
+  .map-note-sticky.note-editing .note-content { cursor: text; }
+  .note-content.empty-note-hint { color: var(--text-dim); font-style: italic; }
+
+  .note-content img.note-icon {
+    height: 18px; width: 18px;
+    object-fit: contain;
+    vertical-align: -4px;
+    margin: 0 1px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .note-content img.note-icon:hover { outline: 2px solid var(--accent); }
+
+  .note-edit-area {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.8rem;
+    line-height: 1.35;
+    padding: 7px 9px;
+    resize: none;
+    overflow: hidden;
+    display: block;
+  }
+
+  /* Width resize handle - bottom-right corner (height auto-follows content) */
+  .note-resize-handle {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 16px; height: 16px;
+    cursor: ew-resize;
+    z-index: 2;
+    background: var(--border);
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    border-radius: 0 0 var(--radius-sm) 0;
+    transition: background 0.15s;
+  }
+  .note-resize-handle:hover { background: var(--accent); }
+
+  /* Note icon picker popup */
+  #note-icon-picker {
+    position: fixed;
+    z-index: 900;
+    display: none;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    padding: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    max-width: 190px;
+  }
+  #note-icon-picker.open { display: grid; }
+  #note-icon-picker img {
+    height: 26px; width: 26px;
+    object-fit: contain;
+    padding: 3px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #note-icon-picker img:hover { background: var(--bg-hover); }
+
   /* ── Nodes ───────────────────────────────────────────────────── */
   .map-node {
     position: absolute;
@@ -858,6 +949,9 @@
 
 <!-- Arrow chain tooltip -->
 <div id="arrow-chain-tooltip"></div>
+
+<!-- Icon picker for {icon} tokens inside notes -->
+<div id="note-icon-picker"></div>
 
 <!-- Settings modal -->
 <div id="settings-overlay">
@@ -1352,6 +1446,7 @@ const STORAGE_GRID        = 'smo_map_grid';
 const STORAGE_SETTINGS    = 'smo_map_settings';
 const STORAGE_EDGE_CHAINS = 'smo_edge_chains';
 const STORAGE_CHAIN_META  = 'smo_chain_meta';
+const STORAGE_NOTES       = 'smo_map_notes';
 
 // ─────────────────────────────────────────────────────────────────
 // Zone name overrides (from the main tracker's tracker_state)
@@ -1456,6 +1551,24 @@ let pinnedHighlightNodeId  = null;
 // Chain picker state
 let activePickerEdge = null;
 let activePickerEl   = null;
+
+// ── Freeform notes ────────────────────────────────────────────────
+// Sticky notes drawn on top of the canvas (above arrows). Positions/sizes are in
+// canvas coordinates so they pan and zoom with everything else. Saved separately
+// (STORAGE_NOTES) and wiped by the Clear button. A note's text may embed {icon}
+// tokens ({icon} = Moon.png, {icon:File.png} = a chosen icon) that render as a
+// clickable image linked to an icon picker.
+let mapNotes = [];          // [{ id, x, y, w, text }]
+let nextNoteId = 1;
+const NOTE_DEFAULT_W = 150; // canvas px
+const NOTE_MIN_W = 70;
+// Icons offered by the note {icon} picker (must exist under assets/).
+const NOTE_PICKER_ICONS = [
+  'Moon.png', 'Moon_Dark.png', 'checkmark.png', 'xmark.png',
+  'Cascade.png', 'Sand.png', 'Lake.png', 'Wooded.png', 'Lost.png', 'Metro.png',
+  'Snow.png', 'Seaside.png', 'Luncheon.png', 'Ruin.png', 'Bowser.png',
+  'Cap.png', 'Dark.png', 'Star.png', 'Cloud.png', 'MoonK.png',
+];
 
 // ─────────────────────────────────────────────────────────────────
 // Cluster geometry helpers
@@ -1690,6 +1803,17 @@ function loadAll() {
       chainColors  = m.colors || {};
     }
   } catch (e) {}
+
+  try {
+    const raw = localStorage.getItem(STORAGE_NOTES);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        mapNotes = arr.filter(n => n && typeof n === 'object');
+        nextNoteId = mapNotes.reduce((mx, n) => Math.max(mx, (n.id || 0) + 1), 1);
+      }
+    }
+  } catch (e) {}
 }
 
 function saveState()    { localStorage.setItem(STORAGE_KEY, JSON.stringify({ outgoing, marks })); }
@@ -1707,6 +1831,7 @@ function saveEdgeChains() {
   localStorage.setItem(STORAGE_EDGE_CHAINS, JSON.stringify(edgeChains));
   localStorage.setItem(STORAGE_CHAIN_META, JSON.stringify({ nextChainId, colors: chainColors }));
 }
+function saveNotes() { localStorage.setItem(STORAGE_NOTES, JSON.stringify(mapNotes)); }
 
 // ─────────────────────────────────────────────────────────────────
 // Connection helpers
@@ -3315,32 +3440,53 @@ function applyDisplayLayout() {
   const handle = document.getElementById('display-resize-handle');
   let dragging = false, startPos = 0, startSize = 0;
 
-  handle.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
+  // Shared for mouse + touch: axis follows the panel position (vertical when the
+  // panel is on the top/bottom edge, horizontal when it's on the left/right).
+  function begin(clientX, clientY) {
     dragging = true;
     handle.classList.add('dragging');
-    startPos  = (displayPosition === 'top' || displayPosition === 'bottom') ? e.clientY : e.clientX;
+    startPos  = (displayPosition === 'top' || displayPosition === 'bottom') ? clientY : clientX;
     startSize = displaySize;
-    e.preventDefault(); e.stopPropagation();
-  });
-
-  document.addEventListener('mousemove', (e) => {
+  }
+  function move(clientX, clientY) {
     if (!dragging) return;
     let delta;
-    if      (displayPosition === 'top')    delta =  (e.clientY - startPos);
-    else if (displayPosition === 'bottom') delta = -(e.clientY - startPos);
-    else if (displayPosition === 'left')   delta =  (e.clientX - startPos);
-    else                                   delta = -(e.clientX - startPos);
+    if      (displayPosition === 'top')    delta =  (clientY - startPos);
+    else if (displayPosition === 'bottom') delta = -(clientY - startPos);
+    else if (displayPosition === 'left')   delta =  (clientX - startPos);
+    else                                   delta = -(clientX - startPos);
     displaySize = Math.max(60, Math.min(700, startSize + delta));
     applyDisplayLayout();
-  });
-
-  document.addEventListener('mouseup', () => {
+  }
+  function end() {
     if (!dragging) return;
     dragging = false;
     handle.classList.remove('dragging');
     saveSettings();
+  }
+
+  // Mouse
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    begin(e.clientX, e.clientY);
+    e.preventDefault(); e.stopPropagation();
   });
+  document.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
+  document.addEventListener('mouseup', end);
+
+  // Touch (mobile): the handle had no touch wiring, so it couldn't be dragged.
+  handle.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    begin(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault(); e.stopPropagation();
+  }, { passive: false });
+  handle.addEventListener('touchmove', (e) => {
+    if (!dragging || e.touches.length !== 1) return;
+    move(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  handle.addEventListener('touchend', end);
+  handle.addEventListener('touchcancel', end);
 })();
 
 function renderDisplayPanel() {
@@ -3586,7 +3732,7 @@ document.getElementById('btn-display').addEventListener('click', (e) => {
 });
 
 document.getElementById('btn-clear').addEventListener('click', () => {
-  if (!confirm('Clear all connections and marks on the map?')) return;
+  if (!confirm('Clear all connections, marks, and notes on the map?')) return;
   outgoing={}; incoming={}; marks={};
   edgeChains={}; chainColors={}; nextChainId=0;
   hoverHighlightChainId = null; pinnedHighlightChainId = null; pinnedHighlightNodeId = null;
@@ -3594,6 +3740,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   recomputeChainLabels();
   saveState();
   saveEdgeChains();
+  clearNotes();
   canvasEl.querySelectorAll('.map-node').forEach(el => el.classList.remove('mark-green','mark-red'));
   renderConnections();
   renderDisplayPanel();
@@ -3720,6 +3867,338 @@ if (displayPositionSelect) {
 // ─────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// Freeform notes
+// ─────────────────────────────────────────────────────────────────
+const NOTE_ICON_RE = /\{icon(?::([^}]+))?\}/g;
+let noteDragState = null;   // active move/resize gesture
+let notePickerState = null; // { note, tokenIndex } while the icon picker is open
+
+function renderNotes() {
+  canvasEl.querySelectorAll('.map-note-sticky').forEach(el => el.remove());
+  mapNotes.forEach(n => canvasEl.appendChild(createNoteElement(n)));
+}
+
+function getNoteEl(id) {
+  return canvasEl.querySelector(`.map-note-sticky[data-id="${id}"]`);
+}
+
+// Build the (display-mode) DOM for one note.
+function createNoteElement(note) {
+  const el = document.createElement('div');
+  el.className = 'map-note-sticky';
+  el.dataset.id = note.id;
+  el.style.left  = note.x + 'px';
+  el.style.top   = note.y + 'px';
+  el.style.width = (note.w || NOTE_DEFAULT_W) + 'px';
+
+  const content = document.createElement('div');
+  content.className = 'note-content';
+  el.appendChild(content);
+
+  const handle = document.createElement('div');
+  handle.className = 'note-resize-handle';
+  handle.title = 'Drag to resize width';
+  el.appendChild(handle);
+
+  renderNoteDisplay(note, content);
+  wireNoteInteractions(note, el, content, handle);
+  return el;
+}
+
+// Fill a note's content element with its parsed display (text + {icon} images).
+function renderNoteDisplay(note, content) {
+  content.innerHTML = '';
+  const text = note.text || '';
+  if (!text.trim()) {
+    content.classList.add('empty-note-hint');
+    content.textContent = 'New note';
+    return;
+  }
+  content.classList.remove('empty-note-hint');
+
+  let last = 0, tokenIndex = 0, m;
+  NOTE_ICON_RE.lastIndex = 0;
+  while ((m = NOTE_ICON_RE.exec(text)) !== null) {
+    if (m.index > last) content.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const file = (m[1] && m[1].trim()) ? m[1].trim() : 'Moon.png';
+    const img = document.createElement('img');
+    img.className = 'note-icon';
+    img.src = 'assets/' + file;
+    img.alt = 'icon';
+    img.title = 'Click to change icon';
+    const idx = tokenIndex;
+    img.addEventListener('mousedown', (e) => e.stopPropagation());
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openNoteIconPicker(note, idx, e.clientX, e.clientY);
+    });
+    content.appendChild(img);
+    last = m.index + m[0].length;
+    tokenIndex++;
+  }
+  if (last < text.length) content.appendChild(document.createTextNode(text.slice(last)));
+}
+
+// Replace the Nth {icon...} token in a note's text with a chosen icon file.
+function setNoteTokenIcon(note, tokenIndex, file) {
+  let i = 0;
+  note.text = (note.text || '').replace(NOTE_ICON_RE, (match) => {
+    return (i++ === tokenIndex) ? `{icon:${file}}` : match;
+  });
+  saveNotes();
+  const el = getNoteEl(note.id);
+  if (el) renderNoteDisplay(note, el.querySelector('.note-content'));
+}
+
+function openNoteIconPicker(note, tokenIndex, clientX, clientY) {
+  const picker = document.getElementById('note-icon-picker');
+  notePickerState = { note, tokenIndex };
+  picker.innerHTML = '';
+  NOTE_PICKER_ICONS.forEach(file => {
+    const img = document.createElement('img');
+    img.src = 'assets/' + file;
+    img.alt = file;
+    img.title = file.replace('.png', '');
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (notePickerState) setNoteTokenIcon(notePickerState.note, notePickerState.tokenIndex, file);
+      closeNoteIconPicker();
+    });
+    picker.appendChild(img);
+  });
+  picker.classList.add('open');
+  // Clamp to viewport
+  const pw = 190, ph = 130;
+  let x = Math.min(clientX, window.innerWidth - pw - 8);
+  let y = Math.min(clientY, window.innerHeight - ph - 8);
+  picker.style.left = Math.max(8, x) + 'px';
+  picker.style.top  = Math.max(8, y) + 'px';
+}
+
+function closeNoteIconPicker() {
+  const picker = document.getElementById('note-icon-picker');
+  picker.classList.remove('open');
+  notePickerState = null;
+}
+document.addEventListener('mousedown', (e) => {
+  const picker = document.getElementById('note-icon-picker');
+  if (picker.classList.contains('open') && !picker.contains(e.target)) closeNoteIconPicker();
+});
+
+function noteIsEditing(el) { return el.classList.contains('note-editing'); }
+
+// Switch a note into edit mode (raw text in an auto-growing textarea).
+function enterNoteEdit(note, el) {
+  if (noteIsEditing(el)) return;
+  el.classList.add('note-editing');
+  const content = el.querySelector('.note-content');
+  content.style.display = 'none';
+
+  const ta = document.createElement('textarea');
+  ta.className = 'note-edit-area';
+  ta.value = note.text || '';
+  el.insertBefore(ta, content);
+  const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+  ta.addEventListener('input', grow);
+  ta.addEventListener('mousedown', (e) => e.stopPropagation());
+  ta.addEventListener('dblclick', (e) => e.stopPropagation());
+  const finish = () => {
+    note.text = ta.value;
+    saveNotes();
+    ta.remove();
+    content.style.display = '';
+    el.classList.remove('note-editing');
+    renderNoteDisplay(note, content);
+  };
+  ta.addEventListener('blur', finish);
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); ta.blur(); }
+  });
+  ta.focus();
+  grow();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function addNoteAt(canvasX, canvasY) {
+  const note = { id: nextNoteId++, x: Math.round(canvasX), y: Math.round(canvasY), w: NOTE_DEFAULT_W, text: '' };
+  mapNotes.push(note);
+  saveNotes();
+  const el = createNoteElement(note);
+  canvasEl.appendChild(el);
+  enterNoteEdit(note, el); // open straight into editing so it's usable immediately
+}
+
+function removeNote(id) {
+  const idx = mapNotes.findIndex(n => n.id === id);
+  if (idx === -1) return;
+  mapNotes.splice(idx, 1);
+  saveNotes();
+  const el = getNoteEl(id);
+  if (el) el.remove();
+}
+
+function clearNotes() {
+  mapNotes = [];
+  saveNotes();
+  canvasEl.querySelectorAll('.map-note-sticky').forEach(el => el.remove());
+}
+
+// Interactions: drag to move, corner to resize width, single-click to edit,
+// double-click to remove. Both mouse and touch.
+function wireNoteInteractions(note, el, content, handle) {
+  let editTimer = null;
+  let suppressClick = false;
+
+  // ── Move (drag body) ──
+  function beginMove(clientX, clientY) {
+    noteDragState = {
+      type: 'move', id: note.id,
+      startX: clientX, startY: clientY,
+      originX: note.x, originY: note.y,
+      moved: false, el,
+    };
+    el.classList.add('note-dragging');
+  }
+  function beginResize(clientX) {
+    noteDragState = {
+      type: 'resize', id: note.id,
+      startX: clientX, originW: note.w || NOTE_DEFAULT_W,
+      moved: false, el,
+    };
+    el.classList.add('note-dragging');
+  }
+
+  // Mouse: body
+  content.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || noteIsEditing(el)) return;
+    if (e.target.classList.contains('note-icon')) return; // icons open the picker
+    e.preventDefault(); e.stopPropagation();
+    beginMove(e.clientX, e.clientY);
+  });
+  content.addEventListener('click', (e) => {
+    if (suppressClick) { suppressClick = false; return; }
+    if (noteIsEditing(el)) return;
+    if (e.target.classList.contains('note-icon')) return;
+    clearTimeout(editTimer);
+    editTimer = setTimeout(() => enterNoteEdit(note, el), 210);
+  });
+  el.addEventListener('dblclick', (e) => {
+    clearTimeout(editTimer);
+    if (noteIsEditing(el)) return; // let text selection work while editing
+    e.preventDefault();
+    removeNote(note.id);
+  });
+
+  // Mouse: resize handle
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    beginResize(e.clientX);
+  });
+
+  // Expose a way for the global mouseup to flag "this was a drag, swallow click"
+  el._noteSuppressClick = () => { suppressClick = true; };
+
+  // ── Touch ──
+  let lastTap = 0;
+  content.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || noteIsEditing(el)) return;
+    if (e.target.classList.contains('note-icon')) return;
+    e.stopPropagation();
+    beginMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  content.addEventListener('touchmove', (e) => {
+    if (!noteDragState || noteDragState.type !== 'move' || noteDragState.id !== note.id) return;
+    e.preventDefault();
+    moveNoteGesture(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  content.addEventListener('touchend', (e) => {
+    if (!noteDragState || noteDragState.id !== note.id) return;
+    const wasMoved = noteDragState.moved;
+    endNoteGesture();
+    if (wasMoved) return;
+    if (e.target.classList.contains('note-icon')) return;
+    const now = Date.now();
+    if (now - lastTap < 320) { lastTap = 0; removeNote(note.id); } // double-tap removes
+    else { lastTap = now; enterNoteEdit(note, el); }              // single tap edits
+  });
+  handle.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault(); e.stopPropagation();
+    beginResize(e.touches[0].clientX);
+  }, { passive: false });
+  handle.addEventListener('touchmove', (e) => {
+    if (!noteDragState || noteDragState.type !== 'resize' || noteDragState.id !== note.id) return;
+    e.preventDefault();
+    moveNoteGesture(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  handle.addEventListener('touchend', () => { if (noteDragState && noteDragState.id === note.id) endNoteGesture(); });
+}
+
+function moveNoteGesture(clientX, clientY) {
+  const st = noteDragState;
+  if (!st) return;
+  const note = mapNotes.find(n => n.id === st.id);
+  if (!note) return;
+  if (st.type === 'move') {
+    const dx = (clientX - st.startX) / zoom, dy = (clientY - st.startY) / zoom;
+    if (Math.abs(clientX - st.startX) > 3 || Math.abs(clientY - st.startY) > 3) st.moved = true;
+    note.x = Math.round(st.originX + dx);
+    note.y = Math.round(st.originY + dy);
+    st.el.style.left = note.x + 'px';
+    st.el.style.top  = note.y + 'px';
+  } else if (st.type === 'resize') {
+    const dx = (clientX - st.startX) / zoom;
+    if (Math.abs(clientX - st.startX) > 3) st.moved = true;
+    note.w = Math.max(NOTE_MIN_W, Math.round(st.originW + dx));
+    st.el.style.width = note.w + 'px';
+  }
+}
+
+function endNoteGesture() {
+  const st = noteDragState;
+  if (!st) return;
+  st.el.classList.remove('note-dragging');
+  if (st.moved) {
+    saveNotes();
+    if (st.type === 'move' && st.el._noteSuppressClick) st.el._noteSuppressClick();
+  }
+  noteDragState = null;
+}
+
+// Global mouse move/up drive the active note gesture (so it keeps tracking even
+// if the pointer leaves the note).
+document.addEventListener('mousemove', (e) => {
+  if (noteDragState) moveNoteGesture(e.clientX, e.clientY);
+});
+document.addEventListener('mouseup', () => { if (noteDragState) endNoteGesture(); });
+
+// Double-click empty canvas to add a note there.
+viewport.addEventListener('dblclick', (e) => {
+  if (e.target !== viewport && e.target !== canvasEl) return;
+  const p = canvasPointFromEvent(e);
+  addNoteAt(p.x, p.y);
+});
+
+// Touch: double-tap empty canvas to add a note.
+let lastCanvasTap = 0;
+viewport.addEventListener('touchend', (e) => {
+  if (e.target !== viewport && e.target !== canvasEl) return;
+  if (e.changedTouches.length !== 1) return;
+  const now = Date.now();
+  if (now - lastCanvasTap < 320) {
+    lastCanvasTap = 0;
+    const t = e.changedTouches[0];
+    const rect = viewport.getBoundingClientRect();
+    const x = (t.clientX - rect.left - panX) / zoom;
+    const y = (t.clientY - rect.top - panY) / zoom;
+    addNoteAt(x, y);
+  } else {
+    lastCanvasTap = now;
+  }
+});
+
 function init() {
   loadAll();
   refreshZoneNameCache();
@@ -3762,6 +4241,7 @@ function init() {
   renderClusters();
   renderNodes();
   renderConnections();
+  renderNotes();
   renderDisplayPanel();
   applyTransform();
 }
