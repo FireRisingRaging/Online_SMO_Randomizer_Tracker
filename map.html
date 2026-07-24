@@ -681,6 +681,67 @@
   }
   .map-node .node-label { overflow: hidden; text-overflow: ellipsis; }
 
+  /* ── Segmented node ends (in / out) ──────────────────────────── */
+  .map-node.segmented { padding: 0; gap: 0; }
+  .map-node.segmented .node-label {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 0 6px;
+    min-width: 0;
+  }
+  .map-node .node-seg {
+    flex: 0 0 auto;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    font-size: 0.62rem;
+    line-height: 1;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+  }
+  .map-node .node-seg-in  { border-right: 1px solid; }
+  .map-node .node-seg-out { border-left:  1px solid; }
+  .map-node.kingdom-node .node-seg { font-size: 0.66rem; font-weight: 600; }
+
+  /* ── Decouple: per-node move handle ──────────────────────────── */
+  .node-move-handle {
+    position: absolute;
+    right: 0; bottom: 0;
+    width: 13px; height: 13px;
+    cursor: move;
+    z-index: 3;
+    background: var(--border);
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    border-radius: 0 0 var(--radius-sm) 0;
+    transition: background 0.15s;
+  }
+  .node-move-handle:hover { background: var(--accent); }
+  .map-node.node-moving {
+    z-index: 8;
+    transform: none !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.55);
+  }
+
+  /* Sub-option row nested under a settings toggle */
+  .settings-suboption {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding-left: 12px;
+    border-left: 2px solid var(--border);
+  }
+  .settings-suboption.disabled { opacity: 0.45; pointer-events: none; }
+  .settings-suboption .sub-label { font-size: 0.8rem; color: var(--text-dim); }
+  .settings-row-note {
+    font-size: 0.74rem;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 8px;
+  }
+
   /* ── Zoom control ───────────────────────────────────────────── */
   #zoom-control {
     position: absolute;
@@ -900,6 +961,7 @@
       <li><strong>Drag the panel background or kingdom header</strong> to move a kingdom panel.</li>
       <li><strong>Triangle handle</strong> (bottom-right of each panel) to resize it. Zones reflow automatically in that space.</li>
       <li><strong>Hold for 1 second</strong> on a node (with Stage Previews on) to view its loading zone screenshot.</li>
+      <li><strong>Node triangle</strong> (bottom-right of each node, Decouple only): drag it to move that node on its own. It moves and it never resizes. Dragging anywhere else on the node still draws an arrow.</li>
       <li><strong>Hover</strong> over an arrow to see what letter chain it is part of.</li>
       <li><strong>Single-click</strong> an arrow to view its chain and what chain it can be linked to or add it to a new chain.</li>
       <li>Scroll to zoom, drag empty space to pan.</li>
@@ -915,6 +977,7 @@
         <li><strong>Single tap</strong> a node to cycle its color: green → red → none.</li>
         <li><strong>Tap once</strong> a panel's empty background to select it (border lights up), then <strong>drag</strong> from that background to move it. Deactivates automatically when you lift your finger.</li>
         <li><strong>Triangle handle</strong> (bottom-right of each panel): drag to resize it. Zones reflow automatically.</li>
+        <li><strong>Node triangle</strong> (bottom-right of each node, Decouple only): drag it to move that node on its own. Dragging anywhere else still draws an arrow.</li>
         <li><strong>Hold for 1 second</strong> on a node without moving (Stage Previews must be on) to view its loading zone screenshot. Moving your finger cancels it and starts a connection drag instead.</li>
         <li>Pinch to zoom, drag empty canvas to pan.</li>
       </ul>
@@ -976,7 +1039,7 @@
 
       <div class="settings-row">
         <div class="settings-row-label">Stage Previews</div>
-        <div class="settings-row-desc">Single-click any kingdom or zone node to view its loading zone screenshot.</div>
+        <div class="settings-row-desc">Click and hold any kingdom or zone node to view its loading zone screenshot.</div>
         <div class="settings-row-control">
           <label class="toggle-wrap" for="toggle-images">
             <span class="toggle-switch">
@@ -992,7 +1055,7 @@
 
       <div class="settings-row">
         <div class="settings-row-label">Painting Tracker</div>
-        <div class="settings-row-desc">Adds a Paintings section before Cascade. Paintings only connect to other paintings and may link to several. Painting chains show at the top of the Display with white arrows and no letters.</div>
+        <div class="settings-row-desc">Adds a Paintings section. Paintings only connect to other paintings, show at the top of the Display, and have white arrows.</div>
         <div class="settings-row-control">
           <label class="toggle-wrap" for="toggle-painting">
             <span class="toggle-switch">
@@ -1007,8 +1070,51 @@
       <div class="settings-divider"></div>
 
       <div class="settings-row">
+        <div class="settings-row-label">Segmented Nodes</div>
+        <div class="settings-row-desc">Splits every zone and kingdom node into an entrance segment on the left and an exit segment on the right. </div>
+        <div class="settings-row-control">
+          <label class="toggle-wrap" for="toggle-segmented">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-segmented">
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label" id="toggle-segmented-label">Off</span>
+          </label>
+        </div>
+        <div class="settings-suboption disabled" id="segment-style-row">
+          <span class="sub-label">Segment labels</span>
+          <div class="settings-row-control">
+            <select id="segment-style">
+              <option value="inout">In / Out</option>
+              <option value="enterexit">Enter / Exit</option>
+              <option value="tofrom">To / From</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">Decouple</div>
+        <div class="settings-row-desc">Frees every node from its kingdom panel so it can be placed anywhere on the map. Each node gets a small triangle in its bottom-right corner: drag that to move the node; dragging anywhere else still draws an arrow. The triangle does not resize nodes.</div>
+        <div class="settings-row-control">
+          <label class="toggle-wrap" for="toggle-decouple">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-decouple">
+              <span class="toggle-track"></span>
+            </span>
+            <span class="toggle-label" id="toggle-decouple-label">Off</span>
+          </label>
+        </div>
+        <div class="settings-row-note">Note: node positions are saved while Decouple is on, but turning it off does not keep them. The map returns to grouped panels at 4 columns (all arrows are kept).</div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-row">
         <div class="settings-row-label">Arrow Color</div>
-        <div class="settings-row-desc">Choose how connection arrows (and their chain letters) are colored on the map.</div>
+        <div class="settings-row-desc">Choose how connection arrows are colored on the map.</div>
 
         <div class="arrow-color-option">
           <label class="toggle-wrap" for="toggle-random-colors">
@@ -1447,6 +1553,7 @@ const STORAGE_SETTINGS    = 'smo_map_settings';
 const STORAGE_EDGE_CHAINS = 'smo_edge_chains';
 const STORAGE_CHAIN_META  = 'smo_chain_meta';
 const STORAGE_NOTES       = 'smo_map_notes';
+const STORAGE_NODE_POS    = 'smo_map_node_positions';
 
 // ─────────────────────────────────────────────────────────────────
 // Zone name overrides (from the main tracker's tracker_state)
@@ -1523,6 +1630,28 @@ let arrowColorMode = 'random'; // 'random' | 'one' | 'gradient'
 let displayPosition = 'top';
 let displaySize = 150;
 let paintingTracker = false; // Painting section shown on the map (default off)
+
+// ── Segmented nodes ───────────────────────────────────────────────
+// When on, every non-painting node is split into an entrance segment (left) and
+// an exit segment (right). Arrows leave the middle of the source's right edge
+// and enter the middle of the target's left edge, with a short horizontal stub
+// at each end so the arrowhead always meets the node square-on.
+let segmentedNodes = false;
+let segmentStyle   = 'inout'; // 'inout' | 'enterexit' | 'tofrom'
+const SEGMENT_LABELS = {
+  inout:     { in: 'in',    out: 'out'  },
+  enterexit: { in: 'enter', out: 'exit' },
+  tofrom:    { in: 'to',    out: 'from' },
+};
+const SEG_STUB = 16;      // horizontal shaft length at each end
+const SEG_STUB_BACK = 28; // longer stub when the target sits left of the source
+
+// ── Decouple ──────────────────────────────────────────────────────
+// When on, kingdom panels are hidden and every node can be dragged freely by the
+// triangle in its bottom-right corner. Positions persist while it stays on;
+// turning it off discards them and restores the grouped 4-column grid.
+let decoupled = false;
+let nodePositions = {};   // id → {x, y}, only used while decoupled
 
 // Kingdom visibility (which kingdoms are shown on the map). Missing = visible.
 let kingdomVisible = { Moon: false, Cloud: false };
@@ -1703,6 +1832,22 @@ function buildLayout() {
     });
   });
 
+  if (decoupled) {
+    // Free layout: start from the grid-derived positions, then apply any saved
+    // per-node overrides. Canvas bounds come from the nodes themselves since
+    // there are no cluster panels to measure.
+    let mr = 0, mb = 0;
+    Object.values(nodes).forEach(n => {
+      const p = nodePositions[n.id];
+      if (p && isFinite(p.x) && isFinite(p.y)) { n.x = p.x; n.y = p.y; }
+      mr = Math.max(mr, n.x + n.w);
+      mb = Math.max(mb, n.y + n.h);
+    });
+    canvasW = mr + 120;
+    canvasH = mb + 120;
+    return;
+  }
+
   canvasW = maxRight + 80;
   canvasH = maxBottom + 80;
 }
@@ -1786,9 +1931,22 @@ function loadAll() {
       displayPosition   = s.displayPosition || displayPosition;
       displaySize       = s.displaySize     || displaySize;
       paintingTracker   = !!s.paintingTracker;
+      segmentedNodes    = !!s.segmentedNodes;
+      if (s.segmentStyle && SEGMENT_LABELS[s.segmentStyle]) segmentStyle = s.segmentStyle;
+      decoupled         = !!s.decoupled;
       if (s.kingdomVisible) kingdomVisible = { ...kingdomVisible, ...s.kingdomVisible };
     }
   } catch (e) {}
+
+  try {
+    const raw = localStorage.getItem(STORAGE_NODE_POS);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && typeof p === 'object') nodePositions = p;
+    }
+  } catch (e) {}
+  // Positions only ever apply while decoupled; drop them if it was left off.
+  if (!decoupled) nodePositions = {};
 
   try {
     const raw = localStorage.getItem(STORAGE_EDGE_CHAINS);
@@ -1824,8 +1982,21 @@ function saveSettings() {
   localStorage.setItem(STORAGE_SETTINGS, JSON.stringify({
     showImages, arrowColor, highlightColor, highlightEnabled,
     randomChainColors, arrowColorMode, displayPosition, displaySize, kingdomVisible,
-    paintingTracker
+    paintingTracker, segmentedNodes, segmentStyle, decoupled
   }));
+}
+function saveNodePositions() {
+  localStorage.setItem(STORAGE_NODE_POS, JSON.stringify(nodePositions));
+}
+function clearNodePositions() {
+  nodePositions = {};
+  localStorage.removeItem(STORAGE_NODE_POS);
+}
+/** Snapshot every node's current position so decoupled dragging starts stable. */
+function snapshotNodePositions() {
+  nodePositions = {};
+  Object.values(nodes).forEach(n => { nodePositions[n.id] = { x: n.x, y: n.y }; });
+  saveNodePositions();
 }
 function saveEdgeChains() {
   localStorage.setItem(STORAGE_EDGE_CHAINS, JSON.stringify(edgeChains));
@@ -2125,6 +2296,8 @@ function fullRender() {
 // Cluster backgrounds + resize handles
 // ─────────────────────────────────────────────────────────────────
 function renderClusters() {
+  // Decoupled: no kingdom groups and no borders nodes float on their own.
+  if (decoupled) return;
   const kingdomKeys = visibleKingdomKeys();
   kingdomKeys.forEach(key => {
     const kn = nodes[`kingdom:${key}`];
@@ -2309,6 +2482,16 @@ function moveCluster(key, nx, ny, div) {
 
 function updateCanvasBounds() {
   let maxRight = 0, maxBottom = 0;
+  if (decoupled) {
+    Object.values(nodes).forEach(n => {
+      maxRight  = Math.max(maxRight,  n.x + n.w);
+      maxBottom = Math.max(maxBottom, n.y + n.h);
+    });
+    canvasW = maxRight + 120; canvasH = maxBottom + 120;
+    canvasEl.style.width = canvasW + 'px';
+    canvasEl.style.height = canvasH + 'px';
+    return;
+  }
   Object.values(nodes).forEach(n => {
     if (n.type === 'kingdom') {
       maxRight = Math.max(maxRight, n.clusterX + n.clusterW);
@@ -2459,12 +2642,55 @@ function renderNodes() {
     label.className = 'node-label';
     label.textContent = zoneDisplayLabel(n);
     label.style.color = n.type === 'zone' ? n.color : 'var(--text)';
-    el.appendChild(label);
+
+    // ── Segments ────────────────────────────────────────────────
+    // Paintings are deliberately left alone. Dead ends get an entrance
+    // segment only arrows may still leave them, they just have no exit box.
+    if (nodeIsSegmented(n.id)) {
+      el.classList.add('segmented');
+      const words = SEGMENT_LABELS[segmentStyle] || SEGMENT_LABELS.inout;
+      const segColor = n.type === 'zone' ? n.color : 'var(--text)';
+      const divider  = n.type === 'zone' ? hexWithAlpha(n.color, 0.45) : 'var(--border)';
+
+      const segIn = document.createElement('span');
+      segIn.className = 'node-seg node-seg-in';
+      segIn.textContent = words.in;
+      segIn.style.color = segColor;
+      segIn.style.borderColor = divider;
+      el.appendChild(segIn);
+
+      el.appendChild(label);
+
+      if (!DEAD_END_IDS.has(n.id)) {
+        const segOut = document.createElement('span');
+        segOut.className = 'node-seg node-seg-out';
+        segOut.textContent = words.out;
+        segOut.style.color = segColor;
+        segOut.style.borderColor = divider;
+        el.appendChild(segOut);
+      }
+    } else {
+      el.appendChild(label);
+    }
+
+    // ── Decouple move handle ────────────────────────────────────
+    if (decoupled) {
+      const mh = document.createElement('div');
+      mh.className = 'node-move-handle';
+      mh.title = 'Drag to move this node';
+      el.appendChild(mh);
+      wireNodeMove(mh, el, n.id);
+    }
 
     canvasEl.appendChild(el);
     wireNodeEvents(el, n.id);
     applyMarkClass(n.id);
   });
+}
+
+/** True when this node should render (and anchor arrows at) in/out segments. */
+function nodeIsSegmented(id) {
+  return segmentedNodes && !isPaintingNode(id);
 }
 
 function hexWithAlpha(hex, alpha) {
@@ -2502,6 +2728,40 @@ function edgePoint(node, fromX, fromY) {
   const ty = dy!==0 ? halfH/Math.abs(dy) : Infinity;
   const t = Math.min(tx,ty);
   return {x:cx-dx*t, y:cy-dy*t};
+}
+
+/** Exit anchor: middle of a node's right edge (where the 'out' segment sits). */
+function outAnchor(id) {
+  const n = nodes[id];
+  return { x: n.x + n.w, y: n.y + n.h / 2 };
+}
+/** Entrance anchor: middle of a node's left edge (where the 'in' segment sits). */
+function inAnchor(id) {
+  const n = nodes[id];
+  return { x: n.x, y: n.y + n.h / 2 };
+}
+
+/** True if this particular edge should use the segmented routing. */
+function edgeUsesSegments(src, tgt) {
+  return segmentedNodes && !isPaintingNode(src) && !isPaintingNode(tgt);
+}
+
+/**
+ * Stepped path for a segmented edge: a short horizontal shaft out of the exit
+ * segment, a diagonal across, then a short horizontal shaft into the entrance
+ * segment, so both ends meet their node square-on. When the target sits to the
+ * left of the source the stubs are lengthened so the doubling-back reads clearly.
+ */
+function segmentedPath(src, tgt) {
+  const a = outAnchor(src);
+  const b = inAnchor(tgt);
+  const tight = (b.x - a.x) < (SEG_STUB * 2 + 12);
+  const stub  = tight ? SEG_STUB_BACK : SEG_STUB;
+  return [a, { x: a.x + stub, y: a.y }, { x: b.x - stub, y: b.y }, b];
+}
+
+function pointsAttr(pts) {
+  return pts.map(p => `${p.x},${p.y}`).join(' ');
 }
 
 let previewLine = null;
@@ -2681,8 +2941,9 @@ function renderConnections() {
     (tgts || []).forEach(tgt => {
       if (!nodes[src] || !nodes[tgt]) return;
       const chainId = getEdgeChainId(src, tgt);
-      const p1 = nodeCenter(src);
-      const p2 = edgePoint(nodes[tgt], p1.x, p1.y);
+      const segPts = edgeUsesSegments(src, tgt) ? segmentedPath(src, tgt) : null;
+      const p1 = segPts ? segPts[0] : nodeCenter(src);
+      const p2 = segPts ? segPts[segPts.length - 1] : edgePoint(nodes[tgt], p1.x, p1.y);
 
       let strokeVal, markerId;
       if (isPaintingNode(src)) {
@@ -2706,9 +2967,15 @@ function renderConnections() {
         markerId  = ensureChainMarker(defs, chainId, color);
       }
 
-      const line = document.createElementNS(SVG_NS, 'line');
-      line.setAttribute('x1',p1.x); line.setAttribute('y1',p1.y);
-      line.setAttribute('x2',p2.x); line.setAttribute('y2',p2.y);
+      const line = document.createElementNS(SVG_NS, segPts ? 'polyline' : 'line');
+      if (segPts) {
+        line.setAttribute('points', pointsAttr(segPts));
+        line.setAttribute('fill', 'none');
+        line.setAttribute('stroke-linejoin', 'round');
+      } else {
+        line.setAttribute('x1',p1.x); line.setAttribute('y1',p1.y);
+        line.setAttribute('x2',p2.x); line.setAttribute('y2',p2.y);
+      }
       line.setAttribute('stroke', strokeVal);
       line.setAttribute('stroke-width', 2.5);
       line.setAttribute('stroke-linecap', 'round');
@@ -2720,9 +2987,14 @@ function renderConnections() {
       linesLayer.appendChild(line);
 
       // Invisible wide hit target
-      const hit = document.createElementNS(SVG_NS, 'line');
-      hit.setAttribute('x1',p1.x); hit.setAttribute('y1',p1.y);
-      hit.setAttribute('x2',p2.x); hit.setAttribute('y2',p2.y);
+      const hit = document.createElementNS(SVG_NS, segPts ? 'polyline' : 'line');
+      if (segPts) {
+        hit.setAttribute('points', pointsAttr(segPts));
+        hit.setAttribute('fill', 'none');
+      } else {
+        hit.setAttribute('x1',p1.x); hit.setAttribute('y1',p1.y);
+        hit.setAttribute('x2',p2.x); hit.setAttribute('y2',p2.y);
+      }
       hit.setAttribute('stroke', 'transparent');
       hit.setAttribute('stroke-width', 14);
       hit.setAttribute('stroke-linecap', 'round');
@@ -3072,6 +3344,90 @@ function toggleNodeHighlight(id) {
   applyHighlightClasses();
 }
 
+// ── Decouple: drag a single node by its bottom-right triangle ─────
+// The handle only moves the node, it never resizes it. Dragging anywhere else
+// on the node still draws a connection arrow as usual.
+let nodeMoveActive = false;
+
+function moveNodeTo(id, nx, ny, el) {
+  const n = nodes[id];
+  if (!n) return;
+  n.x = Math.max(0, nx);
+  n.y = Math.max(0, ny);
+  if (el) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+  nodePositions[id] = { x: n.x, y: n.y };
+}
+
+function wireNodeMove(handle, el, id) {
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || !decoupled) return;
+    e.preventDefault();
+    e.stopPropagation();   // keep wireNodeEvents from starting a connection drag
+
+    nodeMoveActive = true;
+    el.classList.add('node-moving');
+    const n = nodes[id];
+    const startX = n.x, startY = n.y;
+    const startMx = e.clientX, startMy = e.clientY;
+
+    function onMove(ev) {
+      moveNodeTo(id, startX + (ev.clientX - startMx) / zoom,
+                     startY + (ev.clientY - startMy) / zoom, el);
+      renderConnections();
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      el.classList.remove('node-moving');
+      updateCanvasBounds();
+      saveNodePositions();
+      renderConnections();
+      setTimeout(() => { nodeMoveActive = false; }, 0);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  handle.addEventListener('touchstart', (e) => {
+    if (!decoupled || e.touches.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    nodeMoveActive = true;
+    el.classList.add('node-moving');
+    const n = nodes[id];
+    const startX = n.x, startY = n.y;
+    const t0 = e.touches[0];
+    const startMx = t0.clientX, startMy = t0.clientY;
+
+    function onTouchMove(ev) {
+      if (ev.touches.length !== 1) return;
+      ev.preventDefault();
+      const t = ev.touches[0];
+      moveNodeTo(id, startX + (t.clientX - startMx) / zoom,
+                     startY + (t.clientY - startMy) / zoom, el);
+      renderConnections();
+    }
+    function onTouchEnd() {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', onTouchEnd);
+      el.classList.remove('node-moving');
+      updateCanvasBounds();
+      saveNodePositions();
+      renderConnections();
+      setTimeout(() => { nodeMoveActive = false; }, 0);
+    }
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchcancel', onTouchEnd);
+  }, { passive: false });
+
+  ['click','dblclick','contextmenu'].forEach(evt =>
+    handle.addEventListener(evt, (e) => { e.stopPropagation(); e.preventDefault(); })
+  );
+}
+
 function wireNodeEvents(el, id) {
   el.addEventListener('mousedown', (e) => {
     if (e.button === 0) {
@@ -3080,7 +3436,8 @@ function wireNodeEvents(el, id) {
       mouseDownPos = { x: e.clientX, y: e.clientY };
       connecting = id;
       nodePressFired = false;
-      previewLine = drawLine(nodeCenter(id), nodeCenter(id), arrowColor, false);
+      const origin = nodeIsSegmented(id) ? outAnchor(id) : nodeCenter(id);
+      previewLine = drawLine(origin, origin, arrowColor, false);
       previewLine.setAttribute('stroke-dasharray','5,4');
       // Hold for 1s (without moving) opens the stage preview, as on mobile.
       if (showImages && !isPaintingNode(id)) {
@@ -3117,6 +3474,7 @@ function wireNodeEvents(el, id) {
 
   el.addEventListener('mouseup', (e) => {
     if (e.button !== 0) return;
+    if (nodeMoveActive) return;   // this gesture was a decoupled node drag
     clearTimeout(nodePressTimer); nodePressTimer = null;
     // The 1s hold already opened the preview and consumed this gesture.
     if (nodePressFired) { nodePressFired = false; return; }
@@ -3229,7 +3587,8 @@ function handleNodeTouchStart(e, id) {
       // User is dragging, cancel the long-press immediately
       if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
       connecting = id;
-      previewLine = drawLine(nodeCenter(id), nodeCenter(id), arrowColor, false);
+      const tOrigin = nodeIsSegmented(id) ? outAnchor(id) : nodeCenter(id);
+      previewLine = drawLine(tOrigin, tOrigin, arrowColor, false);
       previewLine.setAttribute('stroke-dasharray','5,4');
     }
     if (dragStarted) {
@@ -3741,9 +4100,10 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   saveState();
   saveEdgeChains();
   clearNotes();
+  // Clearing also resets any decoupled node positions back to the grouped layout.
+  clearNodePositions();
   canvasEl.querySelectorAll('.map-node').forEach(el => el.classList.remove('mark-green','mark-red'));
-  renderConnections();
-  renderDisplayPanel();
+  fullRender();
 });
 
 // Settings: grid apply
@@ -3801,6 +4161,61 @@ const togglePaintingLabel = document.getElementById('toggle-painting-label');
 togglePainting.addEventListener('change', () => {
   paintingTracker = togglePainting.checked;
   togglePaintingLabel.textContent = paintingTracker ? 'On' : 'Off';
+  saveSettings();
+  fullRender();
+});
+
+// Settings: segmented nodes toggle + label-style dropdown
+const toggleSegmented      = document.getElementById('toggle-segmented');
+const toggleSegmentedLabel = document.getElementById('toggle-segmented-label');
+const segmentStyleSelect   = document.getElementById('segment-style');
+const segmentStyleRow      = document.getElementById('segment-style-row');
+
+function syncSegmentStyleRow() {
+  if (segmentStyleRow) segmentStyleRow.classList.toggle('disabled', !segmentedNodes);
+}
+
+toggleSegmented.addEventListener('change', () => {
+  segmentedNodes = toggleSegmented.checked;
+  toggleSegmentedLabel.textContent = segmentedNodes ? 'On' : 'Off';
+  syncSegmentStyleRow();
+  saveSettings();
+  fullRender();
+});
+
+segmentStyleSelect.addEventListener('change', () => {
+  segmentStyle = segmentStyleSelect.value;
+  saveSettings();
+  if (segmentedNodes) fullRender();
+});
+
+// Settings: decouple toggle
+const toggleDecouple      = document.getElementById('toggle-decouple');
+const toggleDecoupleLabel = document.getElementById('toggle-decouple-label');
+
+toggleDecouple.addEventListener('change', () => {
+  decoupled = toggleDecouple.checked;
+  toggleDecoupleLabel.textContent = decoupled ? 'On' : 'Off';
+
+  if (decoupled) {
+    // Freeze the current grouped layout as the starting free-form positions,
+    // then drop the panels. Arrows are untouched.
+    clearNodePositions();
+    buildLayout();
+    snapshotNodePositions();
+  } else {
+    // Turning it off discards node positions and returns to grouped panels at
+    // 4 columns. Connections, chains, marks and notes are all preserved.
+    clearNodePositions();
+    clusterPositions = {};
+    clusterSizes = {};
+    gridCols = 4;
+    gridRows = Math.ceil(visibleKingdomKeys().length / gridCols);
+    savePositions(); saveSizes(); saveGrid();
+    const colsInput = document.getElementById('grid-cols');
+    if (colsInput) colsInput.value = gridCols;
+  }
+
   saveSettings();
   fullRender();
 });
@@ -4226,6 +4641,12 @@ function init() {
   toggleHighlightLabel.textContent = highlightEnabled ? 'On' : 'Off';
   togglePainting.checked = paintingTracker;
   togglePaintingLabel.textContent = paintingTracker ? 'On' : 'Off';
+  toggleSegmented.checked = segmentedNodes;
+  toggleSegmentedLabel.textContent = segmentedNodes ? 'On' : 'Off';
+  segmentStyleSelect.value = segmentStyle;
+  syncSegmentStyleRow();
+  toggleDecouple.checked = decoupled;
+  toggleDecoupleLabel.textContent = decoupled ? 'On' : 'Off';
 
   // Sync new settings UI
   arrowModeToggles.forEach(t => { t.checked = (t.dataset.mode === arrowColorMode); });
