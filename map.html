@@ -65,8 +65,8 @@
   }
   #topbar h1 { font-size: 1.05rem; margin-right: auto; }
   .map-btn {
-    background: var(--btn-bg);
-    border: none;
+    background: var(--bg-card);
+    border: var(--bg-card);
     color: var(--text);
     font-family: var(--font);
     font-size: 0.82rem;
@@ -82,6 +82,21 @@
   .map-btn.active:hover { background: var(--accent-h); }
   .map-btn.danger { color: var(--red); }
   .map-btn.danger:hover { background: #3a2020; }
+
+    .connect-btn {
+    background: var(--btn-bg);
+    border: 1px solid var(--green);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.82rem;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .connect-btn:hover { background: #203a26; }
 
   .topbar-sep {
     width: 1px; height: 22px;
@@ -1347,7 +1362,7 @@
        not a floating overlay - that kept landing on top of other topbar buttons. -->
   <div id="live-tracking-panel" class="side-panel hidden">
     <input id="live-tracking-room" type="text" placeholder="room code" style="width:110px;">
-    <button id="live-tracking-connect" class="map-btn">Connect</button>
+    <button id="live-tracking-connect" class="connect-btn">Connect</button>
     <label style="margin-left:8px; opacity:0.8; font-size:0.9em;">
       <input type="checkbox" id="live-tracking-cloud"> Cloud Sync (no local server)
     </label>
@@ -1786,7 +1801,7 @@ const LOADING_ZONES_TEMPLATE = {
   'Cascade':   { color: '#ff9900', icon: 'Cascade.png', zones: { 'Dino': {}, '2D': {}, 'Chain Chomp': {}, 'Swings': {}, 'Windy': {} } },
   'Sand':      { color: '#8bf12c', icon: 'Sand.png',    zones: { "Icy Cave": {}, "Moe-eye": {}, "Shop": {}, "Employees": {}, "Slots": {}, "Rumble": {}, "Outfit": {}, "Jaxi Ruins": {}, "Bullet Bill": {}, "Gushen": {}, "Sphynx": {}, "Moving Platform": {}, "Rocket": {}, "Colossal Ruins": {} } },
   'Lake':      { color: '#e46cab', icon: 'Lake.png',    zones: { "Poison Waves": {}, "Zipper": {}, "Grab Climb": {}, "Shop": {}, "Puzzle": {} } },
-  'Wooded':    { color: '#1e65e7', icon: 'Wooded.png',  zones: { "DW Odyssey": {}, "DW Red Maze": {}, "DW Pond": {}, "DW Treasure": {}, "DW Outfit": {}, "Rocket": {}, "Sheep": {}, "Tank": {}, "Vine Clouds": {}, "Breakdown": {}, "Invisible": {}, "Flooded Pipes": {}, "Flower Road": {}, "Treasure Room": {} } },
+  'Wooded':    { color: '#1e65e7', icon: 'Wooded.png',  zones: { "Deep Woods": {}, "DW Treasure": {}, "DW Outfit": {}, "Rocket": {}, "Sheep": {}, "Tank": {}, "Vine Clouds": {}, "Breakdown": {}, "Invisible": {}, "Flooded Pipes": {}, "Flower Road": {}, "Treasure Room": {} } },
   'Lost':      { color: '#e71edd', icon: 'Lost.png',    zones: { 'Wiggler': {}, 'Shop': {}, 'Klepto': {} } },
   'Metro':     { color: '#de7d5e', icon: 'Metro.png',   zones: { "Yellow Shop": {}, "Purple Shop": {}, "Dino": {}, "Bullet Billding": {}, "Taxi": {}, "Notes": {}, "2D": {}, "Slots": {}, "People": {}, "Outfit": {}, "Rocket": {}, "Dark": {}, "Scaffolding": {}, "Scooter": {}, "Rotating Maze": {}, "RC Car": {} } },
   'Snow':      { color: '#e7930a', icon: 'Snow.png',    zones: { "Puzzle": {}, "Capless": {}, "Rocket Flower": {}, "Iceburn Circuit": {}, "Flower Road": {}, "Tracewalking": {}, "Clouds": {}, "Outfit": {}, "Shop": {} } },
@@ -1937,9 +1952,7 @@ const ZONE_IMAGES = {
   'zone:Lake:Puzzle':        'GotogotonExStage.jpg',
 
   // Wooded zones
-  'zone:Wooded:DW Odyssey':   'ForestWorldHomeStage_6.jpg',
-  'zone:Wooded:DW Red Maze':  'ForestWorldWoodsStage.jpg',
-  'zone:Wooded:DW Pond':      'ForestWorldHomeStage_3.jpg',
+  'zone:Wooded:Deep Woods':   'ForestWorldHomeStage_6.jpg',
   'zone:Wooded:DW Treasure':  'ForestWorldWoodsTreasureStage.jpg',
   'zone:Wooded:DW Outfit':    'ForestWorldWoodsCostumeStage.jpg',
   'zone:Wooded:Rocket':       'FogMountainExStage.jpg',
@@ -2102,9 +2115,7 @@ const ZONE_ENT = {
   'zone:Lake:Grab Climb': 'JGCC1.webp',
   'zone:Lake:Shop': 'crazy-cap-lake-kingdom.900x.webp',
   'zone:Lake:Puzzle': 'Repair1.webp',
-  'zone:Wooded:DW Odyssey': 'maxresdefault (1).jpg',
-  'zone:Wooded:DW Red Maze': 'maxresdefault (1).jpg',
-  'zone:Wooded:DW Pond': 'Screenshot_7.png',
+  'zone:Wooded:Deep Woods': 'maxresdefault (1).jpg',
   'zone:Wooded:DW Treasure': 'smo180-600x338.png',
   'zone:Wooded:DW Outfit': 'Screenshot_6.png',
   'zone:Wooded:Rocket': 'Fog1.webp',
@@ -2267,7 +2278,7 @@ const ZONE_MOON_COUNT = {
   'zone:Snow:Rocket Flower': 2,
   'zone:Snow:Iceburn Circuit': 2,
   'zone:Snow:Flower Road': 2,
-  'zone:Snow:Tracewalking': 1,
+  'zone:Snow:Tracewalking': 2,
   'zone:Snow:Clouds': 2,
   'zone:Snow:Outfit': 2,
   'zone:Snow:Shop': 1,
@@ -2377,9 +2388,7 @@ const ZONE_INGAME = {
   'zone:Lake:Grab Climb': 'Jump, Grab, Cling, Climb',
   'zone:Lake:Shop': 'Crazy Cap Store',
   'zone:Lake:Puzzle': 'Puzzle Room',
-  'zone:Wooded:DW Odyssey': 'Wooded Kingdom',
-  'zone:Wooded:DW Red Maze': 'Deep Woods',
-  'zone:Wooded:DW Pond': 'Wooded Kingdom',
+  'zone:Wooded:Deep Woods': 'Wooded Kingdom',
   'zone:Wooded:DW Treasure': 'Deep Woods Treasure Vault',
   'zone:Wooded:DW Outfit': 'Costume Room',
   'zone:Wooded:Rocket': 'Shards in the Fog',

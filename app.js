@@ -31,6 +31,7 @@ const KINGDOMS = [
   // the multi-moon (+3) button for that kingdom while keeping its slot for alignment.
   { name: 'Moon Kingdom', img: 'assets/MoonK.png', multi: 'assets/MoonK_Multi.png', min: 2, max: 12, settingKey: 'show_kingdom_moon', hideMulti: true },
   { name: 'Cap Kingdom', img: 'assets/Cap.png', multi: 'assets/Cascade_Multi.png', min: 6, max: 16, settingKey: 'show_kingdom_cap', hideMulti: true },
+  { name: 'Cloud Kingdom', img: 'assets/Cloud.png', multi: 'assets/Cascade_Multi.png', min: 1, max: 10, settingKey: 'show_kingdom_cloud', hideMulti: true },
 ];
 
 // On-screen order for the moon rows (tracker + OBS). Cap Kingdom is stored last
@@ -203,8 +204,9 @@ const DEFAULT_SETTINGS = {
   show_multi_moon: true,
   show_moon_range: true,
   show_complete_color: false,
-  show_kingdom_moon: false,
-  show_kingdom_cap: false,     // Optional Cap Kingdom row (tracker + overlay)
+  show_kingdom_moon: true,
+  show_kingdom_cap: true,     // Optional Cap Kingdom row (tracker + overlay)
+  show_kingdom_cloud: true,
   show_lock: true,             // Lock sign column visible (tracker + overlay)
   show_peace: true,            // Peace sign column visible (tracker + overlay)
   show_rock: false,            // Moon Rock sign column visible (tracker + overlay)
@@ -214,6 +216,7 @@ const DEFAULT_SETTINGS = {
                                // effect while show_kingdom_moon is also on
   show_cap_obs: true,          // Draw Cap Kingdom on the OBS overlay; only takes
                                // effect while show_kingdom_cap is also on
+  show_cloud_obs: true,
   show_moon_updater: false,    // Moon Updater message strip on the OBS overlay
   updater_location: 'top',     // 'top' | 'bottom' relative to the overlay body
   updater_count: 3,            // Visible messages (1-5); drives overlay height
@@ -266,7 +269,7 @@ const LOADING_ZONES_TEMPLATE = {
   'Cascade': { color: '#ff9900', icon: 'Cascade.png', zones: { 'Dino': { num: 2 }, '2D': { num: 2 }, 'Chain Chomp': { num: 2 }, 'Swings': { num: 2 }, 'Windy': { num: 2 } } },
   'Sand': { color: '#8bf12c', icon: 'Sand.png', zones: { "Icy Cave": { num: 1 }, "Moe-eye": { num: 2 }, "Shop": { num: 1 }, "Employees": { num: 1 }, "Slots": { num: 1 }, "Rumble": { num: 1 }, "Outfit": { num: 1 }, "Jaxi Ruins": { num: 2 }, "Bullet Bill": { num: 2 }, "Gushen": { num: 2 }, "Sphynx": { num: 1 }, "Moving Platform": { num: 2 }, "Rocket": { num: 2 }, "Colossal Ruins": { num: 2 } } },
   'Lake': { color: '#e46cab', icon: 'Lake.png', zones: { "Poison Waves": { num: 2 }, "Zipper": { num: 2 }, "Grab Climb": { num: 2 }, "Shop": { num: 1 }, "Puzzle": { num: 1 } } },
-  'Wooded': { color: '#1e65e7', icon: 'Wooded.png', zones: { "DW Odyssey": { num: 0 }, "DW Red Maze": { num: 0 }, "DW Pond": { num: 0 }, "DW Treasure": { num: 1 }, "DW Outfit": { num: 1 }, "Rocket": { num: 2 }, "Sheep": { num: 2 }, "Tank": { num: 2 }, "Vine Clouds": { num: 2 }, "Breakdown": { num: 2 }, "Invisible": { num: 2 }, "Flooded Pipes": { num: 2 }, "Flower Road": { num: 2 }, "Treasure Room": { num: 1 } } },
+  'Wooded': { color: '#1e65e7', icon: 'Wooded.png', zones: { "Deep Woods": { num: 0 }, "DW Treasure": { num: 1 }, "DW Outfit": { num: 1 }, "Rocket": { num: 2 }, "Sheep": { num: 2 }, "Tank": { num: 2 }, "Vine Clouds": { num: 2 }, "Breakdown": { num: 2 }, "Invisible": { num: 2 }, "Flooded Pipes": { num: 2 }, "Flower Road": { num: 2 }, "Treasure Room": { num: 1 } } },
   'Lost': { color: '#e71edd', icon: 'Lost.png', zones: { 'Wiggler': { num: 2 }, 'Shop': { num: 1 }, 'Klepto': { num: 2 } } },
   'Metro': { color: '#de7d5e', icon: 'Metro.png', zones: { "Yellow Shop": { num: 1 }, "Purple Shop": { num: 1 }, "Dino": { num: 2 }, "Bullet Billding": { num: 2 }, "Taxi": { num: 2 }, "Notes": { num: 1 }, "2D": { num: 2 }, "Slots": { num: 1 }, "People": { num: 2 }, "Outfit": { num: 2 }, "Rocket": { num: 2 }, "Dark": { num: 2 }, "Scaffolding": { num: 2 }, "Scooter": { num: 2 }, "Rotating Maze": { num: 2 }, "RC Car": { num: 2 } } },
   'Snow': { color: '#e7930a', icon: 'Snow.png', zones: { "Puzzle": { num: 1 }, "Capless": { num: 2 }, "Rocket Flower": { num: 2 }, "Iceburn Circuit": { num: 2 }, "Flower Road": { num: 2 }, "Tracewalking": { num: 1 }, "Clouds": { num: 2 }, "Outfit": { num: 2 }, "Shop": { num: 1 } } },
@@ -437,6 +440,8 @@ const TOGGLE_SETTINGS = [
   { id: 'toggle-moon-obs', key: 'show_moon_obs' },
   { id: 'toggle-kingdom-cap', key: 'show_kingdom_cap' },
   { id: 'toggle-cap-obs', key: 'show_cap_obs' },
+  { id: 'toggle-kingdom-cloud', key: 'show_kingdom_cloud' },
+  { id: 'toggle-cloud-obs', key: 'show_cloud_obs' },
   { id: 'toggle-moon-updater', key: 'show_moon_updater' },
   { id: 'toggle-painting-notes', key: 'show_painting_notes' },
 ];
@@ -1318,6 +1323,9 @@ function updateSettingsEnablement() {
   const capObsRow = document.getElementById('row-cap-obs');
   if (capObsRow) capObsRow.classList.toggle('row-gone', !s.show_kingdom_cap);
 
+  const cloudObsRow = document.getElementById('row-cloud-obs');
+  if (cloudObsRow) cloudObsRow.classList.toggle('row-gone', !s.show_kingdom_cloud);
+
   const panelOn = getPanelMode() !== 'none';
   const panelLocRow = document.getElementById('seg-panel-location')?.closest('.settings-row');
   if (panelLocRow) panelLocRow.classList.toggle('row-disabled', !panelOn);
@@ -1616,6 +1624,7 @@ function getObsBaseSize(settings) {
   let h = OBS_BASE_H;
   if (s.show_kingdom_moon && s.show_moon_obs !== false) h += OBS_MOON_ROW_H;
   if (s.show_kingdom_cap && s.show_cap_obs !== false) h += OBS_CAP_ROW_H;
+  if (s.show_kingdom_cloud && s.show_cloud_obs !== false) h += OBS_CAP_ROW_H;
   if (s.show_moon_updater) {
     const n = Math.min(5, Math.max(1, s.updater_count || 3));
     h += n * OBS_UPDATER_MSG_H + OBS_UPDATER_PAD;
@@ -2263,9 +2272,7 @@ const IN_GAME_ZONE_NAMES = {
     'Puzzle': 'Stone Block Puzzle Stage',
   },
   'Wooded': {
-    'DW Odyssey': 'Deep Woods: Odyssey Area',
-    'DW Red Maze': 'Deep Woods: Red Leaf Maze',
-    'DW Pond': 'Deep Woods: Pond Area',
+    'Deep Woods': 'Deep Woods: Odyssey Area',
     'DW Treasure': 'Deep Woods: Treasure Chest',
     'DW Outfit': 'Deep Woods: Costume',
     'Rocket': 'In the Fog',
