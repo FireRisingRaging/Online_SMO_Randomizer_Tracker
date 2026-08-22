@@ -31,6 +31,7 @@ const KINGDOMS = [
   // the multi-moon (+3) button for that kingdom while keeping its slot for alignment.
   { name: 'Moon Kingdom', img: 'assets/MoonK.png', multi: 'assets/MoonK_Multi.png', min: 2, max: 12, settingKey: 'show_kingdom_moon', hideMulti: true },
   { name: 'Cap Kingdom', img: 'assets/Cap.png', multi: 'assets/Cascade_Multi.png', min: 6, max: 16, settingKey: 'show_kingdom_cap', hideMulti: true },
+  { name: 'Cloud Kingdom', img: 'assets/Cloud.png', multi: 'assets/Cascade_Multi.png', min: 1, max: 10, settingKey: 'show_kingdom_cloud', hideMulti: true },
 ];
 
 // On-screen order for the moon rows (tracker + OBS). Cap Kingdom is stored last
@@ -39,10 +40,134 @@ const KINGDOMS = [
 // bottom. This is only the DEFAULT - a user's drag-to-reorder (kingdom_order)
 // still takes precedence. obs.html keeps an identical DEFAULT_DISPLAY_ORDER.
 const DEFAULT_DISPLAY_ORDER = (() => {
-  const capIdx = KINGDOMS.findIndex(k => k.name === 'Cap Kingdom');
-  const rest = KINGDOMS.map((_, i) => i).filter(i => i !== capIdx);
+  const capIdx   = KINGDOMS.findIndex(k => k.name === 'Cap Kingdom');
+  const cloudIdx = KINGDOMS.findIndex(k => k.name === 'Cloud Kingdom');
+  const woodIdx  = KINGDOMS.findIndex(k => k.name === 'Wooded Kingdom');
+  const rest = KINGDOMS.map((_, i) => i).filter(i => i !== capIdx && i !== cloudIdx);
+  const wPos = rest.indexOf(woodIdx);
+  if (cloudIdx !== -1 && wPos !== -1) rest.splice(wPos + 1, 0, cloudIdx);
   return capIdx === -1 ? rest : [capIdx, ...rest];
 })();
+
+// ── Live auto-tracking progress decode order ────────────────────────────
+// TrackerBridge.cpp (the mod) sends moons/captures/abilities as compact
+// positional strings, not keyed objects - decoding them means knowing the
+// exact order the mod encoded them in. Moons need no separate table here:
+// the mod's kProgressWorldIds order already matches KINGDOMS' own order
+// above (Cascade..Bowser, then Moon, then Cap) index-for-index.
+//
+// CAPTURE_ORDER mirrors CaptureRando.cpp's sCaptures[] table order exactly
+// (52 entries - the mod iterates getCapture(0..51) and appends one '1'/'0'
+// bit per index). ABILITY_ORDER mirrors AbilityRando.h's AbilityId enum
+// declaration order, skipping AbilityId_CapReturnJump (the one ability with
+// no entry on this tracker's Abilities panel - always granted, nothing to
+// track). If either table in the mod ever changes order, this array has to
+// be updated to match or the live decode silently mislabels captures.
+const CAPTURE_ORDER = [
+  'Frog_Capture', 'Spark_pylon_Capture', 'Paragoomba_Capture', 'Chain_Chomp_Capture',
+  'Big_Chain_Chomp_Capture', 'Gold_Chain_Chomp_Capture', 'T-Rex_Capture', 'Binoculars_Capture',
+  'Bullet_Bill_Capture', 'Moe-Eye_Capture', 'Cactus_Capture', 'Goomba_Capture',
+  'Knucklotec_Fist_Capture', 'Rocket_Capture', 'Glydon_Capture', 'Lakitu_Capture',
+  'Zipper_Capture', 'Cheep_Cheep_Capture', 'Puzzle_Part_(Lake)_Capture', 'Poison_Piranha_Plant_Capture',
+  'Uproot_Capture', 'Fire_Bro_Capture', 'Sherm_Capture', 'Coin_Coffer_Capture',
+  'Tree_Capture', 'Rock_Capture', 'Picture_Match_Part_(Goomba)_Capture', 'Tropical_Wiggler_Capture',
+  'Pole_Capture', 'Manhole_Capture', 'Taxi_Capture', 'RC_Car_Capture',
+  'Ty-foo_Capture', 'Shiverian_Racer_Capture', 'Cheep_Cheep_(Snow)_Capture', 'Gushen_Capture',
+  'Lava_Bubble_Capture', 'Volbonan_Capture', 'Hammer_Bro_Capture', 'Meat_Capture',
+  'Fire_Piranha_Plant_Capture', 'Pokio_Capture', 'Jizo_Capture', 'Bowser_Statue_Capture',
+  'Parabones_Capture', 'Banzai_Bill_Capture', 'Chargin_Chuck_Capture', 'Bowser_Capture',
+  'Letter_Capture', 'Puzzle_Part_(Metro)_Capture', 'Picture_Match_Part_(Mario)_Capture', 'Yoshi_Capture',
+];
+
+const ABILITY_ORDER = [
+  'Jump', 'Double_Jump', 'Triple_Jump', 'Backflip', 'Long_Jump', 'Vault', 'Side_Flip',
+  'Ground_Pound_Jump', 'Roll', 'Roll_Boost', 'Crouch', 'Ground_Pound', 'Dive', 'Spin',
+  'Wall_Jump', 'Ledge_Grab', 'Climb', 'Swing', 'Neutral_Throw', 'Up_Throw', 'Down_Throw',
+  'Spin_Throw',
+];
+
+// Applies a live progress snapshot from the mod (see firebase-progress-sync.js)
+// straight into tracker state, the same way a manual click would, then
+// refreshes every affected UI surface and persists/broadcasts like any other
+// change. A malformed or truncated string (partial write mid-transmission,
+// unexpected length) just clamps to whatever prefix decodes cleanly rather
+// than throwing - the next snapshot corrects it.
+function applyProgressSnapshot(data) {
+  if (!data) return;
+  // Temporary diagnostic, pairs with firebase-progress-sync.js's own log -
+  // that one shows what Firestore has, this one shows what actually got
+  // decoded/applied into tracker state from it. Decoded to readable names
+  // rather than raw bit strings - a 52-character string is nearly
+  // impossible to verify correctly by eye off a screenshot.
+  if (typeof data.captures === 'string') {
+    console.log('[tracker-progress] captures unlocked:',
+      CAPTURE_ORDER.filter((key, i) => data.captures[i] === '1'));
+  }
+  if (typeof data.abilities === 'string') {
+    console.log('[tracker-progress] abilities unlocked:',
+      ABILITY_ORDER.filter((key, i) => data.abilities[i] === '1'));
+  }
+  console.log('[tracker-progress] applying', data);
+  if (typeof data.moons === 'string') {
+    const counts = data.moons.split(',').map(Number);
+    for (let i = 0; i < counts.length && i < state.moons.length; i++) {
+      if (!isNaN(counts[i])) state.moons[i].count = counts[i];
+    }
+  }
+  if (typeof data.moonReqs === 'string') {
+    // -1 means "not visited yet" (the mod withholds the real value until
+    // then, same spoiler-prevention rule the in-game HUD overlay uses) -
+    // leave whatever's already there (a manual entry, or still "?") alone
+    // rather than overwriting it with a value the player hasn't earned.
+    const reqs = data.moonReqs.split(',').map(Number);
+    for (let i = 0; i < reqs.length && i < state.moons.length; i++) {
+      if (!isNaN(reqs[i]) && reqs[i] >= 0) state.moons[i].max = reqs[i];
+    }
+  }
+  if (typeof data.kingdomStatus === 'string') {
+    // One digit per kingdom, bits 4/2/1 = unlocked/peace/moon-rock (see
+    // TrackerBridge.cpp's checkAndSendProgress()). state.moons[i].lock is
+    // named for the toggle button, not its boolean sense - true there means
+    // *unlocked* (see toggleLock()), matching bit 4 directly with no
+    // inversion needed.
+    const statuses = data.kingdomStatus.split(',').map(Number);
+    for (let i = 0; i < statuses.length && i < state.moons.length; i++) {
+      const s = statuses[i];
+      if (isNaN(s)) continue;
+      state.moons[i].lock = (s & 4) !== 0;
+      state.moons[i].peace = (s & 2) !== 0;
+      state.moons[i].rock = (s & 1) !== 0;
+    }
+  }
+  if (window.APC && typeof data.captures === 'string') {
+    for (let i = 0; i < CAPTURE_ORDER.length && i < data.captures.length; i++) {
+      APC.setUnlocked(state, 'captures', CAPTURE_ORDER[i], data.captures[i] === '1');
+    }
+  }
+  if (window.APC && typeof data.abilities === 'string') {
+    for (let i = 0; i < ABILITY_ORDER.length && i < data.abilities.length; i++) {
+      APC.setUnlocked(state, 'abilities', ABILITY_ORDER[i], data.abilities[i] === '1');
+    }
+  }
+  refreshAll();
+  // adoptPanelOwnedState() (called from inside saveState()) normally pulls
+  // state.apc.captures/abilities back from whatever's currently in
+  // localStorage before every save, so this window's saveState() calls for
+  // unrelated reasons (a moon count changing, say) can't stomp an edit the
+  // Abilities & Captures panel just made that hasn't round-tripped back into
+  // this window's own `state` yet. It has no way to tell that apart from
+  // "this window's in-memory state is actually the newer one" - which is
+  // exactly the case here, straight off a live snapshot from the mod - so
+  // without this, every capture/ability just set above gets silently
+  // reverted to its previous value right before the write that was supposed
+  // to persist it (confirmed via the panel's own diagnostics: applied here,
+  // but never landed in localStorage). authoritativeWrite is the existing
+  // escape hatch for "this write should win" - see resetAll() for the same
+  // pattern.
+  authoritativeWrite = true;
+  saveState();
+  authoritativeWrite = false;
+}
 
 const CAPTURE_ICONS = [
   { key: 'parabones', locked: 'assets/Parabones_Capture_Locked.png', unlocked: 'assets/Parabones_Capture.png' },
@@ -83,8 +208,9 @@ const DEFAULT_SETTINGS = {
   show_multi_moon: true,
   show_moon_range: true,
   show_complete_color: false,
-  show_kingdom_moon: false,
-  show_kingdom_cap: false,     // Optional Cap Kingdom row (tracker + overlay)
+  show_kingdom_moon: true,
+  show_kingdom_cap: true,     // Optional Cap Kingdom row (tracker + overlay)
+  show_kingdom_cloud: true,
   show_lock: true,             // Lock sign column visible (tracker + overlay)
   show_peace: true,            // Peace sign column visible (tracker + overlay)
   show_rock: false,            // Moon Rock sign column visible (tracker + overlay)
@@ -94,6 +220,7 @@ const DEFAULT_SETTINGS = {
                                // effect while show_kingdom_moon is also on
   show_cap_obs: true,          // Draw Cap Kingdom on the OBS overlay; only takes
                                // effect while show_kingdom_cap is also on
+  show_cloud_obs: true,
   show_moon_updater: false,    // Moon Updater message strip on the OBS overlay
   updater_location: 'top',     // 'top' | 'bottom' relative to the overlay body
   updater_count: 3,            // Visible messages (1-5); drives overlay height
@@ -107,12 +234,21 @@ const DEFAULT_SETTINGS = {
                                 // Mutually exclusive with show_notes_panel (see applySidePanel).
   panel_location: 'horizontal', // 'horizontal' | 'vertical' - beside vs below the tracker
 
-  // Which side panel is showing. Only one at a time, so it's a single value
-  // rather than one boolean per panel: 'none' | 'notes' | 'map' | 'apc'.
-  // show_notes_panel / show_map_panel above are kept in sync with this purely
-  // so older saves (and anything else reading them) still work - panel_mode is
-  // the one that decides. See applySidePanel().
+  // Legacy single-panel field, kept only so old saves / other readers still
+  // work. The real state now lives in panel_modes below; panel_mode is always
+  // mirrored to panel_modes[0] (or 'none'). See setPanelModes().
   panel_mode: 'none',
+
+  // Which side panels are showing, in the order they were opened. Up to two at
+  // once, stacked one above the other. Each entry is 'notes' | 'map' | 'apc'.
+  // Empty = no panel. Opening a third evicts the oldest (FIFO). Shared by the
+  // Settings segmented control and the tracker's Shift-click quick-open.
+  panel_modes: [],
+
+  // When two panels are stacked, this is the fraction of the panel height taken
+  // by the TOP (first-opened) slot; the bottom gets the rest. Drag the divider
+  // between them to change it. 0.5 = even split.
+  panel_split: 0.5,
 
   // ── Abilities & Captures panel (apc.html) view options ──────────
   apc_sort: 'locked',          // 'locked' | 'unlocked' | 'game' | 'az'
@@ -146,7 +282,7 @@ const LOADING_ZONES_TEMPLATE = {
   'Cascade': { color: '#ff9900', icon: 'Cascade.png', zones: { 'Dino': { num: 2 }, '2D': { num: 2 }, 'Chain Chomp': { num: 2 }, 'Swings': { num: 2 }, 'Windy': { num: 2 } } },
   'Sand': { color: '#8bf12c', icon: 'Sand.png', zones: { "Icy Cave": { num: 1 }, "Moe-eye": { num: 2 }, "Shop": { num: 1 }, "Employees": { num: 1 }, "Slots": { num: 1 }, "Rumble": { num: 1 }, "Outfit": { num: 1 }, "Jaxi Ruins": { num: 2 }, "Bullet Bill": { num: 2 }, "Gushen": { num: 2 }, "Sphynx": { num: 1 }, "Moving Platform": { num: 2 }, "Rocket": { num: 2 }, "Colossal Ruins": { num: 2 } } },
   'Lake': { color: '#e46cab', icon: 'Lake.png', zones: { "Poison Waves": { num: 2 }, "Zipper": { num: 2 }, "Grab Climb": { num: 2 }, "Shop": { num: 1 }, "Puzzle": { num: 1 } } },
-  'Wooded': { color: '#1e65e7', icon: 'Wooded.png', zones: { "DW Odyssey": { num: 0 }, "DW Red Maze": { num: 0 }, "DW Pond": { num: 0 }, "DW Treasure": { num: 1 }, "DW Outfit": { num: 1 }, "Rocket": { num: 2 }, "Sheep": { num: 2 }, "Tank": { num: 2 }, "Vine Clouds": { num: 2 }, "Breakdown": { num: 2 }, "Invisible": { num: 2 }, "Flooded Pipes": { num: 2 }, "Flower Road": { num: 2 }, "Treasure Room": { num: 1 } } },
+  'Wooded': { color: '#1e65e7', icon: 'Wooded.png', zones: { "Deep Woods": { num: 0 }, "DW Treasure": { num: 1 }, "DW Outfit": { num: 1 }, "Rocket": { num: 2 }, "Sheep": { num: 2 }, "Tank": { num: 2 }, "Vine Clouds": { num: 2 }, "Breakdown": { num: 2 }, "Invisible": { num: 2 }, "Flooded Pipes": { num: 2 }, "Flower Road": { num: 2 }, "Treasure Room": { num: 1 } } },
   'Lost': { color: '#e71edd', icon: 'Lost.png', zones: { 'Wiggler': { num: 2 }, 'Shop': { num: 1 }, 'Klepto': { num: 2 } } },
   'Metro': { color: '#de7d5e', icon: 'Metro.png', zones: { "Yellow Shop": { num: 1 }, "Purple Shop": { num: 1 }, "Dino": { num: 2 }, "Bullet Billding": { num: 2 }, "Taxi": { num: 2 }, "Notes": { num: 1 }, "2D": { num: 2 }, "Slots": { num: 1 }, "People": { num: 2 }, "Outfit": { num: 2 }, "Rocket": { num: 2 }, "Dark": { num: 2 }, "Scaffolding": { num: 2 }, "Scooter": { num: 2 }, "Rotating Maze": { num: 2 }, "RC Car": { num: 2 } } },
   'Snow': { color: '#e7930a', icon: 'Snow.png', zones: { "Puzzle": { num: 1 }, "Capless": { num: 2 }, "Rocket Flower": { num: 2 }, "Iceburn Circuit": { num: 2 }, "Flower Road": { num: 2 }, "Tracewalking": { num: 1 }, "Clouds": { num: 2 }, "Outfit": { num: 2 }, "Shop": { num: 1 } } },
@@ -317,6 +453,8 @@ const TOGGLE_SETTINGS = [
   { id: 'toggle-moon-obs', key: 'show_moon_obs' },
   { id: 'toggle-kingdom-cap', key: 'show_kingdom_cap' },
   { id: 'toggle-cap-obs', key: 'show_cap_obs' },
+  { id: 'toggle-kingdom-cloud', key: 'show_kingdom_cloud' },
+  { id: 'toggle-cloud-obs', key: 'show_cloud_obs' },
   { id: 'toggle-moon-updater', key: 'show_moon_updater' },
   { id: 'toggle-painting-notes', key: 'show_painting_notes' },
 ];
@@ -364,7 +502,10 @@ function buildDefaultLoadingZones() {
 function getDefaultState() {
   return {
     settings: cloneDefaultSettings(),
-    moons: KINGDOMS.map(() => ({ count: 0, max: null, lock: false, peace: false, rock:false, multi: false })),
+    // cyc = which state icon the middle (cycle) button is showing:
+    //   0 = Bowser, 1 = Moon Rock, 2 = Peace. Each has its own locked/unlocked
+    //   flag: cycBowser, cycRock, and (reusing the existing field) peace.
+    moons: KINGDOMS.map(() => ({ count: 0, max: null, lock: false, peace: false, rock:false, multi: false, cyc: 0, cycBowser: false, cycRock: false })),
     captures: { parabones: false, banzai: false, wire: false, bowser: false, golden: false },
     abilities: { jump: false, cap: false, wall: false },
     // Full Abilities & Captures panel (apc.html). The seven entries that also
@@ -407,13 +548,18 @@ function loadState() {
       if (saved.apc.abilities) Object.assign(state.apc.abilities, saved.apc.abilities);
     }
 
-    // Saves made before the side panel became a single mode still carry the two
-    // old booleans. Fold them into panel_mode once, then let panel_mode lead.
-    if (!(saved.settings && 'panel_mode' in saved.settings)) {
-      const old = saved.settings || {};
-      state.settings.panel_mode = old.show_notes_panel ? 'notes'
-                                : old.show_map_panel ? 'map'
-                                : 'none';
+    // Panel state migration. Newest saves carry panel_modes (an array). Older
+    // ones carry a single panel_mode string; oldest carry two booleans. Fold
+    // whichever we find into panel_modes, then let panel_modes lead.
+    const savedS = saved.settings || {};
+    if (!Array.isArray(savedS.panel_modes)) {
+      let seed;
+      if ('panel_mode' in savedS) {
+        seed = savedS.panel_mode && savedS.panel_mode !== 'none' ? [savedS.panel_mode] : [];
+      } else {
+        seed = savedS.show_notes_panel ? ['notes'] : savedS.show_map_panel ? ['map'] : [];
+      }
+      state.settings.panel_modes = seed;
     }
     syncLegacyPanelFlags();
 
@@ -761,11 +907,20 @@ function buildMoonRow(i) {
   lockBtn.innerHTML = `<img src="assets/lock.png" alt="lock">`;
   lockBtn.addEventListener('click', () => { toggleLock(i); saveState(); });
 
+  // Middle "cycle" button. Left click toggles the current icon's locked/unlocked
+  // state; right click cycles to the next icon (Bowser → Moon Rock → Peace →
+  // Bowser). The .peace-btn class is kept so the "Kingdom State Icons" column
+  // toggle (settings.show_peace / #moon-rows.hide-peace) still shows/hides it.
   const peaceBtn = document.createElement('button');
-  peaceBtn.className = 'icon-btn peace-btn';
-  peaceBtn.title = 'Toggle peace';
-  peaceBtn.innerHTML = `<img src="assets/peace.png" alt="peace">`;
-  peaceBtn.addEventListener('click', () => { togglePeace(i); saveState(); });
+  peaceBtn.className = 'icon-btn peace-btn cycle-btn';
+  peaceBtn.title = 'Left click: lock/unlock · Right click: change icon';
+  peaceBtn.innerHTML = `<img src="${cycleIconSrc(state.moons[i])}" alt="state icon">`;
+  peaceBtn.addEventListener('click', () => { toggleCycleLock(i); saveState(); });
+  peaceBtn.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    cycleCycleType(i);
+    saveState();
+  });
 
   const rockBtn = document.createElement('button');
   rockBtn.className = 'icon-btn rock-btn';
@@ -929,9 +1084,8 @@ function refreshMoonRow(i, rowEl) {
   row.querySelector('.lock-btn img').src =
     m.lock ? 'assets/unlock.png' : 'assets/lock.png';
 
-  // Peace image
-  row.querySelector('.peace-btn img').src =
-    m.peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
+  // Cycle (state icon) image - Bowser / Moon Rock / Peace, locked or unlocked
+  row.querySelector('.peace-btn img').src = cycleIconSrc(m);
 
   // Moon Rock image
   row.querySelector('.rock-btn img').src =
@@ -996,11 +1150,37 @@ function toggleLock(i) {
     state.moons[i].lock ? 'assets/unlock.png' : 'assets/lock.png';
 }
 
-function togglePeace(i) {
-  state.moons[i].peace = !state.moons[i].peace;
+// ── Middle cycle button (Bowser / Moon Rock / Peace) ──────────────
+// Three selectable state icons, each with its own independent locked/unlocked
+// flag. cyc picks which one is showing; the flag for that one decides its art.
+const CYCLE_TYPES = [
+  { locked: 'assets/Bowser-icon-l.png', unlocked: 'assets/Bowser-icon-ul.png', flag: 'cycBowser' },
+  { locked: 'assets/mrock_locked.png',  unlocked: 'assets/mrock_unlocked.png', flag: 'cycRock'   },
+  { locked: 'assets/peace.png',         unlocked: 'assets/peace_unlock.png',   flag: 'peace'      },
+];
+
+function cycleIndex(m) { return (((m.cyc | 0) % 3) + 3) % 3; }
+
+function cycleIconSrc(m) {
+  const t = CYCLE_TYPES[cycleIndex(m)];
+  return m[t.flag] ? t.unlocked : t.locked;
+}
+
+// Left click: flip the currently shown icon between locked and unlocked.
+function toggleCycleLock(i) {
+  const m = state.moons[i];
+  const flag = CYCLE_TYPES[cycleIndex(m)].flag;
+  m[flag] = !m[flag];
   const row = getMoonRow(i);
-  if (row) row.querySelector('.peace-btn img').src =
-    state.moons[i].peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
+  if (row) row.querySelector('.peace-btn img').src = cycleIconSrc(m);
+}
+
+// Right click: advance to the next icon (wraps back to the first after Peace).
+function cycleCycleType(i) {
+  const m = state.moons[i];
+  m.cyc = (cycleIndex(m) + 1) % 3;
+  const row = getMoonRow(i);
+  if (row) row.querySelector('.peace-btn img').src = cycleIconSrc(m);
 }
 
 function toggleRock(i) {
@@ -1106,8 +1286,9 @@ function buildAbilityRow() {
   const notesBtn = document.createElement('button');
   notesBtn.className = 'notes-btn';
   notesBtn.textContent = 'Loading Zone Notes';
-  notesBtn.addEventListener('click', () => {
-    if (sidePanelActive()) toggleSidePanel('notes');
+  notesBtn.addEventListener('click', (e) => {
+    if (e.shiftKey) togglePanelStacked('notes');
+    else if (sidePanelActive()) normalClickPanel('notes');
     else openLoadingZones();
   });
   notesSection.appendChild(notesBtn);
@@ -1115,8 +1296,9 @@ function buildAbilityRow() {
   const mapBtn = document.createElement('button');
   mapBtn.className = 'map-btn';
   mapBtn.textContent = 'Connection Map';
-  mapBtn.addEventListener('click', () => {
-    if (sidePanelActive()) toggleSidePanel('map');
+  mapBtn.addEventListener('click', (e) => {
+    if (e.shiftKey) togglePanelStacked('map');
+    else if (sidePanelActive()) normalClickPanel('map');
     else openMap();
   });
   notesSection.appendChild(mapBtn);
@@ -1124,8 +1306,9 @@ function buildAbilityRow() {
   const apcBtn = document.createElement('button');
   apcBtn.className = 'apc-btn';
   apcBtn.textContent = 'Ability + Capture';
-  apcBtn.addEventListener('click', () => {
-    if (sidePanelActive()) toggleSidePanel('apc');
+  apcBtn.addEventListener('click', (e) => {
+    if (e.shiftKey) togglePanelStacked('apc');
+    else if (sidePanelActive()) normalClickPanel('apc');
     else openApc();
   });
   notesSection.appendChild(apcBtn);
@@ -1155,10 +1338,11 @@ function openSettings() {
   const countSel = document.getElementById('select-updater-count');
   if (countSel) countSel.value = String(Math.min(5, Math.max(1, state.settings.updater_count || 3)));
 
-  // Side Panel mode (segmented) - Off / Notes / Map / Abilities & Captures
-  const panelMode = getPanelMode();
+  // Side Panel mode (segmented, multi) - Off / Notes / Map / Abilities & Captures
+  const openModes = openPanelModes();
   document.querySelectorAll('#seg-panel-mode .seg-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.value === panelMode);
+    const v = b.dataset.value;
+    b.classList.toggle('active', v === 'none' ? openModes.length === 0 : openModes.includes(v));
   });
 
   // Side Panel location (segmented)
@@ -1198,7 +1382,10 @@ function updateSettingsEnablement() {
   const capObsRow = document.getElementById('row-cap-obs');
   if (capObsRow) capObsRow.classList.toggle('row-gone', !s.show_kingdom_cap);
 
-  const panelOn = getPanelMode() !== 'none';
+  const cloudObsRow = document.getElementById('row-cloud-obs');
+  if (cloudObsRow) cloudObsRow.classList.toggle('row-gone', !s.show_kingdom_cloud);
+
+  const panelOn = openPanelModes().length > 0;
   const panelLocRow = document.getElementById('seg-panel-location')?.closest('.settings-row');
   if (panelLocRow) panelLocRow.classList.toggle('row-disabled', !panelOn);
 }
@@ -1327,44 +1514,104 @@ function updateMoonTotal() {
 // Vertical stacks below instead and stays available at any width. Either
 // way the underlying show_*_panel setting is left alone when unavailable, so
 // the panel reappears automatically once there's room for it again.
+// Per-mode metadata for building a panel slot.
+const PANEL_META = {
+  notes: { title: 'Loading Zone Notes',    src: 'notes.html'    },
+  map:   { title: 'Connection Map',        src: 'map.html'      },
+  // Version tag so a browser can't keep serving an older cached copy of the
+  // panel. Bump it here and in index.html's script tags together.
+  apc:   { title: 'Abilities & Captures',  src: 'apc.html?v=4'  },
+};
+
+// Each mode keeps ONE persistent slot element (header + iframe) that is never
+// re-parented, so closing one of two open panels never reloads the other. We
+// just show/hide slots and reorder them with CSS `order`.
+function ensurePanelSlot(mode) {
+  const panel = document.getElementById('side-panel');
+  if (!panel) return null;
+  let slot = panel.querySelector(`.panel-slot[data-mode="${mode}"]`);
+  if (slot) return slot;
+
+  const meta = PANEL_META[mode];
+  slot = document.createElement('div');
+  slot.className = 'panel-slot';
+  slot.dataset.mode = mode;
+
+  const header = document.createElement('div');
+  header.className = 'side-panel-header';
+  const titleSpan = document.createElement('span');
+  titleSpan.textContent = meta.title;
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'modal-close';
+  closeBtn.setAttribute('aria-label', 'Close panel');
+  closeBtn.textContent = '\u2715';
+  closeBtn.addEventListener('click', () => closePanel(mode));
+  header.appendChild(titleSpan);
+  header.appendChild(closeBtn);
+
+  const frame = document.createElement('iframe');
+  frame.className = 'panel-slot-frame';
+  frame.title = meta.title;
+
+  slot.appendChild(header);
+  slot.appendChild(frame);
+  panel.appendChild(slot);
+  return slot;
+}
+
+// Rebuilds the side panel to reflect openPanelModes() (0, 1 or 2 entries),
+// stacked in open order with a draggable divider between them when two are up.
 function applySidePanel() {
   const s = state.settings;
   const panel = document.getElementById('side-panel');
-  const frame = document.getElementById('side-panel-frame');
-  const title = document.getElementById('side-panel-title');
   const layoutRow = document.getElementById('layout-row');
-  if (!panel || !frame || !title || !layoutRow) return;
+  if (!panel || !layoutRow) return;
 
-  const location = s.panel_location === 'vertical' ? 'vertical' : 'horizontal';
-  const locationAvailable = isPanelLocationAvailable();
-
-  const mode = locationAvailable ? getPanelMode() : 'none';
-
-  let src = null;
-  if (mode === 'notes') {
-    title.textContent = 'Loading Zone Notes';
-    src = 'notes.html';
-  } else if (mode === 'map') {
-    title.textContent = 'Connection Map';
-    src = 'map.html';
-  } else if (mode === 'apc') {
-    title.textContent = 'Abilities & Captures';
-    // Version tag so a browser can't keep serving an older cached copy of the
-    // panel. Bump it here and in index.html's script tags together.
-    src = 'apc.html?v=2';
-  }
+  const modes = openPanelModes();
+  const location = effectivePanelLocation();
 
   layoutRow.classList.toggle('location-horizontal', location === 'horizontal');
   layoutRow.classList.toggle('location-vertical', location === 'vertical');
 
-  if (src) {
-    // Only reassign src when it actually changes, so the embedded page
-    // doesn't reload (and lose its own in-memory state) on every settings
-    // change or window resize.
-    if (frame.dataset.src !== src) {
-      frame.src = src;
-      frame.dataset.src = src;
+  // Make sure a slot exists for every open mode, then show/hide + order them.
+  modes.forEach(m => ensurePanelSlot(m));
+  const allSlots = panel.querySelectorAll('.panel-slot');
+
+  const twoOpen = modes.length === 2;
+  const topFrac = Math.min(0.85, Math.max(0.15, Number(s.panel_split) || 0.5));
+
+  allSlots.forEach(slot => {
+    const idx = modes.indexOf(slot.dataset.mode);
+    const frame = slot.querySelector('.panel-slot-frame');
+    if (idx === -1) {
+      // Not open - hide and drop its src to free the embedded page.
+      slot.classList.add('slot-hidden');
+      slot.style.order = '';
+      slot.style.flexGrow = '';
+      if (frame.dataset.src) { frame.src = ''; delete frame.dataset.src; }
+      return;
     }
+    slot.classList.remove('slot-hidden');
+    // order 0 (top) / 2 (bottom); the resizer sits at order 1 between them.
+    slot.style.order = String(idx * 2);
+    slot.style.flexGrow = String(twoOpen ? (idx === 0 ? topFrac : 1 - topFrac) : 1);
+    const src = PANEL_META[slot.dataset.mode].src;
+    if (frame.dataset.src !== src) { frame.src = src; frame.dataset.src = src; }
+  });
+
+  // Resizer divider (only between two stacked panels).
+  let resizer = panel.querySelector('.panel-resizer');
+  if (twoOpen) {
+    if (!resizer) resizer = createPanelResizer(panel);
+    resizer.style.order = '1';
+    resizer.classList.remove('slot-hidden');
+  } else if (resizer) {
+    resizer.classList.add('slot-hidden');
+  }
+
+  panel.classList.toggle('two-open', twoOpen);
+
+  if (modes.length > 0) {
     panel.classList.remove('hidden');
     layoutRow.classList.add('panel-open');
     document.body.classList.add('panel-edges');
@@ -1372,58 +1619,140 @@ function applySidePanel() {
     panel.classList.add('hidden');
     layoutRow.classList.remove('panel-open');
     document.body.classList.remove('panel-edges');
-    if (frame.dataset.src) {
-      frame.src = '';
-      delete frame.dataset.src;
-    }
   }
 }
 
-const PANEL_MODES = ['none', 'notes', 'map', 'apc'];
+// Drag-to-resize divider between the two stacked panels. Updates panel_split
+// live and persists it on release.
+function createPanelResizer(panel) {
+  const resizer = document.createElement('div');
+  resizer.className = 'panel-resizer';
+  resizer.setAttribute('role', 'separator');
+  resizer.setAttribute('aria-label', 'Resize panels');
 
-function getPanelMode() {
-  const m = state.settings.panel_mode;
-  return PANEL_MODES.includes(m) ? m : 'none';
+  let dragging = false;
+  const onMove = (clientY) => {
+    const rect = panel.getBoundingClientRect();
+    // Usable height excludes the resizer thickness so the ratio stays honest.
+    const frac = (clientY - rect.top) / rect.height;
+    state.settings.panel_split = Math.min(0.85, Math.max(0.15, frac));
+    const modes = openPanelModes();
+    const top = panel.querySelector(`.panel-slot[data-mode="${modes[0]}"]`);
+    const bot = panel.querySelector(`.panel-slot[data-mode="${modes[1]}"]`);
+    if (top) top.style.flexGrow = String(state.settings.panel_split);
+    if (bot) bot.style.flexGrow = String(1 - state.settings.panel_split);
+  };
+  const stop = () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('panel-resizing');
+    saveState();
+    window.removeEventListener('pointermove', pm);
+    window.removeEventListener('pointerup', stop);
+  };
+  const pm = (e) => { if (dragging) onMove(e.clientY); };
+  resizer.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    document.body.classList.add('panel-resizing');
+    window.addEventListener('pointermove', pm);
+    window.addEventListener('pointerup', stop);
+    e.preventDefault();
+  });
+
+  panel.appendChild(resizer);
+  return resizer;
 }
 
-// panel_mode is the real setting; these two older booleans are kept aligned
-// with it so any code (or saved file) that still reads them stays correct.
+const PANEL_VALUES = ['notes', 'map', 'apc'];
+const MAX_OPEN_PANELS = 2;
+
+// Below this width the Horizontal panel can't fit beside the tracker, so it
+// falls back to rendering Vertically (stacked below) instead of disappearing.
+const PANEL_HORIZONTAL_MIN = 625;
+
+// The currently open panels, in open order (oldest first), capped and cleaned.
+function openPanelModes() {
+  const raw = Array.isArray(state.settings.panel_modes) ? state.settings.panel_modes : [];
+  const seen = [];
+  for (const m of raw) {
+    if (PANEL_VALUES.includes(m) && !seen.includes(m)) seen.push(m);
+    if (seen.length >= MAX_OPEN_PANELS) break;
+  }
+  return seen;
+}
+
+// Horizontal beside the tracker when there's room, otherwise Vertical below.
+function effectivePanelLocation() {
+  const loc = state.settings.panel_location === 'vertical' ? 'vertical' : 'horizontal';
+  if (loc === 'horizontal' && window.innerWidth < PANEL_HORIZONTAL_MIN) return 'vertical';
+  return loc;
+}
+
+// Legacy mirrors so old saves / other readers that look at panel_mode or the
+// two booleans still see something sensible (the first-opened panel).
 function syncLegacyPanelFlags() {
-  const m = getPanelMode();
-  state.settings.show_notes_panel = (m === 'notes');
-  state.settings.show_map_panel = (m === 'map');
+  const modes = openPanelModes();
+  const primary = modes[0] || 'none';
+  state.settings.panel_mode = primary;
+  state.settings.show_notes_panel = modes.includes('notes');
+  state.settings.show_map_panel = modes.includes('map');
 }
 
-// Switches the side panel to `which`, or back off if it's already showing.
-// Used by the Settings segmented control and by the repurposed Loading Zone
-// Notes / Connection Map buttons.
-function setPanelMode(mode) {
-  state.settings.panel_mode = PANEL_MODES.includes(mode) ? mode : 'none';
+// Sets the full open list (sanitized, capped, FIFO) and re-renders everything.
+function setPanelModes(modes) {
+  const clean = [];
+  for (const m of (modes || [])) {
+    if (PANEL_VALUES.includes(m) && !clean.includes(m)) clean.push(m);
+  }
+  while (clean.length > MAX_OPEN_PANELS) clean.shift(); // evict oldest
+  state.settings.panel_modes = clean;
   syncLegacyPanelFlags();
   saveState();
   applyAllSettings();
   refreshPanelModeButtons();
 }
 
-function toggleSidePanel(which) {
-  setPanelMode(getPanelMode() === which ? 'none' : which);
+// Shift-click / Settings multi-toggle: add `which` to the stack, or remove it
+// if already open. Opening a third evicts the oldest (first-opened).
+function togglePanelStacked(which) {
+  if (!PANEL_VALUES.includes(which)) return;
+  const modes = openPanelModes();
+  if (modes.includes(which)) {
+    setPanelModes(modes.filter(m => m !== which));
+  } else {
+    const next = [...modes, which];
+    if (next.length > MAX_OPEN_PANELS) next.shift();
+    setPanelModes(next);
+  }
 }
 
-// True when a side panel is actually on screen right now: a mode is selected
-// AND the chosen location has room to render it (Horizontal needs width beyond
-// the mobile breakpoint; Vertical always fits). The tracker's Notes / Map /
-// Ability + Capture buttons use this to decide between switching the open panel
-// and falling back to a standalone view.
+function closePanel(which) {
+  setPanelModes(openPanelModes().filter(m => m !== which));
+}
+
+// Plain (non-Shift) click on a Notes / Map / APC button while a panel is open:
+// collapse the stack to just this one page, or toggle it off if it's the only
+// one already showing - i.e. the old single-panel behaviour.
+function normalClickPanel(which) {
+  const modes = openPanelModes();
+  if (modes.length === 1 && modes[0] === which) setPanelModes([]);
+  else setPanelModes([which]);
+}
+
+// True when at least one side panel is on screen. (Horizontal now falls back to
+// Vertical rather than hiding, so any open panel is genuinely visible.)
 function sidePanelActive() {
-  return isPanelLocationAvailable() && getPanelMode() !== 'none';
+  return openPanelModes().length > 0;
 }
 
-// Keeps the Settings segmented control in step when the mode changes from
-// somewhere else (the panel's ✕, the Notes/Map buttons, a remote sync).
+// Keeps the Settings segmented control in step when the open set changes from
+// elsewhere (a slot's ✕, the tracker buttons, a remote sync).
 function refreshPanelModeButtons() {
-  const mode = getPanelMode();
+  const modes = openPanelModes();
   document.querySelectorAll('#seg-panel-mode .seg-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.value === mode);
+    const v = b.dataset.value;
+    const active = v === 'none' ? modes.length === 0 : modes.includes(v);
+    b.classList.toggle('active', active);
   });
   updateSettingsEnablement();
 }
@@ -1496,6 +1825,7 @@ function getObsBaseSize(settings) {
   let h = OBS_BASE_H;
   if (s.show_kingdom_moon && s.show_moon_obs !== false) h += OBS_MOON_ROW_H;
   if (s.show_kingdom_cap && s.show_cap_obs !== false) h += OBS_CAP_ROW_H;
+  if (s.show_kingdom_cloud && s.show_cloud_obs !== false) h += OBS_CAP_ROW_H;
   if (s.show_moon_updater) {
     const n = Math.min(5, Math.max(1, s.updater_count || 3));
     h += n * OBS_UPDATER_MSG_H + OBS_UPDATER_PAD;
@@ -1673,10 +2003,18 @@ function connectRoom() {
   if (window.SMOSync) {
     window.SMOSync.connect(room, wsUrl);
   }
+  // Same room code the player enters on the Switch's Tracker Live Testing
+  // menu - this is what actually receives the mod's live moon/capture/
+  // ability updates. Independent of whether the SMOSync connect above
+  // succeeds (that's just for syncing this state between viewer windows/OBS).
+  if (window.SMOFirebaseProgressSync) {
+    window.SMOFirebaseProgressSync.connect(room);
+  }
 }
 
 function disconnectRoom() {
   if (window.SMOSync) window.SMOSync.disconnect();
+  if (window.SMOFirebaseProgressSync) window.SMOFirebaseProgressSync.disconnect();
   try {
     localStorage.removeItem(ROOM_CODE_KEY);
   } catch (e) { }
@@ -1739,6 +2077,14 @@ function setupSyncUI() {
     applyRemoteState(remoteState);
   });
 
+  // Live moon/capture/ability updates straight from the mod (see
+  // connectRoom()/disconnectRoom() for where this actually connects).
+  if (window.SMOFirebaseProgressSync) {
+    window.SMOFirebaseProgressSync.onProgress((data) => {
+      applyProgressSnapshot(data);
+    });
+  }
+
   // Button wiring
   const connectBtn = document.getElementById('btn-connect-room');
   const generateBtn = document.getElementById('btn-generate-room');
@@ -1797,7 +2143,7 @@ function openApc() {
     apcWindow.focus();
     return;
   }
-  apcWindow = window.open('apc.html?v=2', 'AbilitiesCaptures');
+  apcWindow = window.open('apc.html?v=4', 'AbilitiesCaptures');
 }
 
 function openLoadingZones() {
@@ -2127,9 +2473,7 @@ const IN_GAME_ZONE_NAMES = {
     'Puzzle': 'Stone Block Puzzle Stage',
   },
   'Wooded': {
-    'DW Odyssey': 'Deep Woods: Odyssey Area',
-    'DW Red Maze': 'Deep Woods: Red Leaf Maze',
-    'DW Pond': 'Deep Woods: Pond Area',
+    'Deep Woods': 'Deep Woods: Odyssey Area',
     'DW Treasure': 'Deep Woods: Treasure Chest',
     'DW Outfit': 'Deep Woods: Costume',
     'Rocket': 'In the Fog',
@@ -2357,7 +2701,8 @@ function revertZoneNames() {
 const SAVE_STATE_KEYS = [
   STATE_KEY,              // tracker + notes
   'smo_map_state', 'smo_map_positions', 'smo_map_sizes', 'smo_map_grid',
-  'smo_map_settings', 'smo_edge_chains', 'smo_chain_meta', 'smo_map_notes',   // map
+  'smo_map_settings', 'smo_edge_chains', 'smo_chain_meta', 'smo_map_notes',
+  'smo_map_node_colors',   // map (node/segment colors)
 ];
 
 function downloadSaveState() {
@@ -2983,10 +3328,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ── Side Panel mode (segmented) ────────────────
-  // Off / Notes / Map / Abilities & Captures - only one panel at a time.
+  // ── Side Panel mode (segmented, multi-select) ──
+  // Off clears everything; Notes / Map / Abilities & Captures each toggle in or
+  // out of the open stack (up to two at once, oldest evicted). Same underlying
+  // state as the tracker's Shift-click quick-open.
   document.querySelectorAll('#seg-panel-mode .seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => setPanelMode(btn.dataset.value));
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.value;
+      if (v === 'none') setPanelModes([]);
+      else togglePanelStacked(v);
+    });
   });
 
   // ── Side Panel location (segmented) ────────────
@@ -3093,13 +3444,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── Side panel ──────────────────────────────────
-  const sidePanelClose = document.getElementById('side-panel-close');
-  if (sidePanelClose) {
-    sidePanelClose.addEventListener('click', () => setPanelMode('none'));
-  }
+  // Each panel slot builds its own ✕ close button in ensurePanelSlot().
 
-  // Re-evaluate the panel on resize (debounced) so crossing the mobile
-  // breakpoint shows/hides it without needing a settings change.
+  // Re-evaluate the panel on resize (debounced) so crossing the horizontal/
+  // vertical fallback width re-lays-out the panel without a settings change.
   let panelResizeTimer = null;
   window.addEventListener('resize', () => {
     clearTimeout(panelResizeTimer);

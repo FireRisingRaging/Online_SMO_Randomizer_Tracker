@@ -138,13 +138,56 @@ body.panel-edges {
 }
 .side-panel-header span { font-size: 1rem; font-weight: bold; }
 
-#side-panel-frame {
+/* ── Stacked slots (up to two) ──────────────────────────────────── */
+.panel-slot {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.panel-slot.slot-hidden { display: none; }
+
+.panel-slot-frame {
   border: none;
   width: 100%;
-  flex: 1;
-  min-height: 824px;
+  flex: 1 1 auto;
+  min-height: 824px;   /* single panel: give Notes/Map room (matches old frame) */
   background: var(--bg);
 }
+
+/* Two panels stacked: they share the panel's height by ratio (flex-grow set
+   inline from settings.panel_split), so drop the tall single-panel min-height
+   and give the panel a definite height to divide. */
+#side-panel.two-open { height: calc(100vh - 24px); }
+#side-panel.two-open .panel-slot { min-height: 120px; }
+#side-panel.two-open .panel-slot-frame { min-height: 0; }
+
+/* Drag divider between the two stacked panels. */
+.panel-resizer {
+  flex: 0 0 8px;
+  cursor: ns-resize;
+  background: var(--border);
+  position: relative;
+}
+.panel-resizer::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--text-muted, #888);
+  opacity: 0.75;
+}
+.panel-resizer:hover { background: var(--bg-hover); }
+.panel-resizer.slot-hidden { display: none; }
+
+/* While dragging the divider, keep the cursor consistent and stop the iframes
+   from swallowing pointer moves. */
+body.panel-resizing { cursor: ns-resize; user-select: none; }
+body.panel-resizing iframe { pointer-events: none; }
 
 /* Horizontal doesn't fit beside the tracker on narrow screens, so it falls
    back to the default single-column tracker layout below the mobile

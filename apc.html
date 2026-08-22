@@ -155,6 +155,11 @@
   let externalRenderPending = false;
   let externalResort = false;
   function scheduleExternalRender(data) {
+    // Temporary diagnostic - confirms this panel (which may be a same-origin
+    // iframe, a whole separate window, or the pop-out) actually receives the
+    // sync ping at all, and what it reads back out of localStorage in
+    // response to it.
+    console.log('[apc] scheduleExternalRender', data);
     // An authoritative wipe from the main tracker's Clear button. Drop this
     // panel's short-lived edit protection immediately (synchronously, before
     // any pending render runs) so it can't re-assert an entry that was just
@@ -183,6 +188,17 @@
     try {
       const raw = localStorage.getItem(STATE_KEY);
       state = raw ? JSON.parse(raw) : {};
+      // Decoded to readable names, not raw objects - a screenshot with a
+      // collapsed object in it answers nothing. This is APC.isUnlocked()
+      // evaluated the exact same way render() itself will evaluate it a
+      // moment later, so if a name is missing here, render() was never
+      // going to show it unlocked either - the bug is upstream of render(),
+      // in what this panel actually has in `state`. If it's present here
+      // but the grid still doesn't show it unlocked, the bug is in render().
+      console.log('[apc] readState captures unlocked:',
+        APC.CAPTURES.filter(c => APC.isUnlocked(state, 'captures', c.key)).map(c => c.key));
+      console.log('[apc] readState abilities unlocked:',
+        APC.ABILITIES.filter(a => APC.isUnlocked(state, 'abilities', a.key)).map(a => a.key));
     } catch (e) {
       console.error('APC: failed to read state', e);
       state = {};

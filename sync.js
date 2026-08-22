@@ -41,6 +41,7 @@
     this.stateListeners = [];
     this.statusListeners = [];
     this.joinedListeners = [];
+    this.liveEventListeners = [];
     this.status = 'disconnected';
     this.reconnectTimer = null;
     this.intentionalClose = false;
@@ -86,6 +87,10 @@
 
       if (msg.type === 'state' && msg.room === this.room && msg.data) {
         this.stateListeners.forEach((cb) => cb(msg.data));
+      }
+
+      if (msg.type === 'liveEvent' && msg.room === this.room && msg.data) {
+        this.liveEventListeners.forEach((cb) => cb(msg.data));
       }
     });
 
@@ -145,6 +150,10 @@
 
   Sync.prototype.onState = function (callback) {
     this.stateListeners.push(callback);
+  };
+
+  Sync.prototype.onLiveEvent = function (callback) {
+    this.liveEventListeners.push(callback);
   };
 
   Sync.prototype.onStatus = function (callback) {

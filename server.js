@@ -92,6 +92,15 @@ wss.on('connection', (socket, req) => {
       broadcast(roomCode, { type: 'state', room: roomCode, data: msg.data }, socket);
       return;
     }
+
+    // Transient, one-off events (e.g. a live game-transition notification) - deliberately
+    // NOT cached on the room like 'state' is, since a live event replayed to someone who
+    // joins later would be stale/meaningless rather than "the current state".
+    if (msg.type === 'liveEvent' && roomCode && msg.room === roomCode && msg.data) {
+      console.log(`[⚡] Live event in room ${roomCode} | broadcasting to ${Math.max(0, getRoom(roomCode).sockets.size - 1)} other client(s)`);
+      broadcast(roomCode, { type: 'liveEvent', room: roomCode, data: msg.data }, socket);
+      return;
+    }
   });
 
   socket.on('close', () => {

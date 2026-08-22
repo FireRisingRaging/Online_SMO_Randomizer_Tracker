@@ -65,8 +65,8 @@
   }
   #topbar h1 { font-size: 1.05rem; margin-right: auto; }
   .map-btn {
-    background: var(--btn-bg);
-    border: none;
+    background: var(--bg-card);
+    border: var(--bg-card);
     color: var(--text);
     font-family: var(--font);
     font-size: 0.82rem;
@@ -82,6 +82,104 @@
   .map-btn.active:hover { background: var(--accent-h); }
   .map-btn.danger { color: var(--red); }
   .map-btn.danger:hover { background: #3a2020; }
+
+    .connect-btn {
+    background: var(--btn-bg);
+    border: 1px solid var(--green);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.82rem;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .connect-btn:hover { background: #203a26; }
+
+  /* ── Live Tracking panel controls ───────────────────────────── */
+  /* Room code field */
+  .lt-room-input {
+    height: 32px;
+    width: 130px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: #e9eaf0;
+    color: #1c1c1c;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .lt-room-input::placeholder { color: #6b6b72; }
+  .lt-room-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.35);
+  }
+
+  /* Cloud Sync custom checkbox */
+  .lt-check-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: 8px;
+    font-size: 0.9em;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+  .lt-check-label input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .lt-checkbox-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1px solid var(--text-dim);
+    background: var(--btn-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .lt-checkbox-box::after {
+    content: '';
+    width: 5px;
+    height: 9px;
+    margin-top: -1px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) scale(0);
+    transition: transform 0.15s;
+  }
+  .lt-check-label input:checked + .lt-checkbox-box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .lt-check-label input:checked + .lt-checkbox-box::after {
+    transform: rotate(45deg) scale(1);
+  }
+  .lt-check-label input:focus-visible + .lt-checkbox-box {
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.4);
+  }
+
+  /* Connection status: gray when idle/disconnected, amber while connecting,
+     green once connected, red on error. */
+  .lt-status {
+    margin-left: 8px;
+    font-weight: bold;
+    transition: color 0.15s;
+  }
+  .lt-status.disconnected { color: var(--text-dim); }
+  .lt-status.connecting   { color: #fbbf24; }
+  .lt-status.connected    { color: var(--green); }
+  .lt-status.error        { color: var(--red); }
 
   .topbar-sep {
     width: 1px; height: 22px;
@@ -1336,8 +1434,24 @@
     <button class="map-btn" id="btn-controls">Info & Controls</button>
     <button class="map-btn" id="btn-settings">Settings</button>
     <button class="map-btn active" id="btn-display">Hide Display</button>
+    <button class="map-btn" id="btn-live-tracking">Live Tracking</button>
     <div class="topbar-sep"></div>
     <button class="map-btn danger" id="btn-clear">Clear</button>
+  </div>
+
+  <!-- Live Tracking (Phase 2): connects to the same room-code relay used for OBS sync, but
+       receives resolved connection events from the Switch instead of tracker UI state, and
+       calls connect() directly. A real side-panel bar now (toggled like Info & Controls),
+       not a floating overlay - that kept landing on top of other topbar buttons. -->
+  <div id="live-tracking-panel" class="side-panel hidden">
+    <input id="live-tracking-room" type="text" class="lt-room-input" placeholder="room code">
+    <button id="live-tracking-connect" class="connect-btn">Connect</button>
+    <label class="lt-check-label">
+      <input type="checkbox" id="live-tracking-cloud">
+      <span class="lt-checkbox-box"></span>
+      Cloud Sync (no local server)
+    </label>
+    <span id="live-tracking-status" class="lt-status disconnected">disconnected</span>
   </div>
 
   <!-- Controls panel -->
@@ -1635,7 +1749,7 @@
 
       <div class="settings-divider"></div>
 
-      <div class="settings-row">
+      <!-- <div class="settings-row">
         <div class="settings-row-label">Kingdoms</div>
         <div class="settings-row-desc">Toggle whether a kingdom (and its zones) appears on the map. Any arrows connected to a hidden kingdom are removed from view until it's shown again.</div>
 
@@ -1658,7 +1772,7 @@
             <span class="toggle-label">Cloud Kingdom</span>
           </label>
         </div>
-      </div>
+      </div> -->
 
       <div class="settings-divider"></div>
 
@@ -1738,6 +1852,8 @@
   </div>
 </div>
 
+<script src="sync.js"></script>
+<script src="firebase-live-sync.js"></script>
 <script>
 'use strict';
 
@@ -1770,7 +1886,7 @@ const LOADING_ZONES_TEMPLATE = {
   'Cascade':   { color: '#ff9900', icon: 'Cascade.png', zones: { 'Dino': {}, '2D': {}, 'Chain Chomp': {}, 'Swings': {}, 'Windy': {} } },
   'Sand':      { color: '#8bf12c', icon: 'Sand.png',    zones: { "Icy Cave": {}, "Moe-eye": {}, "Shop": {}, "Employees": {}, "Slots": {}, "Rumble": {}, "Outfit": {}, "Jaxi Ruins": {}, "Bullet Bill": {}, "Gushen": {}, "Sphynx": {}, "Moving Platform": {}, "Rocket": {}, "Colossal Ruins": {} } },
   'Lake':      { color: '#e46cab', icon: 'Lake.png',    zones: { "Poison Waves": {}, "Zipper": {}, "Grab Climb": {}, "Shop": {}, "Puzzle": {} } },
-  'Wooded':    { color: '#1e65e7', icon: 'Wooded.png',  zones: { "DW Odyssey": {}, "DW Red Maze": {}, "DW Pond": {}, "DW Treasure": {}, "DW Outfit": {}, "Rocket": {}, "Sheep": {}, "Tank": {}, "Vine Clouds": {}, "Breakdown": {}, "Invisible": {}, "Flooded Pipes": {}, "Flower Road": {}, "Treasure Room": {} } },
+  'Wooded':    { color: '#1e65e7', icon: 'Wooded.png',  zones: { "Deep Woods": {}, "DW Treasure": {}, "DW Outfit": {}, "Rocket": {}, "Sheep": {}, "Tank": {}, "Vine Clouds": {}, "Breakdown": {}, "Invisible": {}, "Flooded Pipes": {}, "Flower Road": {}, "Treasure Room": {} } },
   'Lost':      { color: '#e71edd', icon: 'Lost.png',    zones: { 'Wiggler': {}, 'Shop': {}, 'Klepto': {} } },
   'Metro':     { color: '#de7d5e', icon: 'Metro.png',   zones: { "Yellow Shop": {}, "Purple Shop": {}, "Dino": {}, "Bullet Billding": {}, "Taxi": {}, "Notes": {}, "2D": {}, "Slots": {}, "People": {}, "Outfit": {}, "Rocket": {}, "Dark": {}, "Scaffolding": {}, "Scooter": {}, "Rotating Maze": {}, "RC Car": {} } },
   'Snow':      { color: '#e7930a', icon: 'Snow.png',    zones: { "Puzzle": {}, "Capless": {}, "Rocket Flower": {}, "Iceburn Circuit": {}, "Flower Road": {}, "Tracewalking": {}, "Clouds": {}, "Outfit": {}, "Shop": {} } },
@@ -1921,9 +2037,7 @@ const ZONE_IMAGES = {
   'zone:Lake:Puzzle':        'GotogotonExStage.jpg',
 
   // Wooded zones
-  'zone:Wooded:DW Odyssey':   'ForestWorldHomeStage_6.jpg',
-  'zone:Wooded:DW Red Maze':  'ForestWorldWoodsStage.jpg',
-  'zone:Wooded:DW Pond':      'ForestWorldHomeStage_3.jpg',
+  'zone:Wooded:Deep Woods':   'ForestWorldHomeStage_6.jpg',
   'zone:Wooded:DW Treasure':  'ForestWorldWoodsTreasureStage.jpg',
   'zone:Wooded:DW Outfit':    'ForestWorldWoodsCostumeStage.jpg',
   'zone:Wooded:Rocket':       'FogMountainExStage.jpg',
@@ -2086,9 +2200,7 @@ const ZONE_ENT = {
   'zone:Lake:Grab Climb': 'JGCC1.webp',
   'zone:Lake:Shop': 'crazy-cap-lake-kingdom.900x.webp',
   'zone:Lake:Puzzle': 'Repair1.webp',
-  'zone:Wooded:DW Odyssey': 'maxresdefault (1).jpg',
-  'zone:Wooded:DW Red Maze': 'maxresdefault (1).jpg',
-  'zone:Wooded:DW Pond': 'Screenshot_7.png',
+  'zone:Wooded:Deep Woods': 'maxresdefault (1).jpg',
   'zone:Wooded:DW Treasure': 'smo180-600x338.png',
   'zone:Wooded:DW Outfit': 'Screenshot_6.png',
   'zone:Wooded:Rocket': 'Fog1.webp',
@@ -2251,7 +2363,7 @@ const ZONE_MOON_COUNT = {
   'zone:Snow:Rocket Flower': 2,
   'zone:Snow:Iceburn Circuit': 2,
   'zone:Snow:Flower Road': 2,
-  'zone:Snow:Tracewalking': 1,
+  'zone:Snow:Tracewalking': 2,
   'zone:Snow:Clouds': 2,
   'zone:Snow:Outfit': 2,
   'zone:Snow:Shop': 1,
@@ -2361,9 +2473,7 @@ const ZONE_INGAME = {
   'zone:Lake:Grab Climb': 'Jump, Grab, Cling, Climb',
   'zone:Lake:Shop': 'Crazy Cap Store',
   'zone:Lake:Puzzle': 'Puzzle Room',
-  'zone:Wooded:DW Odyssey': 'Wooded Kingdom',
-  'zone:Wooded:DW Red Maze': 'Deep Woods',
-  'zone:Wooded:DW Pond': 'Wooded Kingdom',
+  'zone:Wooded:Deep Woods': 'Wooded Kingdom',
   'zone:Wooded:DW Treasure': 'Deep Woods Treasure Vault',
   'zone:Wooded:DW Outfit': 'Costume Room',
   'zone:Wooded:Rocket': 'Shards in the Fog',
@@ -5878,6 +5988,13 @@ document.getElementById('btn-controls').addEventListener('click', (e) => {
   e.target.textContent = hidden ? 'Info & Controls' : 'Info & Controls ✕';
 });
 
+document.getElementById('btn-live-tracking').addEventListener('click', (e) => {
+  const panel = document.getElementById('live-tracking-panel');
+  const hidden = panel.classList.toggle('hidden');
+  e.target.classList.toggle('active', !hidden);
+  e.target.textContent = hidden ? 'Live Tracking' : 'Live Tracking ✕';
+});
+
 document.getElementById('btn-settings').addEventListener('click', () => {
   document.getElementById('settings-overlay').classList.add('visible');
 });
@@ -6928,6 +7045,101 @@ function init() {
 }
 
 init();
+
+// ─────────────────────────────────────────────────────────────────
+// Live Tracking (Phase 2) - receives already-resolved map_node connections
+// from the local bridge script (which does the stage-name lookup itself,
+// since it has direct filesystem access to loading_zone_dictionary.json)
+// and draws them the same way a manual drag-connect would.
+// ─────────────────────────────────────────────────────────────────
+(function initLiveTracking() {
+  const roomInput = document.getElementById('live-tracking-room');
+  const connectBtn = document.getElementById('live-tracking-connect');
+  const cloudCheckbox = document.getElementById('live-tracking-cloud');
+  const statusEl = document.getElementById('live-tracking-status');
+
+  // Set the status label text and pick a color class from it: gray when
+  // disconnected/idle, amber while connecting, green once connected, red on
+  // error. Backends emit free-form strings, so match on substrings and check
+  // the more specific cases first ("disconnected" contains "connect").
+  function applyStatus(status) {
+    const s = String(status == null ? '' : status).toLowerCase();
+    let cls = 'disconnected';
+    if (s.includes('error') || s.includes('fail')) cls = 'error';
+    else if (s.includes('connecting')) cls = 'connecting';
+    else if (s.includes('disconnect') || s.includes('offline')) cls = 'disconnected';
+    else if (s.includes('connected') || s.includes('open') || s.includes('sync')) cls = 'connected';
+    statusEl.className = 'lt-status ' + cls;
+    statusEl.textContent = status;
+  }
+
+  // Two interchangeable backends, same onStatus/onLiveEvent/connect shape:
+  // SMOSync (sync.js) is the local relay (server.js/tracker-server.js on the
+  // same PC), SMOFirebaseSync (firebase-live-sync.js) talks to Firestore
+  // directly - no local relay process needed at all, once a Firebase project
+  // is configured. The checkbox picks which one this session uses; both stay
+  // wired to the same connect()-drawing logic below regardless of choice.
+  function handleLiveEvent(data) {
+    if (!data || !data.src || !data.tgt) return;
+    // Doors are two-way pairs by design in this randomizer - once src->tgt is known,
+    // walking back is redundant information, not a new connection. Without this, simply
+    // backtracking along a path you already recorded spawned a whole separate chain for
+    // every step of the walk back.
+    //
+    // Except arriving at a kingdom's own home node: that's a real position
+    // change worth reflecting even if the reverse edge (kingdom -> the
+    // subarea you're returning from) already exists from an earlier visit -
+    // otherwise, since there's no separate "current position" state (it's
+    // inferred purely from the edge graph), the graph kept showing the last
+    // subarea/ExStage visited as "current" instead of the kingdom itself.
+    const isKingdomArrival = data.tgt.startsWith('kingdom:');
+    const alreadyConnectedReverse = !isKingdomArrival
+      && edgeList.some(e => e.src === data.tgt && e.tgt === data.src);
+    // Temporary diagnostic - remove once the kingdom-home-arrival mislink is
+    // actually confirmed fixed. nodes[data.tgt]/nodes[data.src] missing would
+    // make connect() silently no-op via canConnect()'s first check, which
+    // this makes visible instead of indistinguishable from the dedup path.
+    console.log('[tracker] handleLiveEvent', {
+      src: data.src, tgt: data.tgt, isKingdomArrival, alreadyConnectedReverse,
+      srcNodeExists: !!nodes[data.src], tgtNodeExists: !!nodes[data.tgt],
+    });
+    if (alreadyConnectedReverse) return;
+    connect(data.src, data.sPart || PART_OUT, data.tgt, data.tPart || PART_IN);
+  }
+
+  if (window.SMOSync) {
+    window.SMOSync.onStatus((status) => {
+      if (!cloudCheckbox.checked) applyStatus(status);
+    });
+    window.SMOSync.onLiveEvent(handleLiveEvent);
+  }
+
+  if (window.SMOFirebaseSync) {
+    window.SMOFirebaseSync.onStatus((status) => {
+      if (cloudCheckbox.checked) applyStatus(status);
+    });
+    window.SMOFirebaseSync.onLiveEvent(handleLiveEvent);
+  }
+
+  if (!window.SMOSync && !window.SMOFirebaseSync) return; // both scripts failed to load - fail quiet, this panel is optional
+
+  connectBtn.addEventListener('click', () => {
+    const room = roomInput.value.trim();
+    if (!room) return;
+
+    if (cloudCheckbox.checked) {
+      if (window.SMOSync) window.SMOSync.disconnect();
+      if (window.SMOFirebaseSync) window.SMOFirebaseSync.connect(room);
+    } else {
+      if (window.SMOFirebaseSync) window.SMOFirebaseSync.disconnect();
+      if (window.SMOSync) {
+        // No custom relay URL field yet - same local server.js/tracker-server.js this page is served alongside.
+        const wsPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+        window.SMOSync.connect(room, `ws://${window.location.hostname}:${wsPort}/ws`);
+      }
+    }
+  });
+})();
 </script>
 </body>
 </html>
