@@ -2500,7 +2500,8 @@ function revertZoneNames() {
 const SAVE_STATE_KEYS = [
   STATE_KEY,              // tracker + notes
   'smo_map_state', 'smo_map_positions', 'smo_map_sizes', 'smo_map_grid',
-  'smo_map_settings', 'smo_edge_chains', 'smo_chain_meta', 'smo_map_notes',   // map
+  'smo_map_settings', 'smo_edge_chains', 'smo_chain_meta', 'smo_map_notes',
+  'smo_map_node_colors',   // map (node/segment colors)
 ];
 
 function downloadSaveState() {

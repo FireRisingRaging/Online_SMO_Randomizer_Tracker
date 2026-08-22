@@ -98,6 +98,89 @@
   }
   .connect-btn:hover { background: #203a26; }
 
+  /* ── Live Tracking panel controls ───────────────────────────── */
+  /* Room code field */
+  .lt-room-input {
+    height: 32px;
+    width: 130px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: #e9eaf0;
+    color: #1c1c1c;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .lt-room-input::placeholder { color: #6b6b72; }
+  .lt-room-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.35);
+  }
+
+  /* Cloud Sync custom checkbox */
+  .lt-check-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: 8px;
+    font-size: 0.9em;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+  .lt-check-label input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .lt-checkbox-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1px solid var(--text-dim);
+    background: var(--btn-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .lt-checkbox-box::after {
+    content: '';
+    width: 5px;
+    height: 9px;
+    margin-top: -1px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) scale(0);
+    transition: transform 0.15s;
+  }
+  .lt-check-label input:checked + .lt-checkbox-box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .lt-check-label input:checked + .lt-checkbox-box::after {
+    transform: rotate(45deg) scale(1);
+  }
+  .lt-check-label input:focus-visible + .lt-checkbox-box {
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.4);
+  }
+
+  /* Connection status: gray when idle/disconnected, amber while connecting,
+     green once connected, red on error. */
+  .lt-status {
+    margin-left: 8px;
+    font-weight: bold;
+    transition: color 0.15s;
+  }
+  .lt-status.disconnected { color: var(--text-dim); }
+  .lt-status.connecting   { color: #fbbf24; }
+  .lt-status.connected    { color: var(--green); }
+  .lt-status.error        { color: var(--red); }
+
   .topbar-sep {
     width: 1px; height: 22px;
     background: var(--border);
@@ -1361,12 +1444,14 @@
        calls connect() directly. A real side-panel bar now (toggled like Info & Controls),
        not a floating overlay - that kept landing on top of other topbar buttons. -->
   <div id="live-tracking-panel" class="side-panel hidden">
-    <input id="live-tracking-room" type="text" placeholder="room code" style="width:110px;">
+    <input id="live-tracking-room" type="text" class="lt-room-input" placeholder="room code">
     <button id="live-tracking-connect" class="connect-btn">Connect</button>
-    <label style="margin-left:8px; opacity:0.8; font-size:0.9em;">
-      <input type="checkbox" id="live-tracking-cloud"> Cloud Sync (no local server)
+    <label class="lt-check-label">
+      <input type="checkbox" id="live-tracking-cloud">
+      <span class="lt-checkbox-box"></span>
+      Cloud Sync (no local server)
     </label>
-    <span id="live-tracking-status" style="margin-left:8px; opacity:0.8;">disconnected</span>
+    <span id="live-tracking-status" class="lt-status disconnected">disconnected</span>
   </div>
 
   <!-- Controls panel -->
@@ -6973,6 +7058,21 @@ init();
   const cloudCheckbox = document.getElementById('live-tracking-cloud');
   const statusEl = document.getElementById('live-tracking-status');
 
+  // Set the status label text and pick a color class from it: gray when
+  // disconnected/idle, amber while connecting, green once connected, red on
+  // error. Backends emit free-form strings, so match on substrings and check
+  // the more specific cases first ("disconnected" contains "connect").
+  function applyStatus(status) {
+    const s = String(status == null ? '' : status).toLowerCase();
+    let cls = 'disconnected';
+    if (s.includes('error') || s.includes('fail')) cls = 'error';
+    else if (s.includes('connecting')) cls = 'connecting';
+    else if (s.includes('disconnect') || s.includes('offline')) cls = 'disconnected';
+    else if (s.includes('connected') || s.includes('open') || s.includes('sync')) cls = 'connected';
+    statusEl.className = 'lt-status ' + cls;
+    statusEl.textContent = status;
+  }
+
   // Two interchangeable backends, same onStatus/onLiveEvent/connect shape:
   // SMOSync (sync.js) is the local relay (server.js/tracker-server.js on the
   // same PC), SMOFirebaseSync (firebase-live-sync.js) talks to Firestore
@@ -7009,14 +7109,14 @@ init();
 
   if (window.SMOSync) {
     window.SMOSync.onStatus((status) => {
-      if (!cloudCheckbox.checked) statusEl.textContent = status;
+      if (!cloudCheckbox.checked) applyStatus(status);
     });
     window.SMOSync.onLiveEvent(handleLiveEvent);
   }
 
   if (window.SMOFirebaseSync) {
     window.SMOFirebaseSync.onStatus((status) => {
-      if (cloudCheckbox.checked) statusEl.textContent = status;
+      if (cloudCheckbox.checked) applyStatus(status);
     });
     window.SMOFirebaseSync.onLiveEvent(handleLiveEvent);
   }
