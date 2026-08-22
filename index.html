@@ -67,19 +67,17 @@
   </div>
 
   <!-- ── Side Panel ──────────────────────────────────────────────
-       Embeds notes.html or map.html (same origin, so they share
-       localStorage with this page) beside the main tracker. Notes and
-       Map are mutually exclusive and controlled from Settings → Main,
-       or by clicking the (repurposed) Loading Zone Notes / Connection
-       Map buttons. Hidden below the mobile breakpoint - see app.js
-       applySidePanel(). -->
-  <div id="side-panel" class="hidden">
-    <div class="side-panel-header">
-      <span id="side-panel-title">Panel</span>
-      <button class="modal-close" id="side-panel-close" aria-label="Close panel">✕</button>
-    </div>
-    <iframe id="side-panel-frame" title="Side panel content"></iframe>
-  </div>
+       Embeds up to two of notes.html / map.html / apc.html (same origin,
+       so they share localStorage with this page) beside or below the main
+       tracker, stacked with a draggable divider. Controlled from
+       Settings → Main (multi-select) or by Shift-clicking the Loading Zone
+       Notes / Connection Map / Ability + Capture buttons. Below
+       PANEL_HORIZONTAL_MIN the Horizontal layout falls back to Vertical -
+       see app.js applySidePanel() / effectivePanelLocation(). -->
+  <!-- Slots (header + iframe per open panel) are built and stacked here by
+       applySidePanel() in app.js. Up to two at once, with a drag divider
+       between them. -->
+  <div id="side-panel" class="hidden"></div>
   </div>
 
   <!-- ── OBS Info Modal ──────────────────────────────────────────── -->
@@ -165,7 +163,7 @@
           </div>
 
           <div class="settings-row">
-            <span>Toggle Peace Sign</span>
+            <span>Toggle Kingdom State Icons</span>
             <label class="toggle-switch">
               <input type="checkbox" id="toggle-peace">
               <span class="toggle-track"></span>
@@ -173,7 +171,7 @@
           </div>
 
           <div class="settings-row">
-            <span>Toggle Moon Rock Sign</span>
+            <span>Toggle Moon Rock Key</span>
             <label class="toggle-switch">
               <input type="checkbox" id="toggle-rock">
               <span class="toggle-track"></span>
@@ -548,7 +546,7 @@
   <script src="sync.js"></script>
   <script src="firebase-progress-sync.js?v=2"></script>
   <script src="apc-data.js?v=2"></script>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
   <script src="spoiler-log.js?v=1"></script>
 </body>
 

@@ -40,8 +40,12 @@ const KINGDOMS = [
 // bottom. This is only the DEFAULT - a user's drag-to-reorder (kingdom_order)
 // still takes precedence. obs.html keeps an identical DEFAULT_DISPLAY_ORDER.
 const DEFAULT_DISPLAY_ORDER = (() => {
-  const capIdx = KINGDOMS.findIndex(k => k.name === 'Cap Kingdom');
-  const rest = KINGDOMS.map((_, i) => i).filter(i => i !== capIdx);
+  const capIdx   = KINGDOMS.findIndex(k => k.name === 'Cap Kingdom');
+  const cloudIdx = KINGDOMS.findIndex(k => k.name === 'Cloud Kingdom');
+  const woodIdx  = KINGDOMS.findIndex(k => k.name === 'Wooded Kingdom');
+  const rest = KINGDOMS.map((_, i) => i).filter(i => i !== capIdx && i !== cloudIdx);
+  const wPos = rest.indexOf(woodIdx);
+  if (cloudIdx !== -1 && wPos !== -1) rest.splice(wPos + 1, 0, cloudIdx);
   return capIdx === -1 ? rest : [capIdx, ...rest];
 })();
 
@@ -230,12 +234,21 @@ const DEFAULT_SETTINGS = {
                                 // Mutually exclusive with show_notes_panel (see applySidePanel).
   panel_location: 'horizontal', // 'horizontal' | 'vertical' - beside vs below the tracker
 
-  // Which side panel is showing. Only one at a time, so it's a single value
-  // rather than one boolean per panel: 'none' | 'notes' | 'map' | 'apc'.
-  // show_notes_panel / show_map_panel above are kept in sync with this purely
-  // so older saves (and anything else reading them) still work - panel_mode is
-  // the one that decides. See applySidePanel().
+  // Legacy single-panel field, kept only so old saves / other readers still
+  // work. The real state now lives in panel_modes below; panel_mode is always
+  // mirrored to panel_modes[0] (or 'none'). See setPanelModes().
   panel_mode: 'none',
+
+  // Which side panels are showing, in the order they were opened. Up to two at
+  // once, stacked one above the other. Each entry is 'notes' | 'map' | 'apc'.
+  // Empty = no panel. Opening a third evicts the oldest (FIFO). Shared by the
+  // Settings segmented control and the tracker's Shift-click quick-open.
+  panel_modes: [],
+
+  // When two panels are stacked, this is the fraction of the panel height taken
+  // by the TOP (first-opened) slot; the bottom gets the rest. Drag the divider
+  // between them to change it. 0.5 = even split.
+  panel_split: 0.5,
 
   // ── Abilities & Captures panel (apc.html) view options ──────────
   apc_sort: 'locked',          // 'locked' | 'unlocked' | 'game' | 'az'
@@ -489,7 +502,10 @@ function buildDefaultLoadingZones() {
 function getDefaultState() {
   return {
     settings: cloneDefaultSettings(),
-    moons: KINGDOMS.map(() => ({ count: 0, max: null, lock: false, peace: false, rock:false, multi: false })),
+    // cyc = which state icon the middle (cycle) button is showing:
+    //   0 = Bowser, 1 = Moon Rock, 2 = Peace. Each has its own locked/unlocked
+    //   flag: cycBowser, cycRock, and (reusing the existing field) peace.
+    moons: KINGDOMS.map(() => ({ count: 0, max: null, lock: false, peace: false, rock:false, multi: false, cyc: 0, cycBowser: false, cycRock: false })),
     captures: { parabones: false, banzai: false, wire: false, bowser: false, golden: false },
     abilities: { jump: false, cap: false, wall: false },
     // Full Abilities & Captures panel (apc.html). The seven entries that also
@@ -532,13 +548,18 @@ function loadState() {
       if (saved.apc.abilities) Object.assign(state.apc.abilities, saved.apc.abilities);
     }
 
-    // Saves made before the side panel became a single mode still carry the two
-    // old booleans. Fold them into panel_mode once, then let panel_mode lead.
-    if (!(saved.settings && 'panel_mode' in saved.settings)) {
-      const old = saved.settings || {};
-      state.settings.panel_mode = old.show_notes_panel ? 'notes'
-                                : old.show_map_panel ? 'map'
-                                : 'none';
+    // Panel state migration. Newest saves carry panel_modes (an array). Older
+    // ones carry a single panel_mode string; oldest carry two booleans. Fold
+    // whichever we find into panel_modes, then let panel_modes lead.
+    const savedS = saved.settings || {};
+    if (!Array.isArray(savedS.panel_modes)) {
+      let seed;
+      if ('panel_mode' in savedS) {
+        seed = savedS.panel_mode && savedS.panel_mode !== 'none' ? [savedS.panel_mode] : [];
+      } else {
+        seed = savedS.show_notes_panel ? ['notes'] : savedS.show_map_panel ? ['map'] : [];
+      }
+      state.settings.panel_modes = seed;
     }
     syncLegacyPanelFlags();
 
@@ -886,11 +907,20 @@ function buildMoonRow(i) {
   lockBtn.innerHTML = `<img src="assets/lock.png" alt="lock">`;
   lockBtn.addEventListener('click', () => { toggleLock(i); saveState(); });
 
+  // Middle "cycle" button. Left click toggles the current icon's locked/unlocked
+  // state; right click cycles to the next icon (Bowser → Moon Rock → Peace →
+  // Bowser). The .peace-btn class is kept so the "Kingdom State Icons" column
+  // toggle (settings.show_peace / #moon-rows.hide-peace) still shows/hides it.
   const peaceBtn = document.createElement('button');
-  peaceBtn.className = 'icon-btn peace-btn';
-  peaceBtn.title = 'Toggle peace';
-  peaceBtn.innerHTML = `<img src="assets/peace.png" alt="peace">`;
-  peaceBtn.addEventListener('click', () => { togglePeace(i); saveState(); });
+  peaceBtn.className = 'icon-btn peace-btn cycle-btn';
+  peaceBtn.title = 'Left click: lock/unlock · Right click: change icon';
+  peaceBtn.innerHTML = `<img src="${cycleIconSrc(state.moons[i])}" alt="state icon">`;
+  peaceBtn.addEventListener('click', () => { toggleCycleLock(i); saveState(); });
+  peaceBtn.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    cycleCycleType(i);
+    saveState();
+  });
 
   const rockBtn = document.createElement('button');
   rockBtn.className = 'icon-btn rock-btn';
@@ -1054,9 +1084,8 @@ function refreshMoonRow(i, rowEl) {
   row.querySelector('.lock-btn img').src =
     m.lock ? 'assets/unlock.png' : 'assets/lock.png';
 
-  // Peace image
-  row.querySelector('.peace-btn img').src =
-    m.peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
+  // Cycle (state icon) image - Bowser / Moon Rock / Peace, locked or unlocked
+  row.querySelector('.peace-btn img').src = cycleIconSrc(m);
 
   // Moon Rock image
   row.querySelector('.rock-btn img').src =
@@ -1121,11 +1150,37 @@ function toggleLock(i) {
     state.moons[i].lock ? 'assets/unlock.png' : 'assets/lock.png';
 }
 
-function togglePeace(i) {
-  state.moons[i].peace = !state.moons[i].peace;
+// ── Middle cycle button (Bowser / Moon Rock / Peace) ──────────────
+// Three selectable state icons, each with its own independent locked/unlocked
+// flag. cyc picks which one is showing; the flag for that one decides its art.
+const CYCLE_TYPES = [
+  { locked: 'assets/Bowser-icon-l.png', unlocked: 'assets/Bowser-icon-ul.png', flag: 'cycBowser' },
+  { locked: 'assets/mrock_locked.png',  unlocked: 'assets/mrock_unlocked.png', flag: 'cycRock'   },
+  { locked: 'assets/peace.png',         unlocked: 'assets/peace_unlock.png',   flag: 'peace'      },
+];
+
+function cycleIndex(m) { return (((m.cyc | 0) % 3) + 3) % 3; }
+
+function cycleIconSrc(m) {
+  const t = CYCLE_TYPES[cycleIndex(m)];
+  return m[t.flag] ? t.unlocked : t.locked;
+}
+
+// Left click: flip the currently shown icon between locked and unlocked.
+function toggleCycleLock(i) {
+  const m = state.moons[i];
+  const flag = CYCLE_TYPES[cycleIndex(m)].flag;
+  m[flag] = !m[flag];
   const row = getMoonRow(i);
-  if (row) row.querySelector('.peace-btn img').src =
-    state.moons[i].peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
+  if (row) row.querySelector('.peace-btn img').src = cycleIconSrc(m);
+}
+
+// Right click: advance to the next icon (wraps back to the first after Peace).
+function cycleCycleType(i) {
+  const m = state.moons[i];
+  m.cyc = (cycleIndex(m) + 1) % 3;
+  const row = getMoonRow(i);
+  if (row) row.querySelector('.peace-btn img').src = cycleIconSrc(m);
 }
 
 function toggleRock(i) {
@@ -1231,8 +1286,9 @@ function buildAbilityRow() {
   const notesBtn = document.createElement('button');
   notesBtn.className = 'notes-btn';
   notesBtn.textContent = 'Loading Zone Notes';
-  notesBtn.addEventListener('click', () => {
-    if (sidePanelActive()) toggleSidePanel('notes');
+  notesBtn.addEventListener('click', (e) => {
+    if (e.shiftKey) togglePanelStacked('notes');
+    else if (sidePanelActive()) normalClickPanel('notes');
     else openLoadingZones();
   });
   notesSection.appendChild(notesBtn);
@@ -1240,8 +1296,9 @@ function buildAbilityRow() {
   const mapBtn = document.createElement('button');
   mapBtn.className = 'map-btn';
   mapBtn.textContent = 'Connection Map';
-  mapBtn.addEventListener('click', () => {
-    if (sidePanelActive()) toggleSidePanel('map');
+  mapBtn.addEventListener('click', (e) => {
+    if (e.shiftKey) togglePanelStacked('map');
+    else if (sidePanelActive()) normalClickPanel('map');
     else openMap();
   });
   notesSection.appendChild(mapBtn);
@@ -1249,8 +1306,9 @@ function buildAbilityRow() {
   const apcBtn = document.createElement('button');
   apcBtn.className = 'apc-btn';
   apcBtn.textContent = 'Ability + Capture';
-  apcBtn.addEventListener('click', () => {
-    if (sidePanelActive()) toggleSidePanel('apc');
+  apcBtn.addEventListener('click', (e) => {
+    if (e.shiftKey) togglePanelStacked('apc');
+    else if (sidePanelActive()) normalClickPanel('apc');
     else openApc();
   });
   notesSection.appendChild(apcBtn);
@@ -1280,10 +1338,11 @@ function openSettings() {
   const countSel = document.getElementById('select-updater-count');
   if (countSel) countSel.value = String(Math.min(5, Math.max(1, state.settings.updater_count || 3)));
 
-  // Side Panel mode (segmented) - Off / Notes / Map / Abilities & Captures
-  const panelMode = getPanelMode();
+  // Side Panel mode (segmented, multi) - Off / Notes / Map / Abilities & Captures
+  const openModes = openPanelModes();
   document.querySelectorAll('#seg-panel-mode .seg-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.value === panelMode);
+    const v = b.dataset.value;
+    b.classList.toggle('active', v === 'none' ? openModes.length === 0 : openModes.includes(v));
   });
 
   // Side Panel location (segmented)
@@ -1326,7 +1385,7 @@ function updateSettingsEnablement() {
   const cloudObsRow = document.getElementById('row-cloud-obs');
   if (cloudObsRow) cloudObsRow.classList.toggle('row-gone', !s.show_kingdom_cloud);
 
-  const panelOn = getPanelMode() !== 'none';
+  const panelOn = openPanelModes().length > 0;
   const panelLocRow = document.getElementById('seg-panel-location')?.closest('.settings-row');
   if (panelLocRow) panelLocRow.classList.toggle('row-disabled', !panelOn);
 }
@@ -1455,44 +1514,104 @@ function updateMoonTotal() {
 // Vertical stacks below instead and stays available at any width. Either
 // way the underlying show_*_panel setting is left alone when unavailable, so
 // the panel reappears automatically once there's room for it again.
+// Per-mode metadata for building a panel slot.
+const PANEL_META = {
+  notes: { title: 'Loading Zone Notes',    src: 'notes.html'    },
+  map:   { title: 'Connection Map',        src: 'map.html'      },
+  // Version tag so a browser can't keep serving an older cached copy of the
+  // panel. Bump it here and in index.html's script tags together.
+  apc:   { title: 'Abilities & Captures',  src: 'apc.html?v=4'  },
+};
+
+// Each mode keeps ONE persistent slot element (header + iframe) that is never
+// re-parented, so closing one of two open panels never reloads the other. We
+// just show/hide slots and reorder them with CSS `order`.
+function ensurePanelSlot(mode) {
+  const panel = document.getElementById('side-panel');
+  if (!panel) return null;
+  let slot = panel.querySelector(`.panel-slot[data-mode="${mode}"]`);
+  if (slot) return slot;
+
+  const meta = PANEL_META[mode];
+  slot = document.createElement('div');
+  slot.className = 'panel-slot';
+  slot.dataset.mode = mode;
+
+  const header = document.createElement('div');
+  header.className = 'side-panel-header';
+  const titleSpan = document.createElement('span');
+  titleSpan.textContent = meta.title;
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'modal-close';
+  closeBtn.setAttribute('aria-label', 'Close panel');
+  closeBtn.textContent = '\u2715';
+  closeBtn.addEventListener('click', () => closePanel(mode));
+  header.appendChild(titleSpan);
+  header.appendChild(closeBtn);
+
+  const frame = document.createElement('iframe');
+  frame.className = 'panel-slot-frame';
+  frame.title = meta.title;
+
+  slot.appendChild(header);
+  slot.appendChild(frame);
+  panel.appendChild(slot);
+  return slot;
+}
+
+// Rebuilds the side panel to reflect openPanelModes() (0, 1 or 2 entries),
+// stacked in open order with a draggable divider between them when two are up.
 function applySidePanel() {
   const s = state.settings;
   const panel = document.getElementById('side-panel');
-  const frame = document.getElementById('side-panel-frame');
-  const title = document.getElementById('side-panel-title');
   const layoutRow = document.getElementById('layout-row');
-  if (!panel || !frame || !title || !layoutRow) return;
+  if (!panel || !layoutRow) return;
 
-  const location = s.panel_location === 'vertical' ? 'vertical' : 'horizontal';
-  const locationAvailable = isPanelLocationAvailable();
-
-  const mode = locationAvailable ? getPanelMode() : 'none';
-
-  let src = null;
-  if (mode === 'notes') {
-    title.textContent = 'Loading Zone Notes';
-    src = 'notes.html';
-  } else if (mode === 'map') {
-    title.textContent = 'Connection Map';
-    src = 'map.html';
-  } else if (mode === 'apc') {
-    title.textContent = 'Abilities & Captures';
-    // Version tag so a browser can't keep serving an older cached copy of the
-    // panel. Bump it here and in index.html's script tags together.
-    src = 'apc.html?v=4';
-  }
+  const modes = openPanelModes();
+  const location = effectivePanelLocation();
 
   layoutRow.classList.toggle('location-horizontal', location === 'horizontal');
   layoutRow.classList.toggle('location-vertical', location === 'vertical');
 
-  if (src) {
-    // Only reassign src when it actually changes, so the embedded page
-    // doesn't reload (and lose its own in-memory state) on every settings
-    // change or window resize.
-    if (frame.dataset.src !== src) {
-      frame.src = src;
-      frame.dataset.src = src;
+  // Make sure a slot exists for every open mode, then show/hide + order them.
+  modes.forEach(m => ensurePanelSlot(m));
+  const allSlots = panel.querySelectorAll('.panel-slot');
+
+  const twoOpen = modes.length === 2;
+  const topFrac = Math.min(0.85, Math.max(0.15, Number(s.panel_split) || 0.5));
+
+  allSlots.forEach(slot => {
+    const idx = modes.indexOf(slot.dataset.mode);
+    const frame = slot.querySelector('.panel-slot-frame');
+    if (idx === -1) {
+      // Not open - hide and drop its src to free the embedded page.
+      slot.classList.add('slot-hidden');
+      slot.style.order = '';
+      slot.style.flexGrow = '';
+      if (frame.dataset.src) { frame.src = ''; delete frame.dataset.src; }
+      return;
     }
+    slot.classList.remove('slot-hidden');
+    // order 0 (top) / 2 (bottom); the resizer sits at order 1 between them.
+    slot.style.order = String(idx * 2);
+    slot.style.flexGrow = String(twoOpen ? (idx === 0 ? topFrac : 1 - topFrac) : 1);
+    const src = PANEL_META[slot.dataset.mode].src;
+    if (frame.dataset.src !== src) { frame.src = src; frame.dataset.src = src; }
+  });
+
+  // Resizer divider (only between two stacked panels).
+  let resizer = panel.querySelector('.panel-resizer');
+  if (twoOpen) {
+    if (!resizer) resizer = createPanelResizer(panel);
+    resizer.style.order = '1';
+    resizer.classList.remove('slot-hidden');
+  } else if (resizer) {
+    resizer.classList.add('slot-hidden');
+  }
+
+  panel.classList.toggle('two-open', twoOpen);
+
+  if (modes.length > 0) {
     panel.classList.remove('hidden');
     layoutRow.classList.add('panel-open');
     document.body.classList.add('panel-edges');
@@ -1500,58 +1619,140 @@ function applySidePanel() {
     panel.classList.add('hidden');
     layoutRow.classList.remove('panel-open');
     document.body.classList.remove('panel-edges');
-    if (frame.dataset.src) {
-      frame.src = '';
-      delete frame.dataset.src;
-    }
   }
 }
 
-const PANEL_MODES = ['none', 'notes', 'map', 'apc'];
+// Drag-to-resize divider between the two stacked panels. Updates panel_split
+// live and persists it on release.
+function createPanelResizer(panel) {
+  const resizer = document.createElement('div');
+  resizer.className = 'panel-resizer';
+  resizer.setAttribute('role', 'separator');
+  resizer.setAttribute('aria-label', 'Resize panels');
 
-function getPanelMode() {
-  const m = state.settings.panel_mode;
-  return PANEL_MODES.includes(m) ? m : 'none';
+  let dragging = false;
+  const onMove = (clientY) => {
+    const rect = panel.getBoundingClientRect();
+    // Usable height excludes the resizer thickness so the ratio stays honest.
+    const frac = (clientY - rect.top) / rect.height;
+    state.settings.panel_split = Math.min(0.85, Math.max(0.15, frac));
+    const modes = openPanelModes();
+    const top = panel.querySelector(`.panel-slot[data-mode="${modes[0]}"]`);
+    const bot = panel.querySelector(`.panel-slot[data-mode="${modes[1]}"]`);
+    if (top) top.style.flexGrow = String(state.settings.panel_split);
+    if (bot) bot.style.flexGrow = String(1 - state.settings.panel_split);
+  };
+  const stop = () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('panel-resizing');
+    saveState();
+    window.removeEventListener('pointermove', pm);
+    window.removeEventListener('pointerup', stop);
+  };
+  const pm = (e) => { if (dragging) onMove(e.clientY); };
+  resizer.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    document.body.classList.add('panel-resizing');
+    window.addEventListener('pointermove', pm);
+    window.addEventListener('pointerup', stop);
+    e.preventDefault();
+  });
+
+  panel.appendChild(resizer);
+  return resizer;
 }
 
-// panel_mode is the real setting; these two older booleans are kept aligned
-// with it so any code (or saved file) that still reads them stays correct.
+const PANEL_VALUES = ['notes', 'map', 'apc'];
+const MAX_OPEN_PANELS = 2;
+
+// Below this width the Horizontal panel can't fit beside the tracker, so it
+// falls back to rendering Vertically (stacked below) instead of disappearing.
+const PANEL_HORIZONTAL_MIN = 625;
+
+// The currently open panels, in open order (oldest first), capped and cleaned.
+function openPanelModes() {
+  const raw = Array.isArray(state.settings.panel_modes) ? state.settings.panel_modes : [];
+  const seen = [];
+  for (const m of raw) {
+    if (PANEL_VALUES.includes(m) && !seen.includes(m)) seen.push(m);
+    if (seen.length >= MAX_OPEN_PANELS) break;
+  }
+  return seen;
+}
+
+// Horizontal beside the tracker when there's room, otherwise Vertical below.
+function effectivePanelLocation() {
+  const loc = state.settings.panel_location === 'vertical' ? 'vertical' : 'horizontal';
+  if (loc === 'horizontal' && window.innerWidth < PANEL_HORIZONTAL_MIN) return 'vertical';
+  return loc;
+}
+
+// Legacy mirrors so old saves / other readers that look at panel_mode or the
+// two booleans still see something sensible (the first-opened panel).
 function syncLegacyPanelFlags() {
-  const m = getPanelMode();
-  state.settings.show_notes_panel = (m === 'notes');
-  state.settings.show_map_panel = (m === 'map');
+  const modes = openPanelModes();
+  const primary = modes[0] || 'none';
+  state.settings.panel_mode = primary;
+  state.settings.show_notes_panel = modes.includes('notes');
+  state.settings.show_map_panel = modes.includes('map');
 }
 
-// Switches the side panel to `which`, or back off if it's already showing.
-// Used by the Settings segmented control and by the repurposed Loading Zone
-// Notes / Connection Map buttons.
-function setPanelMode(mode) {
-  state.settings.panel_mode = PANEL_MODES.includes(mode) ? mode : 'none';
+// Sets the full open list (sanitized, capped, FIFO) and re-renders everything.
+function setPanelModes(modes) {
+  const clean = [];
+  for (const m of (modes || [])) {
+    if (PANEL_VALUES.includes(m) && !clean.includes(m)) clean.push(m);
+  }
+  while (clean.length > MAX_OPEN_PANELS) clean.shift(); // evict oldest
+  state.settings.panel_modes = clean;
   syncLegacyPanelFlags();
   saveState();
   applyAllSettings();
   refreshPanelModeButtons();
 }
 
-function toggleSidePanel(which) {
-  setPanelMode(getPanelMode() === which ? 'none' : which);
+// Shift-click / Settings multi-toggle: add `which` to the stack, or remove it
+// if already open. Opening a third evicts the oldest (first-opened).
+function togglePanelStacked(which) {
+  if (!PANEL_VALUES.includes(which)) return;
+  const modes = openPanelModes();
+  if (modes.includes(which)) {
+    setPanelModes(modes.filter(m => m !== which));
+  } else {
+    const next = [...modes, which];
+    if (next.length > MAX_OPEN_PANELS) next.shift();
+    setPanelModes(next);
+  }
 }
 
-// True when a side panel is actually on screen right now: a mode is selected
-// AND the chosen location has room to render it (Horizontal needs width beyond
-// the mobile breakpoint; Vertical always fits). The tracker's Notes / Map /
-// Ability + Capture buttons use this to decide between switching the open panel
-// and falling back to a standalone view.
+function closePanel(which) {
+  setPanelModes(openPanelModes().filter(m => m !== which));
+}
+
+// Plain (non-Shift) click on a Notes / Map / APC button while a panel is open:
+// collapse the stack to just this one page, or toggle it off if it's the only
+// one already showing - i.e. the old single-panel behaviour.
+function normalClickPanel(which) {
+  const modes = openPanelModes();
+  if (modes.length === 1 && modes[0] === which) setPanelModes([]);
+  else setPanelModes([which]);
+}
+
+// True when at least one side panel is on screen. (Horizontal now falls back to
+// Vertical rather than hiding, so any open panel is genuinely visible.)
 function sidePanelActive() {
-  return isPanelLocationAvailable() && getPanelMode() !== 'none';
+  return openPanelModes().length > 0;
 }
 
-// Keeps the Settings segmented control in step when the mode changes from
-// somewhere else (the panel's ✕, the Notes/Map buttons, a remote sync).
+// Keeps the Settings segmented control in step when the open set changes from
+// elsewhere (a slot's ✕, the tracker buttons, a remote sync).
 function refreshPanelModeButtons() {
-  const mode = getPanelMode();
+  const modes = openPanelModes();
   document.querySelectorAll('#seg-panel-mode .seg-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.value === mode);
+    const v = b.dataset.value;
+    const active = v === 'none' ? modes.length === 0 : modes.includes(v);
+    b.classList.toggle('active', active);
   });
   updateSettingsEnablement();
 }
@@ -3127,10 +3328,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ── Side Panel mode (segmented) ────────────────
-  // Off / Notes / Map / Abilities & Captures - only one panel at a time.
+  // ── Side Panel mode (segmented, multi-select) ──
+  // Off clears everything; Notes / Map / Abilities & Captures each toggle in or
+  // out of the open stack (up to two at once, oldest evicted). Same underlying
+  // state as the tracker's Shift-click quick-open.
   document.querySelectorAll('#seg-panel-mode .seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => setPanelMode(btn.dataset.value));
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.value;
+      if (v === 'none') setPanelModes([]);
+      else togglePanelStacked(v);
+    });
   });
 
   // ── Side Panel location (segmented) ────────────
@@ -3237,13 +3444,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── Side panel ──────────────────────────────────
-  const sidePanelClose = document.getElementById('side-panel-close');
-  if (sidePanelClose) {
-    sidePanelClose.addEventListener('click', () => setPanelMode('none'));
-  }
+  // Each panel slot builds its own ✕ close button in ensurePanelSlot().
 
-  // Re-evaluate the panel on resize (debounced) so crossing the mobile
-  // breakpoint shows/hides it without needing a settings change.
+  // Re-evaluate the panel on resize (debounced) so crossing the horizontal/
+  // vertical fallback width re-lays-out the panel without a settings change.
   let panelResizeTimer = null;
   window.addEventListener('resize', () => {
     clearTimeout(panelResizeTimer);
