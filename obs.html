@@ -294,14 +294,19 @@
       { name:'Bowser Kingdom',   img:'assets/Bowser.png',   multi:'assets/Bowser_Multi.png',   max:13, color:'#d3304c', short:'Bowser'   },
       { name:'Moon Kingdom',     img:'assets/MoonK.png',    multi:'assets/MoonK_Multi.png',    max:12, color:'#b5c1cb', short:'Moon Kingdom', settingKey:'show_kingdom_moon', obsKey:'show_moon_obs' },
       { name:'Cap Kingdom',      img:'assets/Cap.png',      multi:'assets/Cascade_Multi.png',  max:16, color:'#fff500', short:'Cap', settingKey:'show_kingdom_cap', obsKey:'show_cap_obs' },
+      { name:'Cloud Kingdom',    img:'assets/Cloud.png',    multi:'assets/Cascade_Multi.png',  max:10, color:'#7fd4ff', short:'Cloud', settingKey:'show_kingdom_cloud', obsKey:'show_cloud_obs' },
     ];
 
     // Default on-screen order (mirrors app.js): Cap first (above Cascade),
-    // everything else in array order so Moon stays last. A user's drag-reorder
-    // (kingdom_order) still wins over this.
+    // Cloud tucked in right after Wooded, everything else in array order so Moon
+    // stays last. A user's drag-reorder (kingdom_order) still wins over this.
     const DEFAULT_DISPLAY_ORDER = (() => {
-      const capIdx = KINGDOMS.findIndex(k => k.name === 'Cap Kingdom');
-      const rest = KINGDOMS.map((_, i) => i).filter(i => i !== capIdx);
+      const capIdx   = KINGDOMS.findIndex(k => k.name === 'Cap Kingdom');
+      const cloudIdx = KINGDOMS.findIndex(k => k.name === 'Cloud Kingdom');
+      const woodIdx  = KINGDOMS.findIndex(k => k.name === 'Wooded Kingdom');
+      const rest = KINGDOMS.map((_, i) => i).filter(i => i !== capIdx && i !== cloudIdx);
+      const wPos = rest.indexOf(woodIdx);
+      if (cloudIdx !== -1 && wPos !== -1) rest.splice(wPos + 1, 0, cloudIdx);
       return capIdx === -1 ? rest : [capIdx, ...rest];
     })();
 
@@ -321,6 +326,20 @@
     // Display names for the "Unlocked X" updater messages
     const CAPTURE_NAMES = { parabones:'Parabones', banzai:'Banzai Bill', wire:'Spark Pylon', golden:'Gold Chain Chomp', bowser:'Bowser' };
     const ABILITY_NAMES = { jump:'Long Jump', cap:'Cap Bounce', wall:'Wall Slide' };
+
+    // Middle "cycle" state icon (mirrors the main tracker): cyc picks Bowser /
+    // Moon Rock / Peace; each has its own locked/unlocked flag. peace is reused
+    // for the Peace slot so it still follows the mod's peace bit.
+    const CYCLE_TYPES = [
+      { locked:'assets/Bowser-icon-l.png', unlocked:'assets/Bowser-icon-ul.png', flag:'cycBowser' },
+      { locked:'assets/mrock_locked.png',  unlocked:'assets/mrock_unlocked.png', flag:'cycRock'   },
+      { locked:'assets/peace.png',         unlocked:'assets/peace_unlock.png',   flag:'peace'      },
+    ];
+    function cycleIconSrc(m) {
+      const idx = ((((m && m.cyc) | 0) % 3) + 3) % 3;
+      const t = CYCLE_TYPES[idx];
+      return (m && m[t.flag]) ? t.unlocked : t.locked;
+    }
 
     let currentState = null;
     let prevState = null;          // last state we diffed against (Moon Updater)
@@ -342,6 +361,11 @@
     // Whether the Cap Kingdom row is drawn on the overlay
     function capOnObs(settings) {
       return !!(settings && settings.show_kingdom_cap && settings.show_cap_obs !== false);
+    }
+
+    // Whether the Cloud Kingdom row is drawn on the overlay
+    function cloudOnObs(settings) {
+      return !!(settings && settings.show_kingdom_cloud && settings.show_cloud_obs !== false);
     }
 
     // Whether a given kingdom's row should be drawn. Non-optional kingdoms (no
@@ -403,6 +427,7 @@
       let h = OBS_BASE_H;
       if (moonOnObs(s)) h += OBS_MOON_ROW_H;
       if (capOnObs(s)) h += OBS_CAP_ROW_H;
+      if (cloudOnObs(s)) h += OBS_CAP_ROW_H;
       if (s.show_moon_updater) {
         const n = Math.min(5, Math.max(1, s.updater_count || 3));
         h += n * OBS_UPDATER_MSG_H + OBS_UPDATER_PAD;
@@ -489,8 +514,8 @@
 
         const peaceImg  = document.createElement('img');
         peaceImg.className = 'obs-peace';
-        peaceImg.src = 'assets/peace.png';
-        peaceImg.alt = 'peace';
+        peaceImg.src = 'assets/Bowser-icon-l.png';
+        peaceImg.alt = 'state icon';
 
         const rockImg   = document.createElement('img');
         rockImg.className = 'obs-rock icon-off'; // hidden until show_rock is on
@@ -654,7 +679,7 @@
         const peaceEl = row.querySelector('.obs-peace');
         const rockEl = row.querySelector('.obs-rock');
         lockEl.src  = m.lock  ? 'assets/unlock.png'       : 'assets/lock.png';
-        peaceEl.src = m.peace ? 'assets/peace_unlock.png' : 'assets/peace.png';
+        peaceEl.src = cycleIconSrc(m);
         rockEl.src  = m.rock  ? 'assets/rock_unlocked.png' : 'assets/rock_locked.png';
         lockEl.classList.toggle('icon-off', settings.show_lock === false);
         peaceEl.classList.toggle('icon-off', settings.show_peace === false);
