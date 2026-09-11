@@ -28,10 +28,6 @@
       "CityWorldShop01Stage": [
         "zone:Metro:Yellow Shop",
         "zone:Metro:Purple Shop"
-      ],
-      "LavaWorldUpDownYoshiExStage": [
-        "zone:Darkside:Lava Rising",
-        "zone:Darkside:Magma Swamp"
       ]
     }
   },
@@ -1034,8 +1030,8 @@
     },
     {
       "map_node": "zone:Darkside:Lava Rising",
-      "loading_zone_name": "LavaWorldUpDownYoshiExStage",
-      "in_game_name": "Yoshi's Magma Swamp",
+      "loading_zone_name": "SenobiTowerYoshiExStage",
+      "in_game_name": "Yoshi on the Sinking Island",
       "kingdom": "Dark Side",
       "captures_needed": [],
       "abilities_needed": [],
@@ -1051,9 +1047,7 @@
           "tokens": []
         }
       ],
-      "shares_stage_with": [
-        "zone:Darkside:Magma Swamp"
-      ]
+      "shares_stage_with": []
     },
     {
       "map_node": "zone:Darkside:Magma Swamp",
@@ -1074,9 +1068,7 @@
           "tokens": []
         }
       ],
-      "shares_stage_with": [
-        "zone:Darkside:Lava Rising"
-      ]
+      "shares_stage_with": []
     },
     {
       "map_node": "zone:Darkside:Vanishing",
@@ -6236,6 +6228,72 @@
           "tokens": []
         }
       ],
+      "shares_stage_with": []
+    },
+    {
+      "map_node": "zone:Mushroom:Torkdrift",
+      "loading_zone_name": "PeachWorldPictureBossForestStage",
+      "in_game_name": "Painting Room: Torkdrift",
+      "kingdom": "Mushroom Kingdom",
+      "captures_needed": [],
+      "abilities_needed": [],
+      "getting_to_the_zone": [],
+      "in_the_zone": [],
+      "shares_stage_with": []
+    },
+    {
+      "map_node": "zone:Mushroom:Knucklotec",
+      "loading_zone_name": "PeachWorldPictureBossKnuckleStage",
+      "in_game_name": "Painting Room: Knucklotec",
+      "kingdom": "Mushroom Kingdom",
+      "captures_needed": [],
+      "abilities_needed": [],
+      "getting_to_the_zone": [],
+      "in_the_zone": [],
+      "shares_stage_with": []
+    },
+    {
+      "map_node": "zone:Mushroom:Cookatiel",
+      "loading_zone_name": "PeachWorldPictureBossMagmaStage",
+      "in_game_name": "Painting Room: Cookatiel",
+      "kingdom": "Mushroom Kingdom",
+      "captures_needed": [],
+      "abilities_needed": [],
+      "getting_to_the_zone": [],
+      "in_the_zone": [],
+      "shares_stage_with": []
+    },
+    {
+      "map_node": "zone:Mushroom:Dragon",
+      "loading_zone_name": "PeachWorldPictureBossRaidStage",
+      "in_game_name": "Painting Room: Lord of Lightning",
+      "kingdom": "Mushroom Kingdom",
+      "captures_needed": [],
+      "abilities_needed": [],
+      "getting_to_the_zone": [],
+      "in_the_zone": [],
+      "shares_stage_with": []
+    },
+    {
+      "map_node": "zone:Mushroom:Octopus",
+      "loading_zone_name": "PeachWorldPictureGiantWanderBossStage",
+      "in_game_name": "Painting Room: Mollusque-Lanceur",
+      "kingdom": "Mushroom Kingdom",
+      "captures_needed": [],
+      "abilities_needed": [],
+      "getting_to_the_zone": [],
+      "in_the_zone": [],
+      "shares_stage_with": []
+    },
+    {
+      "map_node": "zone:Mushroom:Mechawiggler",
+      "loading_zone_name": "PeachWorldPictureMofumofuStage",
+      "in_game_name": "Painting Room: Mechawiggler",
+      "kingdom": "Mushroom Kingdom",
+      "captures_needed": [],
+      "abilities_needed": [],
+      "getting_to_the_zone": [],
+      "in_the_zone": [],
       "shares_stage_with": []
     }
   ]

@@ -1340,6 +1340,18 @@
     <button class="map-btn danger" id="btn-clear">Clear</button>
   </div>
 
+  <!-- Live tracking has no controls of its own any more.
+       It follows the SHARED room code (localStorage 'tracker_room_code') that
+       the main tracker page sets, exactly like every other live-tracked view -
+       connect once there and the map comes with it. The old panel had its own
+       room field, its own Connect button and its own cloud checkbox, so the map
+       could sit disconnected (or on a different room) while the rest of the
+       tracker was live, which is precisely the confusion this removes.
+       Status only, and only while something is happening. -->
+  <div id="live-tracking-status-wrap" class="hidden">
+    <span id="live-tracking-status">disconnected</span>
+  </div>
+
   <!-- Controls panel -->
   <div id="controls-panel" class="side-panel hidden">
     <!-- Desktop controls -->
@@ -1738,6 +1750,8 @@
   </div>
 </div>
 
+<script src="sync.js"></script>
+<script src="firebase-live-sync.js"></script>
 <script>
 'use strict';
 
@@ -6928,6 +6942,123 @@ function init() {
 }
 
 init();
+
+// ─────────────────────────────────────────────────────────────────
+// Live Tracking (Phase 2) - receives already-resolved map_node connections
+// from the local bridge script (which does the stage-name lookup itself,
+// since it has direct filesystem access to loading_zone_dictionary.json)
+// and draws them the same way a manual drag-connect would.
+// ─────────────────────────────────────────────────────────────────
+(function initLiveTracking() {
+  const statusEl = document.getElementById('live-tracking-status');
+  const statusWrap = document.getElementById('live-tracking-status-wrap');
+
+  // The one room code the whole tracker shares. app.js writes it here when you
+  // connect on the main page; this view only ever reads it.
+  const ROOM_CODE_KEY = 'tracker_room_code';
+  const readSharedRoom = () => {
+    try { return (localStorage.getItem(ROOM_CODE_KEY) || '').trim(); }
+    catch (e) { return ''; }   // private mode / blocked storage - stay offline rather than throw
+  };
+
+  // Cloud vs local relay is no longer a checkbox on this page. Firebase is used
+  // when it loaded, otherwise the local relay - the same order of preference
+  // the rest of the tracker uses, so the map cannot end up on a different
+  // transport than the page that owns the room code.
+  const useCloud = () => !!window.SMOFirebaseSync;
+
+  const setStatus = (text) => {
+    statusEl.textContent = text;
+    // Only visible while it has something to say.
+    statusWrap.classList.toggle('hidden', !text || text === 'disconnected');
+  };
+
+  // Two interchangeable backends, same onStatus/onLiveEvent/connect shape:
+  // SMOSync (sync.js) is the local relay (server.js/tracker-server.js on the
+  // same PC), SMOFirebaseSync (firebase-live-sync.js) talks to Firestore
+  // directly - no local relay process needed at all, once a Firebase project
+  // is configured. The checkbox picks which one this session uses; both stay
+  // wired to the same connect()-drawing logic below regardless of choice.
+  function handleLiveEvent(data) {
+    if (!data || !data.src || !data.tgt) return;
+    // Doors are two-way pairs by design in this randomizer - once src->tgt is known,
+    // walking back is redundant information, not a new connection. Without this, simply
+    // backtracking along a path you already recorded spawned a whole separate chain for
+    // every step of the walk back.
+    //
+    // Except arriving at a kingdom's own home node: that's a real position
+    // change worth reflecting even if the reverse edge (kingdom -> the
+    // subarea you're returning from) already exists from an earlier visit -
+    // otherwise, since there's no separate "current position" state (it's
+    // inferred purely from the edge graph), the graph kept showing the last
+    // subarea/ExStage visited as "current" instead of the kingdom itself.
+    const isKingdomArrival = data.tgt.startsWith('kingdom:');
+    const alreadyConnectedReverse = !isKingdomArrival
+      && edgeList.some(e => e.src === data.tgt && e.tgt === data.src);
+    // Temporary diagnostic - remove once the kingdom-home-arrival mislink is
+    // actually confirmed fixed. nodes[data.tgt]/nodes[data.src] missing would
+    // make connect() silently no-op via canConnect()'s first check, which
+    // this makes visible instead of indistinguishable from the dedup path.
+    console.log('[tracker] handleLiveEvent', {
+      src: data.src, tgt: data.tgt, isKingdomArrival, alreadyConnectedReverse,
+      srcNodeExists: !!nodes[data.src], tgtNodeExists: !!nodes[data.tgt],
+    });
+    if (alreadyConnectedReverse) return;
+    connect(data.src, data.sPart || PART_OUT, data.tgt, data.tPart || PART_IN);
+  }
+
+  if (window.SMOSync) {
+    window.SMOSync.onStatus((status) => {
+      if (!useCloud()) setStatus(status);
+    });
+    window.SMOSync.onLiveEvent(handleLiveEvent);
+  }
+
+  if (window.SMOFirebaseSync) {
+    window.SMOFirebaseSync.onStatus((status) => {
+      if (useCloud()) setStatus(status);
+    });
+    window.SMOFirebaseSync.onLiveEvent(handleLiveEvent);
+  }
+
+  if (!window.SMOSync && !window.SMOFirebaseSync) return; // both scripts failed to load - fail quiet, this panel is optional
+
+  // Follow the shared room code instead of a Connect button.
+  let connectedRoom = null;
+
+  function applySharedRoom() {
+    const room = readSharedRoom();
+    if (room === connectedRoom) return;   // nothing changed - do not churn the socket
+    connectedRoom = room;
+
+    if (!room) {
+      if (window.SMOSync) window.SMOSync.disconnect();
+      if (window.SMOFirebaseSync) window.SMOFirebaseSync.disconnect();
+      setStatus('disconnected');
+      return;
+    }
+
+    if (useCloud()) {
+      if (window.SMOSync) window.SMOSync.disconnect();
+      window.SMOFirebaseSync.connect(room);
+    } else if (window.SMOSync) {
+      // Same local server.js/tracker-server.js this page is served alongside.
+      const wsPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+      window.SMOSync.connect(room, `ws://${window.location.hostname}:${wsPort}/ws`);
+    }
+  }
+
+  applySharedRoom();
+
+  // Connecting on the main tracker in another tab fires this, so the map joins
+  // without being touched. 'storage' only fires in OTHER documents, which is
+  // why the poll below exists as well - the map is often opened from the same
+  // page that sets the code.
+  window.addEventListener('storage', (e) => {
+    if (e.key === ROOM_CODE_KEY) applySharedRoom();
+  });
+  setInterval(applySharedRoom, 2000);
+})();
 </script>
 </body>
 </html>

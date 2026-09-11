@@ -4,7 +4,8 @@
   "description": "WebSocket sync relay for the SMO Randomizer Tracker overlay.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "local": "node tracker-server.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
