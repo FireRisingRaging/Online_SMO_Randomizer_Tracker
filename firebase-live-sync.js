@@ -111,9 +111,26 @@
     //
     // Falls back to the stage name, so a mod build that does not send the
     // field behaves exactly as before.
-    const resolvedSrc = (raw.fromDoor && stageToNode.get(raw.fromDoor))
-      || stageToNode.get(raw.from)
-      || null;
+    const fromNode = stageToNode.get(raw.from) || null;
+    const doorNode = (raw.fromDoor && stageToNode.get(raw.fromDoor)) || null;
+
+    // Which end names the source depends on WHERE the player was standing.
+    //
+    // In a kingdom's overworld, the stage resolves to one kingdom node that
+    // every door in that kingdom shares, so it is too coarse - the door says
+    // which one ("entered the Frog Pond" should start at zone:Cap:Frog, not
+    // at Cap).
+    //
+    // In a sub-area, the opposite: the stage IS the precise node, and the
+    // door is misleading, because a sub-area's exit has the KINGDOM as its
+    // vanilla destination. Preferring the door there turned "Magma Swamp ->
+    // 2D Chasm Platforming" into "Luncheon -> 2D Chasm Platforming".
+    //
+    // So: trust the stage whenever it is already specific, and fall back to
+    // the door only when the stage collapses to a whole kingdom.
+    const resolvedSrc = (fromNode && !fromNode.startsWith('kingdom:'))
+      ? fromNode
+      : (doorNode || fromNode);
     const resolvedTgt = stageToNode.get(raw.to) || null;
     const effectiveSrc = resolvedSrc || this._lastKnownNode;
 
