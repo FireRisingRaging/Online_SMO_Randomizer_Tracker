@@ -1434,23 +1434,18 @@
     <button class="map-btn" id="btn-controls">Info & Controls</button>
     <button class="map-btn" id="btn-settings">Settings</button>
     <button class="map-btn active" id="btn-display">Hide Display</button>
-    <button class="map-btn" id="btn-live-tracking">Live Tracking</button>
     <div class="topbar-sep"></div>
     <button class="map-btn danger" id="btn-clear">Clear</button>
   </div>
 
   <!-- Live Tracking (Phase 2): connects to the same room-code relay used for OBS sync, but
-       receives resolved connection events from the Switch instead of tracker UI state, and
-       calls connect() directly. A real side-panel bar now (toggled like Info & Controls),
-       not a floating overlay - that kept landing on top of other topbar buttons. -->
+       receives resolved connection events from the Switch instead of tracker UI state.
+       It has NO controls of its own any more - no room field, no Connect button, no cloud
+       checkbox. It follows the SHARED room code the main tracker page sets, like every
+       other live-tracked view, so the map cannot sit disconnected (or on a different room)
+       while the rest of the tracker is live. Status only, shown when there is something to
+       say. -->
   <div id="live-tracking-panel" class="side-panel hidden">
-    <input id="live-tracking-room" type="text" class="lt-room-input" placeholder="room code">
-    <button id="live-tracking-connect" class="connect-btn">Connect</button>
-    <label class="lt-check-label">
-      <input type="checkbox" id="live-tracking-cloud">
-      <span class="lt-checkbox-box"></span>
-      Cloud Sync (no local server)
-    </label>
     <span id="live-tracking-status" class="lt-status disconnected">disconnected</span>
   </div>
 
@@ -1853,7 +1848,7 @@
 </div>
 
 <script src="sync.js"></script>
-<script src="firebase-live-sync.js"></script>
+<script src="firebase-live-sync.js?v=3"></script>
 <script>
 'use strict';
 
@@ -5988,13 +5983,6 @@ document.getElementById('btn-controls').addEventListener('click', (e) => {
   e.target.textContent = hidden ? 'Info & Controls' : 'Info & Controls ✕';
 });
 
-document.getElementById('btn-live-tracking').addEventListener('click', (e) => {
-  const panel = document.getElementById('live-tracking-panel');
-  const hidden = panel.classList.toggle('hidden');
-  e.target.classList.toggle('active', !hidden);
-  e.target.textContent = hidden ? 'Live Tracking' : 'Live Tracking ✕';
-});
-
 document.getElementById('btn-settings').addEventListener('click', () => {
   document.getElementById('settings-overlay').classList.add('visible');
 });
@@ -7053,10 +7041,22 @@ init();
 // and draws them the same way a manual drag-connect would.
 // ─────────────────────────────────────────────────────────────────
 (function initLiveTracking() {
-  const roomInput = document.getElementById('live-tracking-room');
-  const connectBtn = document.getElementById('live-tracking-connect');
-  const cloudCheckbox = document.getElementById('live-tracking-cloud');
   const statusEl = document.getElementById('live-tracking-status');
+  const panelEl = document.getElementById('live-tracking-panel');
+
+  // The one room code the whole tracker shares. app.js writes it when you
+  // connect on the main page; this view only ever reads it.
+  const ROOM_CODE_KEY = 'tracker_room_code';
+  const readSharedRoom = () => {
+    try { return (localStorage.getItem(ROOM_CODE_KEY) || '').trim(); }
+    catch (e) { return ''; }   // private mode / blocked storage - stay offline rather than throw
+  };
+
+  // Cloud vs local relay is no longer a checkbox here. Firebase when it loaded,
+  // otherwise the local relay - the same order of preference the rest of the
+  // tracker uses, so the map cannot land on a different transport than the page
+  // that owns the room code.
+  const useCloud = () => !!window.SMOFirebaseSync;
 
   // Set the status label text and pick a color class from it: gray when
   // disconnected/idle, amber while connecting, green once connected, red on
@@ -7109,36 +7109,57 @@ init();
 
   if (window.SMOSync) {
     window.SMOSync.onStatus((status) => {
-      if (!cloudCheckbox.checked) applyStatus(status);
+      if (!useCloud()) applyStatus(status);
     });
     window.SMOSync.onLiveEvent(handleLiveEvent);
   }
 
   if (window.SMOFirebaseSync) {
     window.SMOFirebaseSync.onStatus((status) => {
-      if (cloudCheckbox.checked) applyStatus(status);
+      if (useCloud()) applyStatus(status);
     });
     window.SMOFirebaseSync.onLiveEvent(handleLiveEvent);
   }
 
   if (!window.SMOSync && !window.SMOFirebaseSync) return; // both scripts failed to load - fail quiet, this panel is optional
 
-  connectBtn.addEventListener('click', () => {
-    const room = roomInput.value.trim();
-    if (!room) return;
+  // Follow the shared room code instead of a Connect button.
+  let connectedRoom = null;
 
-    if (cloudCheckbox.checked) {
+  function applySharedRoom() {
+    const room = readSharedRoom();
+    if (room === connectedRoom) return;   // unchanged - do not churn the socket
+    connectedRoom = room;
+
+    // The strip is only worth showing once there is a room to report on.
+    if (panelEl) panelEl.classList.toggle('hidden', !room);
+
+    if (!room) {
       if (window.SMOSync) window.SMOSync.disconnect();
-      if (window.SMOFirebaseSync) window.SMOFirebaseSync.connect(room);
-    } else {
       if (window.SMOFirebaseSync) window.SMOFirebaseSync.disconnect();
-      if (window.SMOSync) {
-        // No custom relay URL field yet - same local server.js/tracker-server.js this page is served alongside.
-        const wsPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-        window.SMOSync.connect(room, `ws://${window.location.hostname}:${wsPort}/ws`);
-      }
+      applyStatus('disconnected');
+      return;
     }
+
+    if (useCloud()) {
+      if (window.SMOSync) window.SMOSync.disconnect();
+      window.SMOFirebaseSync.connect(room);
+    } else if (window.SMOSync) {
+      // Same local server.js/tracker-server.js this page is served alongside.
+      const wsPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+      window.SMOSync.connect(room, `ws://${window.location.hostname}:${wsPort}/ws`);
+    }
+  }
+
+  applySharedRoom();
+
+  // Connecting on the main tracker fires this in OTHER documents only, which is
+  // why the poll below exists too - the map is usually embedded in the very
+  // page that sets the code.
+  window.addEventListener('storage', (e) => {
+    if (e.key === ROOM_CODE_KEY) applySharedRoom();
   });
+  setInterval(applySharedRoom, 2000);
 })();
 </script>
 </body>

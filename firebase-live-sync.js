@@ -98,7 +98,39 @@
   // still draws one continuous edge instead of silently dropping.
   FirebaseSync.prototype._resolveEvent = function (stageToNode, raw) {
     if (!raw) return null;
-    const resolvedSrc = stageToNode.get(raw.from) || null;
+    // The DOOR the player left through, when the mod names it. It is sent as
+    // the door's vanilla destination stage, which is already a key in this
+    // dictionary, so it resolves straight to that door's own node
+    // (FrogSearchExStage -> zone:Cap:Frog).
+    //
+    // Without it the source collapses to whatever stage the player was
+    // standing in, which for a kingdom's overworld is one node for every door
+    // in that kingdom - "entered the Frog Pond" drew an arrow from Cap itself.
+    // It also disambiguates the handful of stage names that map to more than
+    // one node (ForestWorldHomeStage is three).
+    //
+    // Falls back to the stage name, so a mod build that does not send the
+    // field behaves exactly as before.
+    const fromNode = stageToNode.get(raw.from) || null;
+    const doorNode = (raw.fromDoor && stageToNode.get(raw.fromDoor)) || null;
+
+    // Which end names the source depends on WHERE the player was standing.
+    //
+    // In a kingdom's overworld, the stage resolves to one kingdom node that
+    // every door in that kingdom shares, so it is too coarse - the door says
+    // which one ("entered the Frog Pond" should start at zone:Cap:Frog, not
+    // at Cap).
+    //
+    // In a sub-area, the opposite: the stage IS the precise node, and the
+    // door is misleading, because a sub-area's exit has the KINGDOM as its
+    // vanilla destination. Preferring the door there turned "Magma Swamp ->
+    // 2D Chasm Platforming" into "Luncheon -> 2D Chasm Platforming".
+    //
+    // So: trust the stage whenever it is already specific, and fall back to
+    // the door only when the stage collapses to a whole kingdom.
+    const resolvedSrc = (fromNode && !fromNode.startsWith('kingdom:'))
+      ? fromNode
+      : (doorNode || fromNode);
     const resolvedTgt = stageToNode.get(raw.to) || null;
     const effectiveSrc = resolvedSrc || this._lastKnownNode;
 
@@ -108,7 +140,8 @@
     // downstream draw (map.html's dedup, etc.) are distinguishable at a
     // glance in the browser console.
     console.log('[tracker] event', {
-      from: raw.from, to: raw.to, exitId: raw.exitId, debugArrivalDoorId: raw.debugArrivalDoorId,
+      from: raw.from, fromDoor: raw.fromDoor, to: raw.to, exitId: raw.exitId,
+      debugArrivalDoorId: raw.debugArrivalDoorId,
       resolvedSrc, resolvedTgt, effectiveSrc, lastKnownNodeBefore: this._lastKnownNode,
     });
 
