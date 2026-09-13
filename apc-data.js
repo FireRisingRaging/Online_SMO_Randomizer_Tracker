@@ -58,7 +58,7 @@
     'Puzzle_Part_(Lake)_Capture',
     'Puzzle_Part_(Metro)_Capture',
     'RC_Car_Capture',
-    'Rock_Capture',
+    'Boulder_Capture',
     'Rocket_Capture',
     'Sherm_Capture',
     'Shiverian_Racer_Capture',
@@ -97,6 +97,14 @@
     'Ledge_Grab',
     'Climb',
     'Swing',
+    '2DPipes',
+    'Grab',
+    'Moon_Gravity',
+    'NPC_Talking',
+    'Rocket_Flower',
+    'Swim',
+    'Timer_Challenges',
+    'Warp',
   ];
 
   // Only needed where the auto-generated label would be wrong.
