@@ -63,6 +63,8 @@ const DEFAULT_DISPLAY_ORDER = (() => {
 // no entry on this tracker's Abilities panel - always granted, nothing to
 // track). If either table in the mod ever changes order, this array has to
 // be updated to match or the live decode silently mislabels captures.
+// A null slot is an ability the mod sends but this tracker has no tile for
+// (Jaxi / Scooter ride) - its bit is still consumed so later ones line up.
 const CAPTURE_ORDER = [
   'Frog_Capture', 'Spark_pylon_Capture', 'Paragoomba_Capture', 'Chain_Chomp_Capture',
   'Big_Chain_Chomp_Capture', 'Gold_Chain_Chomp_Capture', 'T-Rex_Capture', 'Binoculars_Capture',
@@ -70,7 +72,7 @@ const CAPTURE_ORDER = [
   'Knucklotec_Fist_Capture', 'Rocket_Capture', 'Glydon_Capture', 'Lakitu_Capture',
   'Zipper_Capture', 'Cheep_Cheep_Capture', 'Puzzle_Part_(Lake)_Capture', 'Poison_Piranha_Plant_Capture',
   'Uproot_Capture', 'Fire_Bro_Capture', 'Sherm_Capture', 'Coin_Coffer_Capture',
-  'Tree_Capture', 'Rock_Capture', 'Picture_Match_Part_(Goomba)_Capture', 'Tropical_Wiggler_Capture',
+  'Tree_Capture', 'Boulder_Capture', 'Picture_Match_Part_(Goomba)_Capture', 'Tropical_Wiggler_Capture',
   'Pole_Capture', 'Manhole_Capture', 'Taxi_Capture', 'RC_Car_Capture',
   'Ty-foo_Capture', 'Shiverian_Racer_Capture', 'Cheep_Cheep_(Snow)_Capture', 'Gushen_Capture',
   'Lava_Bubble_Capture', 'Volbonan_Capture', 'Hammer_Bro_Capture', 'Meat_Capture',
@@ -83,7 +85,8 @@ const ABILITY_ORDER = [
   'Jump', 'Double_Jump', 'Triple_Jump', 'Backflip', 'Long_Jump', 'Vault', 'Side_Flip',
   'Ground_Pound_Jump', 'Roll', 'Roll_Boost', 'Crouch', 'Ground_Pound', 'Dive', 'Spin',
   'Wall_Jump', 'Ledge_Grab', 'Climb', 'Swing', 'Neutral_Throw', 'Up_Throw', 'Down_Throw',
-  'Spin_Throw',
+  'Spin_Throw', 'Moon_Gravity', 'Swim', 'Grab', null, null, 'Rocket_Flower',
+  'NPC_Talking', '2DPipes', 'Timer_Challenges', 'Warp',
 ];
 
 // Applies a live progress snapshot from the mod (see firebase-progress-sync.js)
@@ -105,7 +108,7 @@ function applyProgressSnapshot(data) {
   }
   if (typeof data.abilities === 'string') {
     console.log('[tracker-progress] abilities unlocked:',
-      ABILITY_ORDER.filter((key, i) => data.abilities[i] === '1'));
+      ABILITY_ORDER.filter((key, i) => key && data.abilities[i] === '1'));
   }
   console.log('[tracker-progress] applying', data);
   if (typeof data.moons === 'string') {
@@ -146,6 +149,7 @@ function applyProgressSnapshot(data) {
   }
   if (window.APC && typeof data.abilities === 'string') {
     for (let i = 0; i < ABILITY_ORDER.length && i < data.abilities.length; i++) {
+      if (!ABILITY_ORDER[i]) continue;
       APC.setUnlocked(state, 'abilities', ABILITY_ORDER[i], data.abilities[i] === '1');
     }
   }
